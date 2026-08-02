@@ -107,6 +107,12 @@ export async function downloadInstaller(release: Release): Promise<string> {
   let expected: string | undefined;
   if (release.manifest) {
     expected = sha512For(await body(await request(release.manifest.url, {})), installer.name);
+    if (!expected) {
+      // A release that publishes a manifest and yet says nothing about this file
+      // is not a release to install from. Carrying on unverified would be the
+      // worst of both: the check advertised, and quietly not performed.
+      throw new Error('The release publishes a checksum manifest that does not cover this file.');
+    }
   }
 
   const target = path.join(

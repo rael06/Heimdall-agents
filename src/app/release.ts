@@ -118,6 +118,21 @@ export function isNewer(current: string, candidate: string): boolean {
 }
 
 /**
+ * One file name as another spelling of itself.
+ *
+ * The same installer is called three different things: electron-builder writes
+ * `Heimdall-agents-Setup-1.0.0.exe` into the manifest, GitHub serves it as
+ * `Heimdall.agents.Setup.1.0.0.exe`, and on disk it has spaces. Comparing them
+ * literally found nothing, which silently skipped the checksum — the one check
+ * that stands between a download and running an installer.
+ */
+function sameFile(left: string, right: string): boolean {
+  const plain = (value: string): string =>
+    decodeURIComponent(value).toLowerCase().replace(/[\s._-]+/g, '-');
+  return plain(left) === plain(right);
+}
+
+/**
  * The published checksum of one file, out of electron-builder's manifest.
  *
  * Read conservatively rather than parsed as YAML: this is the one thing
@@ -129,7 +144,7 @@ export function sha512For(manifest: string, fileName: string): string | undefine
   const lines = manifest.split(/\r?\n/);
   for (let index = 0; index < lines.length; index += 1) {
     const url = /^\s*-\s*url:\s*(.+?)\s*$/.exec(lines[index]);
-    if (!url || decodeURIComponent(url[1]) !== fileName) {
+    if (!url || !sameFile(url[1], fileName)) {
       continue;
     }
     // Only within this entry: the next one starts at the following `- url:`.

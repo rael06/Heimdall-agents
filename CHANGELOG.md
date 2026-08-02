@@ -1,5 +1,30 @@
 # Changelog
 
+## 1.0.1
+
+The checksum the update dialog promises was never being checked.
+
+Publishing 1.0.0 revealed that the same installer is called three different
+things: electron-builder writes `Heimdall-agents-Setup-1.0.0.exe` into
+`latest.yml`, GitHub serves the asset as `Heimdall.agents.Setup.1.0.0.exe`, and
+the file on disk has spaces. The lookup compared them literally, found nothing,
+and **silently carried on without verifying** — the check advertised in the
+dialog, and quietly not performed.
+
+Found by running the real thing against the release two minutes after publishing
+it, which is the only place three spellings could exist at once.
+
+Two halves are fixed, because the comparison alone would have left the hole open
+next time:
+
+- **Names are compared as the same file** whatever separates their words —
+  spaces, dots, hyphens or percent-encoding — while a genuinely different
+  version is still refused.
+- **A manifest that does not cover the file is now a refusal**, not a shrug. A
+  release publishing a checksum that says nothing about what you are about to
+  run is not a release to install from, and failing loudly beats downgrading
+  silently.
+
 ## 1.0.0 — Heimdall agents
 
 First public release, and a name that carries the design rather than describing

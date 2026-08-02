@@ -108,6 +108,23 @@ describe('sha512For', () => {
     expect(sha512For(manifest, 'Heimdall agents Setup 1.0.0.exe')).toBe('AAAA==');
   });
 
+  it('recognises the same file under each spelling it is given', () => {
+    // Measured on the real 1.0.0 release: electron-builder writes hyphens into
+    // the manifest, GitHub serves the asset with dots, and the file on disk has
+    // spaces. Comparing literally found nothing and skipped the checksum.
+    for (const name of [
+      'Heimdall-agents-Setup-1.0.0.exe',
+      'Heimdall.agents.Setup.1.0.0.exe',
+      'heimdall agents setup 1.0.0.exe',
+    ]) {
+      expect(sha512For(manifest, name)).toBe('AAAA==');
+    }
+  });
+
+  it('still refuses a file that is genuinely another one', () => {
+    expect(sha512For(manifest, 'Heimdall-agents-Setup-1.0.1.exe')).toBeUndefined();
+  });
+
   it('never lends one entry checksum to another', () => {
     // `other.exe` has none of its own, and must not inherit the one above it.
     expect(sha512For(manifest, 'other.exe')).toBeUndefined();
