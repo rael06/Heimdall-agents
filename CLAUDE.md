@@ -87,9 +87,9 @@ not working and the code was already correct, which is the most expensive kind
 of wrong answer to give.
 
 ```sh
-taskkill /F /IM "Agent sessions manager.exe"     # first, always
+taskkill /F /IM "Heimdall agents.exe"     # first, always
 npm run dist
-"dist/Agent sessions manager Setup <version>.exe" /S
+"dist/Heimdall agents Setup <version>.exe" /S
 # then launch it detached, from the desktop `tools` shortcut
 ```
 
@@ -97,12 +97,34 @@ Launch it with `ELECTRON_*` and `VSCODE_*` stripped from the environment. A
 shell inside VS Code carries `ELECTRON_RUN_AS_NODE=1`, which makes the packaged
 application start as a Node interpreter and exit without a word.
 
+## This repository is public
+
+Everything committed here is readable by anyone. It grew in a private
+repository, and the names of real client projects reached its test fixtures and
+its README examples before that was noticed. So: **no client names, no customer
+paths, no home directories** — in code, in tests, in comments or in a changelog
+entry.
+
+Two of them slipped past a search for the whole word, and both are worth
+remembering:
+
+- a **truncated** fragment, in a test checking prefix matching, which no search
+  for the full name could find;
+- a **release note that named them while explaining they had been removed**.
+
+Search for fragments, not only for words, and search the tree you are about to
+publish rather than the one you are working in.
+
 ## The rhythm
 
 `npx tsc --noEmit`, `npx eslint src`, `npx vitest run`, `npm run build &&
 npx playwright test`, `npm run contrast`. Then bump the version, update
 `CHANGELOG.md` and `README.md`, commit, merge into `main`, push, and restart the
 application as above.
+
+A user-visible release also needs `gh release create v<version>` with the
+installer **and** `latest.yml` attached — the update check refuses to install
+from a release whose manifest does not cover the file.
 
 Commit messages explain *why*, in prose, without bullet lists.
 
