@@ -1,0 +1,80 @@
+{
+  "name": "heimdall-agents",
+  "version": "1.0.0",
+  "description": "Watches local Claude Code and Codex sessions, and tells you when a model stops working.",
+  "license": "MIT",
+  "author": "rael06",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/rael06/Heimdall-agents.git"
+  },
+  "bugs": {
+    "url": "https://github.com/rael06/Heimdall-agents/issues"
+  },
+  "engines": {
+    "node": ">=20.11.0"
+  },
+  "bin": {
+    "asm": "dist/cli/main.js"
+  },
+  "files": [
+    "dist"
+  ],
+  "scripts": {
+    "build": "node scripts/make-icon.mjs && tsc && node scripts/copy-assets.mjs",
+    "check-types": "tsc --noEmit",
+    "lint": "eslint src",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "asm": "node dist/cli/main.js",
+    "test:e2e": "playwright test",
+    "icon": "node scripts/make-icon.mjs",
+    "app": "npm run build && electron .",
+    "dist": "npm run build && electron-builder",
+    "contrast": "node scripts/check-contrast.mjs"
+  },
+  "devDependencies": {
+    "@eslint/js": "^10.0.1",
+    "@playwright/test": "^1.62.1",
+    "@types/node": "^22.10.0",
+    "electron": "^43.2.0",
+    "electron-builder": "^26.15.3",
+    "eslint": "^10.8.0",
+    "globals": "^17.8.0",
+    "typescript": "^5.7.2",
+    "typescript-eslint": "^8.65.0",
+    "vitest": "^3.2.7"
+  },
+  "main": "dist/app/main.js",
+  "build": {
+    "appId": "com.rael06.heimdall-agents",
+    "productName": "Heimdall agents",
+    "files": [
+      "dist/**/*",
+      "!dist/builder-debug.yml",
+      "!dist/**/*.map",
+      "!dist/**/*.test.js",
+      "package.json"
+    ],
+    "win": {
+      "target": "nsis",
+      "icon": "build/icon.png"
+    },
+    "nsis": {
+      "oneClick": false,
+      "perMachine": false,
+      "allowToChangeInstallationDirectory": true,
+      "createDesktopShortcut": false,
+      "createStartMenuShortcut": true,
+      "shortcutName": "Heimdall agents"
+    },
+    "protocols": [
+      {
+        "name": "heimdall-agents",
+        "schemes": [
+          "heimdall-agents"
+        ]
+      }
+    ]
+  }
+}

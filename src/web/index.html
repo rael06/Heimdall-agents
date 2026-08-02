@@ -1,0 +1,210 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Heimdall agents</title>
+<!--{{styles}}-->
+</head>
+<body>
+<header>
+  <div class="bar">
+    <h1>Heimdall agents</h1>
+    <span id="service-state" class="muted" data-i18n="state.connecting">connecting…</span>
+    <span class="grow"></span>
+    <button id="open-settings" type="button" data-i18n-title="bar.settings" title="Settings">⚙</button>
+    <button id="theme" type="button">Theme</button>
+    <label class="swatch" data-i18n-title="bar.primary" title="Primary colour">
+      <span class="sr-only" data-i18n="bar.primary">Primary colour</span>
+      <input id="primary" type="color">
+    </label>
+    <button id="primary-random" type="button" data-i18n="bar.random"
+            data-i18n-title="bar.randomTitle" title="Pick a primary colour at random">Random</button>
+    <button id="notify" class="chip" type="button" aria-pressed="true"
+            data-i18n="bar.notifications">Notifications</button>
+    <div id="notify-on" class="chips" role="group" aria-label="Statuses that raise a notification"></div>
+    <label class="sr-only" for="notify-scope">Notify about</label>
+    <select id="notify-scope">
+      <option value="watched" data-i18n="notifyScope.watched">watched sessions</option>
+      <option value="unacknowledged" data-i18n="notifyScope.unacknowledged">anything unacknowledged</option>
+    </select>
+    <button id="refresh" type="button" data-i18n="bar.refresh" data-i18n-title="bar.refreshTitle"
+            title="Re-scan the transcripts and redraw the list (r)">Refresh</button>
+    <button id="pause" type="button" data-i18n="bar.pause">Pause</button>
+  </div>
+
+  <div class="bar">
+    <label class="search">
+      <span class="sr-only">Search</span>
+      <input id="query" type="search" data-i18n-placeholder="bar.search" placeholder="Search…  (/)"
+             autocomplete="off">
+    </label>
+    <label><span data-i18n="bar.in">in</span>
+      <select id="scope">
+        <option value="both" data-i18n="scope.both">title and content</option>
+        <option value="title" data-i18n="scope.title">title</option>
+        <option value="content" data-i18n="scope.content">content</option>
+      </select>
+    </label>
+    <label><span data-i18n="bar.sort">sort</span>
+      <select id="sort">
+        <option value="status-asc" data-i18n="sort.status-asc">status, most urgent first</option>
+        <option value="status-desc" data-i18n="sort.status-desc">status, least urgent first</option>
+        <option value="created-desc" data-i18n="sort.created-desc">created, newest first</option>
+        <option value="created-asc" data-i18n="sort.created-asc">created, oldest first</option>
+        <option value="updated-desc" data-i18n="sort.updated-desc">last activity, newest first</option>
+        <option value="updated-asc" data-i18n="sort.updated-asc">last activity, oldest first</option>
+        <option value="provider-asc" data-i18n="sort.provider-asc">provider, A to Z</option>
+        <option value="provider-desc" data-i18n="sort.provider-desc">provider, Z to A</option>
+        <option value="workspace-asc" data-i18n="sort.workspace-asc">workspace, A to Z</option>
+        <option value="workspace-desc" data-i18n="sort.workspace-desc">workspace, Z to A</option>
+        <option value="title-asc" data-i18n="sort.title-asc">title, A to Z</option>
+        <option value="title-desc" data-i18n="sort.title-desc">title, Z to A</option>
+      </select>
+    </label>
+    <button id="reset" type="button" data-i18n="bar.reset">Reset</button>
+  </div>
+
+  <div class="bar wrap">
+    <label><span data-i18n="bar.match">match</span>
+      <select id="match">
+        <option value="all" data-i18n="match.all">all of them</option>
+        <option value="any" data-i18n="match.any">any of them</option>
+      </select>
+    </label>
+    <div id="status-filters" class="chips" role="group" aria-label="Filter by status"></div>
+    <div id="provider-filters" class="chips" role="group" aria-label="Filter by provider"></div>
+    <details id="workspace-filter" class="picker">
+      <summary><span data-i18n="bar.workspaces">Workspaces</span> <span id="workspace-count" class="muted"></span></summary>
+      <div id="workspace-list" class="picker-body"></div>
+    </details>
+    <label><span data-i18n="bar.from">from</span> <input id="from" type="date"></label>
+    <label><span data-i18n="bar.to">to</span> <input id="to" type="date"></label>
+    <div class="chips" role="group" aria-label="Filter by marker">
+      <button id="watched-only" class="chip" type="button" aria-pressed="false"
+              data-i18n="bar.watched">Watched</button>
+      <button id="favorites-only" class="chip" type="button" aria-pressed="false"
+              data-i18n="bar.starred">Starred</button>
+    </div>
+  </div>
+
+  <div class="bar">
+    <span id="counts" class="muted"></span>
+    <button id="reorder" type="button" class="hidden"></button>
+    <span class="grow"></span>
+    <button id="ack-visible" type="button" data-i18n="bar.acknowledge">Acknowledge visible</button>
+  </div>
+
+  <div id="notices"></div>
+</header>
+
+<main>
+  <div class="scroller">
+    <table>
+      <thead>
+        <tr>
+          <th scope="col"><button class="sort" type="button" data-key="status" data-i18n="column.status">status</button></th>
+          <th scope="col"><span class="sr-only" data-i18n="column.watched">Watched</span></th>
+          <th scope="col"><span class="sr-only" data-i18n="column.starred">Starred</span></th>
+          <th scope="col"><span class="sr-only" data-i18n="column.transcript">Transcript</span></th>
+          <th scope="col" class="num"><span class="sr-only" data-i18n="column.minutes">Minutes in this status</span></th>
+          <th scope="col"><button class="sort" type="button" data-key="created" data-i18n="column.created">created</button></th>
+          <th scope="col"><button class="sort" type="button" data-key="updated" data-i18n="column.updated">last activity</button></th>
+          <th scope="col"><button class="sort" type="button" data-key="provider" data-i18n="column.provider">provider</button></th>
+          <th scope="col"><button class="sort" type="button" data-key="workspace" data-i18n="column.workspace">workspace</button></th>
+          <th scope="col"><button class="sort" type="button" data-key="title" data-i18n="column.title">title</button></th>
+        </tr>
+      </thead>
+      <tbody id="rows"></tbody>
+    </table>
+  </div>
+  <p id="empty" class="empty hidden"></p>
+</main>
+
+<dialog id="settings">
+  <form method="dialog">
+    <h2 data-i18n="settings.heading">Settings</h2>
+
+    <fieldset>
+      <legend data-i18n="settings.languageLegend">Language and dates</legend>
+      <label class="field"><span data-i18n="settings.language">Language</span>
+        <select id="set-language">
+          <option value="auto"></option>
+          <option value="en">English</option>
+          <option value="fr">Français</option>
+        </select>
+      </label>
+      <label class="field"><span data-i18n="settings.dateLocale">Date format</span>
+        <select id="set-date-locale">
+          <option value="auto"></option>
+          <option value="iso"></option>
+          <option value="en-GB">English (01/08/2026 14:30)</option>
+          <option value="en-US">English US (8/1/2026, 2:30 PM)</option>
+          <option value="fr-FR">Français (01/08/2026 14:30)</option>
+        </select>
+      </label>
+    </fieldset>
+
+    <fieldset>
+      <legend data-i18n="settings.whereLegend">Where the transcripts are</legend>
+      <p class="muted" data-i18n="settings.whereHelp"></p>
+      <label class="field"><span data-i18n="settings.claudeHome">Claude home</span>
+        <input id="set-claude-home" type="text" placeholder="~/.claude" spellcheck="false">
+      </label>
+      <label class="field"><span data-i18n="settings.codexHome">Codex home</span>
+        <input id="set-codex-home" type="text" placeholder="~/.codex" spellcheck="false">
+      </label>
+      <div class="bar">
+        <button id="detect" type="button" data-i18n="settings.detect">Detect</button>
+        <span id="detect-result" class="muted"></span>
+      </div>
+    </fieldset>
+
+    <fieldset>
+      <legend data-i18n="settings.scanLegend">What is scanned</legend>
+      <label class="field"><span data-i18n="settings.maxSessions">Sessions per provider</span>
+        <input id="set-max" type="number" min="10" max="5000" step="10">
+      </label>
+      <label class="field"><span><span data-i18n="settings.history">History in days</span>
+        <span class="muted" data-i18n="settings.historyHint">(0 for everything)</span></span>
+        <input id="set-history" type="number" min="0" max="3650">
+      </label>
+      <label class="field"><span data-i18n="settings.stale">Inconclusive after, in minutes</span>
+        <input id="set-stale" type="number" min="1" max="10080">
+      </label>
+      <p class="muted" data-i18n="settings.staleHelp"></p>
+      <label class="check"><input id="set-subagents" type="checkbox">
+        <span data-i18n="settings.subagents"></span></label>
+    </fieldset>
+
+    <fieldset>
+      <legend data-i18n="settings.behaviourLegend">Behaviour</legend>
+      <label class="check"><input id="set-autowatch" type="checkbox">
+        <span data-i18n="settings.autowatch"></span></label>
+      <label class="field"><span data-i18n="settings.handoff">Window handover delay, in seconds</span>
+        <input id="set-handoff" type="number" min="0" max="30">
+      </label>
+    </fieldset>
+
+    <fieldset id="host-settings">
+      <legend data-i18n="settings.appLegend">This application</legend>
+      <label class="check"><input id="set-login" type="checkbox">
+        <span data-i18n="settings.login"></span></label>
+      <label class="check"><input id="set-tray" type="checkbox">
+        <span data-i18n="settings.tray"></span></label>
+      <p class="muted" data-i18n="settings.trayHelp"></p>
+    </fieldset>
+
+    <p id="settings-note" class="muted"></p>
+    <div class="bar">
+      <span class="grow"></span>
+      <button value="cancel" type="submit" data-i18n="settings.close">Close</button>
+      <button id="save-settings" type="button" data-i18n="settings.save">Save</button>
+    </div>
+  </form>
+</dialog>
+
+<!--{{i18n}}-->
+<!--{{script}}-->
+</body>
+</html>

@@ -1,0 +1,344 @@
+/*
+ * One palette, written once. `light-dark()` picks the branch from the used
+ * colour scheme, so forcing the scheme on the root is the whole theme toggle —
+ * no second copy of every value to keep in step.
+ *
+ * `--line` and `--edge` are separate on purpose. A row separator should be
+ * quiet, but the border of a control is what tells you where the control is,
+ * and it has to clear 3:1 to do that. Holding both to one value is what left
+ * every border at 1.36:1 and the table looking like floating text.
+ */
+:root {
+  color-scheme: light dark;
+  --bg: light-dark(#ffffff, #15161a);
+  --fg: light-dark(#16171a, #ecedf1);
+  /*
+   * Secondary, not faded. It labels the data — column headers, the counter, the
+   * notices — so it has to stay legible at a glance and only step back from the
+   * data by a little. It sat far enough below to read as switched off.
+   */
+  --muted: light-dark(#3c3f47, #c9cbd4);
+  --line: light-dark(#c9ccd4, #34363f);
+  --edge: light-dark(#83868f, #6a6d78);
+  /*
+   * For what is deliberately quiet and still has to be findable: an unset
+   * marker, the transcript icon. It exists because those used to recede with
+   * `opacity`, which cannot be measured from the palette and lands differently
+   * on each theme — they were sitting near 2:1 while every check passed.
+   */
+  --faint: light-dark(#7b7e87, #7c7f88);
+  --raised: light-dark(#f2f3f6, #1e2027);
+  --hover: light-dark(#f6f7f9, #1b1d23);
+  --accent: light-dark(#1f5fd8, #83a9ff);
+  --selected: light-dark(#dce8ff, #24314c);
+  --running: light-dark(#0d6b42, #4fd39e);
+  --failed: light-dark(#ad1f17, #ff8f84);
+  /*
+   * The one that means the next move is yours, so it carries the colour that
+   * used to mark a session needing action rather than the grey of a turn simply
+   * being over. It is what the eye should find on a full list.
+   */
+  --idle: light-dark(#a8460f, #f0a05c);
+  --unknown: light-dark(#6b4b9e, #c4a9ff);
+  /*
+   * The colour of the frame, chosen by the user. It is kept apart from
+   * `--accent`: this one only has to be seen, while the accent is read as text
+   * and is derived from it at a lightness that stays legible on the theme in
+   * use.
+   */
+  --primary: var(--accent);
+}
+
+/* The toggle: forcing the scheme resolves every light-dark() above with it. */
+:root[data-theme='light'] { color-scheme: light; }
+:root[data-theme='dark'] { color-scheme: dark; }
+
+* { box-sizing: border-box; }
+
+body {
+  margin: 0;
+  padding: 3mm;
+  background: var(--bg);
+  color: var(--fg);
+  font: 13px/1.45 ui-sans-serif, system-ui, sans-serif;
+}
+
+/*
+ * The frame. Drawn as a fixed overlay rather than a border on the body, so it
+ * stays put while the list scrolls under it and takes part in no layout — the
+ * body is padded by the same 3mm so nothing ever passes beneath it.
+ */
+body::after {
+  content: '';
+  position: fixed;
+  inset: 0;
+  border: 3mm solid var(--primary);
+  pointer-events: none;
+  z-index: 5;
+}
+
+header {
+  position: sticky;
+  /* Below the frame, not under it. */
+  top: 3mm;
+  z-index: 2;
+  background: var(--bg);
+  border-bottom: 1px solid var(--line);
+  padding: .5rem .75rem;
+}
+
+h1 { font-size: .95rem; margin: 0; font-weight: 650; }
+
+.bar {
+  display: flex;
+  align-items: center;
+  gap: .5rem;
+  margin-bottom: .4rem;
+}
+.bar:last-child { margin-bottom: 0; }
+.bar.wrap { flex-wrap: wrap; }
+.grow { flex: 1; }
+.muted { color: var(--muted); }
+.hidden { display: none !important; }
+
+label { display: inline-flex; align-items: center; gap: .3rem; color: var(--muted); }
+.search { flex: 1; max-width: 26rem; }
+input[type="search"] { width: 100%; }
+
+input, select, button {
+  font: inherit;
+  color: var(--fg);
+  background: var(--raised);
+  border: 1px solid var(--edge);
+  border-radius: 5px;
+  padding: .22rem .45rem;
+}
+button { cursor: pointer; }
+button:hover { border-color: var(--accent); }
+:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
+
+/* The colour input draws its own chrome; this only gives it a sane size. */
+.swatch { padding: 0; }
+.swatch input[type='color'] {
+  width: 2.2rem;
+  height: 1.65rem;
+  padding: 0 .12rem;
+  cursor: pointer;
+}
+
+.chips { display: flex; gap: .25rem; flex-wrap: wrap; }
+.chip[aria-pressed="true"] {
+  border-color: var(--accent);
+  background: var(--selected);
+}
+
+.picker { position: relative; }
+.picker > summary {
+  list-style: none;
+  cursor: pointer;
+  background: var(--raised);
+  border: 1px solid var(--edge);
+  border-radius: 5px;
+  padding: .22rem .45rem;
+}
+.picker[open] > summary { border-color: var(--accent); }
+/* One line whatever the number of folders: the list opens over the page. */
+.picker-body {
+  position: absolute;
+  z-index: 3;
+  top: calc(100% + .25rem);
+  left: 0;
+  max-height: 16rem;
+  overflow-y: auto;
+  min-width: 22rem;
+  background: var(--bg);
+  border: 1px solid var(--edge);
+  border-radius: 6px;
+  padding: .4rem;
+  box-shadow: 0 6px 20px rgb(0 0 0 / .18);
+}
+.picker-body label { display: flex; color: var(--fg); padding: .12rem 0; }
+
+#notices:empty { display: none; }
+.notice {
+  border: 1px solid var(--edge);
+  border-left: 3px solid var(--idle);
+  border-radius: 4px;
+  padding: .3rem .5rem;
+  margin-top: .35rem;
+  color: var(--muted);
+}
+
+.scroller { overflow-x: auto; }
+
+/*
+ * Titles are cut rather than allowed to stretch the row, with the whole of it
+ * in the tooltip. One session on this machine is called
+ * "<command-message>pr-review</command-message> <command-name>…", which on its
+ * own pushed every column after it off the screen — so the width of the table
+ * was being set by its worst row rather than by what is worth reading.
+ */
+td.title .link {
+  display: inline-block;
+  max-width: 46ch;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  vertical-align: bottom;
+}
+table { border-collapse: collapse; width: max-content; min-width: 100%; }
+th, td { text-align: left; padding: .18rem .5rem .18rem 0; white-space: nowrap; }
+th {
+  position: sticky;
+  top: 0;
+  font-weight: 600;
+  color: var(--muted);
+  background: var(--bg);
+  border-bottom: 1px solid var(--line);
+}
+
+/* A column header is a control, not a label: it sorts, and says which way. */
+button.sort {
+  background: none;
+  border: 1px solid transparent;
+  border-radius: 4px;
+  padding: 0 .2rem;
+  color: inherit;
+  font: inherit;
+  font-weight: 600;
+}
+button.sort:hover { color: var(--fg); }
+button.sort[aria-sort]::after {
+  content: " ▲";
+  font-size: .8em;
+}
+button.sort[aria-sort="descending"]::after { content: " ▼"; }
+button.sort[aria-sort] { color: var(--fg); }
+tbody tr { border-bottom: 1px solid var(--line); }
+/* Scanning a wide row is easier when the row you are on answers back. */
+tbody tr:hover { background: var(--hover); }
+tbody tr.selected { background: var(--selected); }
+
+/*
+ * Dates, workspace and minutes are read, not skimmed past: they are the answer
+ * to "which one is this", as much as the title. Only the chrome around them —
+ * column headers, badges, counters, notices — stays quiet.
+ */
+td.at { font-variant-numeric: tabular-nums; }
+
+/*
+ * Four characters wide, right aligned, tabular digits. A right-aligned column
+ * still wobbles in a proportional font, because 1 is narrower than 0.
+ */
+td.num, th.num { text-align: right; font-variant-numeric: tabular-nums; }
+td.num { min-width: 5ch; }
+
+/* The provider is a column value like any other, and was grey only because it
+   is drawn as a badge. The shape is the decoration; the word is data. */
+.badge {
+  border: 1px solid var(--edge);
+  border-radius: 999px;
+  padding: 0 .4rem;
+  font-size: .85em;
+}
+
+/* A marker is a button: a click lands on the thing it means, never on the row. */
+.marker {
+  background: none;
+  border: 1px solid transparent;
+  border-radius: 4px;
+  padding: 0 .2rem;
+  color: var(--muted);
+  line-height: 1.2;
+}
+.marker[aria-pressed="false"] { color: var(--faint); }
+/* An action available on every row, so it recedes: it carries no state, and at
+   full strength it reads as a fourth marker competing with the three real ones.
+   It recedes by colour rather than by opacity, so what it ends up being can be
+   measured. */
+.marker.transcript { color: var(--faint); }
+.marker[aria-pressed="true"] { color: var(--accent); }
+.marker:hover { color: var(--fg); border-color: var(--edge); }
+
+/*
+ * A distinct shape per status, not a colour with four values: colour is never
+ * the only carrier of the meaning.
+ */
+.status { position: relative; display: inline-block; padding: 0 .35rem; }
+.status[data-status="running"] { color: var(--running); }
+.status[data-status="failed"] { color: var(--failed); }
+.status[data-status="idle"] { color: var(--idle); }
+.status[data-status="unknown"] { color: var(--unknown); }
+
+/*
+ * Acknowledgement rides on the status icon as a corner dot rather than taking a
+ * column of its own: it says "this status is new to you", so it belongs to the
+ * status, and the row keeps one marker fewer before the title.
+ */
+.status[data-unseen="true"]::after {
+  content: "";
+  position: absolute;
+  top: -1px;
+  right: -1px;
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--accent);
+  border: 1px solid var(--bg);
+}
+
+/* An action reads as text, but it is a button: it is reachable by keyboard. */
+.link {
+  background: none;
+  border: 1px solid transparent;
+  border-radius: 4px;
+  padding: 0 .15rem;
+  color: inherit;
+  text-align: left;
+  font: inherit;
+}
+.link:hover { color: var(--accent); text-decoration: underline; }
+
+.matched { color: var(--muted); font-size: .85em; margin-left: .4rem; }
+
+.empty {
+  padding: 1.5rem .75rem;
+  color: var(--muted);
+  white-space: pre-line;
+}
+
+dialog {
+  color: var(--fg);
+  background: var(--bg);
+  border: 1px solid var(--edge);
+  border-radius: 8px;
+  padding: 1rem 1.25rem;
+  max-width: 34rem;
+  width: calc(100% - 6mm);
+}
+dialog::backdrop { background: rgb(0 0 0 / .5); }
+dialog h2 { font-size: 1rem; margin: 0 0 .75rem; }
+dialog fieldset {
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  padding: .5rem .75rem .75rem;
+  margin: 0 0 .75rem;
+}
+dialog legend { color: var(--muted); padding: 0 .3rem; font-weight: 600; }
+dialog p { margin: 0 0 .5rem; }
+/* Label above its field, so a long path is not squeezed into a leftover gap. */
+.field { display: flex; flex-direction: column; align-items: stretch; gap: .15rem; margin-bottom: .5rem; }
+.field input { width: 100%; }
+.check { display: flex; align-items: start; gap: .4rem; color: var(--fg); margin-bottom: .3rem; }
+
+.sr-only, .sr-only-th {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  white-space: nowrap;
+  border: 0;
+}

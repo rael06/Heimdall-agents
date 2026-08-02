@@ -1,0 +1,98 @@
+import { AgentSession, ProviderId, ProviderState, SessionStatus } from '../model/types';
+
+export interface ScanOptions {
+  /** Reference timestamp of the scan (ms). */
+  now: number;
+  /** Delay after which a session still mid-turn becomes unknown (ms). */
+  staleAfterMs: number;
+  /** History window based on the last activity (ms). 0 means unlimited. */
+  historyMs: number;
+  /** Maximum number of sessions returned. */
+  maxSessions: number;
+  /**
+   * Sessions to re-read from disk. Every other session is served from the last
+   * scan, with its status graded again against the current time. Absent means a
+   * full scan: the directories are walked and every changed file is read.
+   */
+  focusIds?: ReadonlySet<string>;
+}
+
+export interface ScanResult {
+  sessions: AgentSession[];
+  state: ProviderState;
+  /** Sessions dropped by the history window or the session cap. */
+  truncated: number;
+}
+
+export interface SessionProvider {
+  readonly id: ProviderId;
+  /** Inspected root directory, surfaced in the empty states. */
+  readonly root: string;
+  scan(options: ScanOptions): Promise<ScanResult>;
+  /** Local full text search inside the transcript of one session. */
+  matchesContent(session: AgentSession, terms: string[]): Promise<boolean>;
+}
+
+export interface StatusVerdict {
+  status: SessionStatus;
+  reason: string;
+}
+
+/**
+ * What the transcript says about the last turn, before the clock has its say.
+ *
+ * Reading a transcript is expensive and its conclusion never changes while the
+ * file does not, whereas the status does: a turn left mid-tool is running, then
+ * waiting, then inconclusive, without a single byte being written. Splitting the
+ * two lets a scan keep this small value and grade it again on every refresh
+ * instead of parsing the file anew.
+ */
+export type TurnState =
+  /** Nothing left to weigh: the transcript alone settles the status. */
+  | { kind: 'settled'; status: SessionStatus; reason: string }
+  /**
+   * A turn the transcript says is still open.
+   *
+   * It is running, and stays running: the file said the turn had not ended, and
+   * no amount of waiting turns that into evidence of anything else. The clock
+   * only decides when to stop believing the file at all.
+   */
+  | { kind: 'pending'; running: string; unknown: string };
+
+/** Grades what the transcript said against the current time and the settings. */
+export function gradeTurnState(
+  state: TurnState,
+  ageMs: number,
+  options: ScanOptions,
+): StatusVerdict {
+  switch (state.kind) {
+    case 'settled':
+      return { status: state.status, reason: state.reason };
+    case 'pending':
+      return pendingVerdict(ageMs, options, state);
+  }
+}
+
+/**
+ * Status of a session whose turn the transcript leaves open.
+ *
+ * It used to become *needs action* past a delay, on the theory that a turn
+ * stopped for long enough was waiting for a permission. It was a guess, and it
+ * was wrong on every command that simply takes minutes: on disk, a pending
+ * permission and a slow tool are the same object — a turn that has not ended.
+ * Neither provider writes anything while it waits, so no delay can separate
+ * them, and a notification raised on that guess is a false alarm.
+ *
+ * So an open turn is running. Past the stale delay it becomes inconclusive,
+ * which says the only true thing left: the file has not moved in a long time
+ * and nothing in it can be trusted to still describe the session.
+ */
+export function pendingVerdict(
+  ageMs: number,
+  options: ScanOptions,
+  labels: { running: string; unknown: string },
+): StatusVerdict {
+  return ageMs < options.staleAfterMs
+    ? { status: 'running', reason: labels.running }
+    : { status: 'unknown', reason: labels.unknown };
+}

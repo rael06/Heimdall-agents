@@ -1,0 +1,276 @@
+import { IncomingMessage, Server, ServerResponse, createServer } from 'node:http';
+import { STATUS_ORDER, SessionStatus } from '../model/types';
+import { AssetReader } from './assets';
+import { ServiceEngine } from './engine';
+import { guardRequest } from './guard';
+import { SettingsApi } from './settingsApi';
+import { SseHub } from './sse';
+
+export interface ServerOptions {
+  token: string;
+  port: number;
+  /** Absent for a bare service, which has no settings of its own to offer. */
+  settings?: SettingsApi;
+}
+
+/** Enough for a list of identifiers, and far short of anything worth buffering. */
+const MAX_BODY_BYTES = 64 * 1024;
+
+export function pathOf(url: string | undefined): string {
+  const raw = url ?? '/';
+  const query = raw.indexOf('?');
+  return query < 0 ? raw : raw.slice(0, query);
+}
+
+function sendJson(response: ServerResponse, status: number, body: unknown): void {
+  const payload = JSON.stringify(body);
+  response.writeHead(status, {
+    'Content-Type': 'application/json; charset=utf-8',
+    'Content-Length': Buffer.byteLength(payload),
+    // Nothing here should ever be stored by anything.
+    'Cache-Control': 'no-store',
+  });
+  response.end(payload);
+}
+
+function sendText(response: ServerResponse, status: number, body: string, type: string): void {
+  response.writeHead(status, {
+    'Content-Type': type,
+    'Content-Length': Buffer.byteLength(body),
+    'Cache-Control': 'no-store',
+  });
+  response.end(body);
+}
+
+function readJsonBody(request: IncomingMessage): Promise<unknown> {
+  return new Promise((resolve, reject) => {
+    const chunks: Buffer[] = [];
+    let size = 0;
+    request.on('data', (chunk: Buffer) => {
+      size += chunk.length;
+      if (size > MAX_BODY_BYTES) {
+        reject(new Error('Body too large.'));
+        request.destroy();
+        return;
+      }
+      chunks.push(chunk);
+    });
+    request.on('end', () => {
+      const raw = Buffer.concat(chunks).toString('utf8');
+      if (!raw) {
+        resolve({});
+        return;
+      }
+      try {
+        resolve(JSON.parse(raw));
+      } catch {
+        reject(new Error('Body is not JSON.'));
+      }
+    });
+    request.on('error', reject);
+  });
+}
+
+function asObject(value: unknown): Record<string, unknown> {
+  return typeof value === 'object' && value !== null ? (value as Record<string, unknown>) : {};
+}
+
+export interface ServiceServer {
+  server: Server;
+  /** Closes the streams and the socket, in that order. */
+  close(): Promise<void>;
+}
+
+export function createServiceServer(engine: ServiceEngine, options: ServerOptions): ServiceServer {
+  const hub = new SseHub();
+  const assets = new AssetReader();
+  const unsubscribe = [
+    engine.onDelta((event) => hub.send('delta', event)),
+    engine.onState((state) => hub.send('state', state)),
+    engine.onMarks((marks) => hub.send('marks', marks)),
+  ];
+
+  const handle = async (request: IncomingMessage, response: ServerResponse): Promise<void> => {
+    const path = pathOf(request.url);
+    const method = request.method ?? 'GET';
+
+    if (method === 'GET') {
+      if (path === '/') {
+        sendText(response, 200, await assets.read(), 'text/html; charset=utf-8');
+        return;
+      }
+      if (path === '/api/state') {
+        sendJson(response, 200, engine.state);
+        return;
+      }
+      if (path === '/api/marks') {
+        sendJson(response, 200, engine.currentMarks);
+        return;
+      }
+      if (path === '/api/settings') {
+        if (!options.settings) {
+          sendJson(response, 404, { error: 'This service has no settings to offer.' });
+          return;
+        }
+        sendJson(response, 200, await options.settings.read());
+        return;
+      }
+      if (path === '/api/settings/detect') {
+        if (!options.settings) {
+          sendJson(response, 404, { error: 'This service has no settings to offer.' });
+          return;
+        }
+        sendJson(response, 200, { providers: await options.settings.detect() });
+        return;
+      }
+      if (path === '/api/search') {
+        const query = new URLSearchParams((request.url ?? '').split('?')[1] ?? '');
+        const scope = query.get('scope');
+        sendJson(response, 200, {
+          matched: await engine.search(
+            query.get('q') ?? '',
+            scope === 'title' || scope === 'content' ? scope : 'both',
+          ),
+        });
+        return;
+      }
+      if (path === '/api/sessions') {
+        sendJson(response, 200, {
+          state: engine.state,
+          marks: engine.currentMarks,
+          sessions: engine.sessions,
+        });
+        return;
+      }
+      if (path === '/api/events') {
+        hub.add(response);
+        // The stream opens on the current truth rather than on the next change,
+        // so a browser arriving late is not blank until something moves.
+        hub.send('state', engine.state);
+        hub.send('marks', engine.currentMarks);
+        return;
+      }
+    }
+
+    if (method === 'POST') {
+      if (path === '/api/pause') {
+        engine.pause();
+        sendJson(response, 200, engine.state);
+        return;
+      }
+      if (path === '/api/resume') {
+        await engine.resume();
+        sendJson(response, 200, engine.state);
+        return;
+      }
+      if (path === '/api/settings') {
+        if (!options.settings) {
+          sendJson(response, 404, { error: 'This service has no settings to offer.' });
+          return;
+        }
+        sendJson(response, 200, await options.settings.save(asObject(await readJsonBody(request))));
+        return;
+      }
+      if (path === '/api/restart') {
+        // Answered before restarting, or the caller never hears back.
+        const possible = Boolean(options.settings);
+        sendJson(response, 200, { restarting: possible });
+        if (possible) {
+          setTimeout(() => options.settings?.restart(), 250);
+        }
+        return;
+      }
+      if (path === '/api/notifications') {
+        const body = asObject(await readJsonBody(request));
+        const next: Parameters<typeof engine.setNotifications>[0] = {};
+        if (typeof body.enabled === 'boolean') {
+          next.enabled = body.enabled;
+        }
+        if (body.scope === 'unacknowledged' || body.scope === 'watched') {
+          next.scope = body.scope;
+        }
+        if (Array.isArray(body.on)) {
+          next.on = body.on.filter((status): status is SessionStatus =>
+            (STATUS_ORDER as string[]).includes(status as string),
+          );
+        }
+        sendJson(response, 200, await engine.setNotifications(next));
+        return;
+      }
+      if (path === '/api/refresh') {
+        await engine.refresh();
+        sendJson(response, 200, engine.state);
+        return;
+      }
+      if (path === '/api/marks/watched' || path === '/api/marks/favorite') {
+        const body = asObject(await readJsonBody(request));
+        const id = typeof body.id === 'string' ? body.id : '';
+        if (!id) {
+          sendJson(response, 400, { error: 'An "id" is required.' });
+          return;
+        }
+        const marks =
+          path === '/api/marks/watched'
+            ? await engine.toggleWatched(id)
+            : await engine.toggleFavorite(id);
+        sendJson(response, 200, marks);
+        return;
+      }
+      if (path === '/api/open') {
+        const body = asObject(await readJsonBody(request));
+        const id = typeof body.id === 'string' ? body.id : '';
+        const target = body.target;
+        if (target !== 'session' && target !== 'workspace' && target !== 'transcript') {
+          sendJson(response, 400, { error: 'A "target" of session, workspace or transcript.' });
+          return;
+        }
+        const result = await engine.open(id, target);
+        if (!result) {
+          sendJson(response, 404, { error: `No session "${id}".` });
+          return;
+        }
+        sendJson(response, 200, result);
+        return;
+      }
+      if (path === '/api/acknowledge') {
+        const body = asObject(await readJsonBody(request));
+        // The caller sends what it can see, so acknowledging everything settles
+        // the rows on screen and never the ones a filter is hiding.
+        const ids = Array.isArray(body.ids)
+          ? body.ids.filter((id): id is string => typeof id === 'string')
+          : [];
+        sendJson(response, 200, await engine.acknowledge(ids));
+        return;
+      }
+    }
+
+    sendJson(response, 404, { error: `No route for ${method} ${path}.` });
+  };
+
+  const server = createServer((request, response) => {
+    const guard = guardRequest(request.headers, request.url ?? '/', options);
+    if (!guard.allowed) {
+      sendJson(response, guard.status, { error: guard.reason });
+      return;
+    }
+    handle(request, response).catch((error: unknown) => {
+      if (response.headersSent) {
+        response.end();
+        return;
+      }
+      sendJson(response, 400, { error: String(error instanceof Error ? error.message : error) });
+    });
+  });
+
+  return {
+    server,
+    close: () =>
+      new Promise<void>((resolve) => {
+        for (const off of unsubscribe) {
+          off();
+        }
+        hub.close();
+        server.close(() => resolve());
+      }),
+  };
+}
