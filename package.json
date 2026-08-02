@@ -30,7 +30,7 @@
     "test:e2e": "playwright test",
     "icon": "node scripts/make-icon.mjs",
     "app": "npm run build && electron .",
-    "dist": "npm run build && electron-builder",
+    "dist": "npm run build && electron-builder --publish never",
     "contrast": "node scripts/check-contrast.mjs"
   },
   "devDependencies": {
@@ -48,6 +48,13 @@
   "main": "dist/app/main.js",
   "build": {
     "appId": "com.rael06.heimdall-agents",
+    "publish": [
+      {
+        "provider": "github",
+        "owner": "rael06",
+        "repo": "Heimdall-agents"
+      }
+    ],
     "productName": "Heimdall agents",
     "files": [
       "dist/**/*",
