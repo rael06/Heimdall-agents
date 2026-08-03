@@ -1,5 +1,77 @@
 # Changelog
 
+## 1.1.4
+
+**The status filters show the shape they filter on.** The rows have carried a
+shape per status since the beginning — precisely so colour is never the only
+thing saying what a row is — while the filter chips and the notification chips
+carried the word alone. The same four statuses were a shape and a colour in one
+place and plain text in two others, and the mapping had to be learned twice.
+
+### One glyph changed, and three did not
+
+Circle, cross, triangle and diamond are four things nobody has to compare with
+each other to tell apart, which is the point of having them at all.
+
+`failed` was a filled square and is now a **cross**. A square says nothing on its
+own — it was only ever *the red one* — while a cross reads as a failure with the
+colour taken away, which is exactly the condition this set exists for.
+
+`idle` keeps its triangle deliberately. That triangle is the application's own
+icon, drawn by `scripts/make-icon.mjs` as "the one shape in the interface that
+means this one has stopped and is waiting for you". A prettier glyph here would
+quietly desynchronise the taskbar from the list.
+
+### The colours were measured against each other for the first time
+
+`npm run contrast` asked whether each status clears the background. It never
+asked whether `running` can be told from `failed` — the question a green and a
+red raise for roughly one man in twelve.
+
+Checked pairwise under normal, deuteranopic and protanopic vision:
+
+| theme | worst pair | before | after |
+|---|---|---|---|
+| dark | `running`/`failed`, protanopia | ΔE 10.0 | **20.6** |
+| light | `failed`/`idle`, deuteranopia | ΔE 4.1 | unchanged |
+
+The dark theme was free: that green becomes teal, still reads as *go*, and the
+worst pair nearly doubles.
+
+**The light theme is knowingly left as it was**, and the reason is written into
+the stylesheet rather than left to be rediscovered. On white, `failed` and `idle`
+must both be dark to clear 3:1, and two dark warm colours converge under that
+vision whatever their hue — a search that maximised separation returned a
+near-black brown for `failed`, which stops reading as an error at all. Moving
+`idle` off orange instead desynchronises the application icon, which *is* that
+colour.
+
+So the trade is declined. `npm run contrast` now **reports** that pair rather
+than failing on it, so it stays visible instead of looking like an oversight —
+and colour was never the carrier here. The shape is, and it is now in all three
+places.
+
+### The file lock no longer breaks itself under contention
+
+Not part of the work above, and found by it: preparing this release, the
+concurrency test failed with **`expected 4 to be 12`** — eight increments lost to
+the very race `fileLock.ts` exists to prevent.
+
+`acquire` waited 25 ms between attempts and gave up after a flat 500 ms, at which
+point it deleted the lock and wrote anyway. Twelve writers queue for roughly
+300 ms before the last is served, so a busy machine crossed that deadline and
+every remaining writer overwrote a **live** holder. Marks are written by this
+application and by the VS Code extension, so the contention is not hypothetical.
+
+The deadline was also redundant. A holder that died is already reclaimed by the
+staleness check five seconds on, and a holder never refreshes its lock — so
+nothing could block a waiter for longer than that with or without a deadline. A
+waiter now yields only to a lock old enough to belong to a process that is gone.
+
+Waiting up to five seconds for a live holder is slower than overwriting it. It is
+also the difference between a change that arrives late and a change that is
+silently gone.
+
 ## 1.1.3
 
 **Nothing a user can see has changed.** The source that runs is the source that

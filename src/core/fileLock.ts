@@ -17,8 +17,14 @@ import * as path from 'node:path';
  */
 
 const RETRY_DELAY_MS = 25;
-const MAX_WAIT_MS = 500;
-/** Past this age a lock is assumed to belong to a process that is gone. */
+/**
+ * Past this age a lock is assumed to belong to a process that is gone.
+ *
+ * This is the only reason a waiter ever stops waiting. A holder writes the lock
+ * once and never refreshes it, so a holder still working after this long is
+ * indistinguishable from one that died — and taking the lock is then the right
+ * answer either way.
+ */
 const STALE_AFTER_MS = 5000;
 
 function sleep(ms: number): Promise<void> {
@@ -38,7 +44,6 @@ async function isStale(lockPath: string, now: number): Promise<boolean> {
 }
 
 async function acquire(lockPath: string): Promise<void> {
-  const deadline = Date.now() + MAX_WAIT_MS;
   for (;;) {
     try {
       const handle = await fs.open(lockPath, 'wx');
@@ -51,10 +56,23 @@ async function acquire(lockPath: string): Promise<void> {
       }
     }
 
-    const now = Date.now();
-    // Taking over an abandoned lock, or one held longer than anyone should wait:
-    // the alternative is refusing a change the user just asked for.
-    if ((await isStale(lockPath, now)) || now >= deadline) {
+    // Only an abandoned lock is taken over. There used to be a second reason —
+    // a flat 500 ms deadline, after which a waiter removed the lock and wrote
+    // anyway — and it defeated the exclusion precisely when it was needed.
+    //
+    // Measured: twelve concurrent writers, each waiting 25 ms between attempts,
+    // queue for about 300 ms before the last is served. Under a loaded machine
+    // that crosses 500 ms, and from there every remaining writer deletes a live
+    // holder's lock and overwrites it. The concurrency test caught it as
+    // `expected 4 to be 12` — eight increments lost to the very race this file
+    // exists to prevent.
+    //
+    // The deadline was also redundant. A holder that died is already reclaimed
+    // by the staleness check, so nothing can block a waiter for longer than
+    // STALE_AFTER_MS. Waiting up to five seconds for a live holder is slower
+    // than overwriting it, and it is the difference between a change that
+    // arrives late and a change that is silently gone.
+    if (await isStale(lockPath, Date.now())) {
       await fs.rm(lockPath, { force: true });
       continue;
     }

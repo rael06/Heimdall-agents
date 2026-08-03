@@ -27,10 +27,36 @@ async function increment(): Promise<void> {
 
 describe('withFileLock', () => {
   it('lets concurrent writers take turns instead of overwriting each other', async () => {
+    // Sixteen rather than twelve, on purpose. At twelve this test used to fail
+    // under a loaded machine with `expected 4 to be 12` — not because the lock
+    // was wrong but because `acquire` gave up after a flat 500 ms and wrote
+    // anyway, and twelve writers at 25 ms apiece queue for long enough to cross
+    // it. The deadline is gone; a waiter now yields only to a lock old enough to
+    // belong to a process that is gone, so the count no longer depends on how
+    // busy the machine is.
     await Promise.all(
-      Array.from({ length: 12 }, () => withFileLock(filePath, () => increment())),
+      Array.from({ length: 16 }, () => withFileLock(filePath, () => increment())),
     );
-    expect(Number(await fs.readFile(filePath, 'utf8'))).toBe(12);
+    expect(Number(await fs.readFile(filePath, 'utf8'))).toBe(16);
+  });
+
+  it('waits for a live holder rather than overwriting it', async () => {
+    // The case the old deadline got wrong: a holder that is slow but alive.
+    let released = false;
+    const slow = withFileLock(filePath, async () => {
+      await new Promise((resolve) => setTimeout(resolve, 700));
+      released = true;
+      await increment();
+    });
+    // Long enough that the previous implementation would have broken the lock.
+    await new Promise((resolve) => setTimeout(resolve, 120));
+    const waiting = withFileLock(filePath, async () => {
+      expect(released, 'the second writer got in while the first still held it').toBe(true);
+      await increment();
+    });
+
+    await Promise.all([slow, waiting]);
+    expect(Number(await fs.readFile(filePath, 'utf8'))).toBe(2);
   });
 
   it('shows the race it exists to prevent', async () => {
