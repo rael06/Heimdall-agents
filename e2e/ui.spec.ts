@@ -234,21 +234,26 @@ test('the workspace chip stays readable at every hue, in both themes', async ({ 
       `${theme}: chip edge against the row, worst at hue ${worstEdge.hue}`,
     ).toBeGreaterThanOrEqual(3);
 
-    // The other question, and the one legibility never asks: ten chips can each
-    // be perfectly readable and still be the same colour as each other, which is
-    // the whole point of colouring them. Every pair, not just neighbours.
-    const ten = [0, 36, 72, 108, 144, 180, 216, 252, 288, 324];
+    // The other question, and the one legibility never asks: sixteen chips can
+    // each be perfectly readable and still be the same colour as each other,
+    // which is the whole point of colouring them. Every pair, not just
+    // neighbours — and these hues are not evenly spaced, so neighbours in the
+    // list are not necessarily the closest in colour.
+    const hues = [0, 17, 33, 60, 85, 102, 118, 133, 149, 168, 186, 204, 224, 255, 285, 328];
     let closest = { value: Infinity, pair: '' };
-    for (let i = 0; i < ten.length; i += 1) {
-      for (let j = i + 1; j < ten.length; j += 1) {
-        const value = difference(painted[ten[i]].background, painted[ten[j]].background);
-        if (value < closest.value) closest = { value, pair: `${ten[i]}/${ten[j]}` };
+    for (let i = 0; i < hues.length; i += 1) {
+      for (let j = i + 1; j < hues.length; j += 1) {
+        const value = difference(painted[hues[i]].background, painted[hues[j]].background);
+        if (value < closest.value) closest = { value, pair: `${hues[i]}/${hues[j]}` };
       }
     }
+    // 12 rather than the 15 the statuses are held to, deliberately. A status is
+    // a 13px glyph whose colour is one of only two things saying what it is; a
+    // workspace chip is a wide patch of colour with the name written inside it.
     expect(
       closest.value,
       `${theme}: closest pair of workspace colours, hues ${closest.pair}`,
-    ).toBeGreaterThanOrEqual(15);
+    ).toBeGreaterThanOrEqual(12);
   }
 
   await page.locator('#theme').click(); // back to auto
@@ -273,6 +278,17 @@ async function dragColumn(page: Page, key: string, by: number): Promise<void> {
 
 test('a column can be dragged narrower than its own contents', async ({ page }) => {
   await open(page);
+  // Long values in both columns, which is the case that was broken: a fixed
+  // table still takes its own width from `max-content`, measured from the
+  // contents rather than from the widths asked for, and hands the difference
+  // back to the columns. Only the columns holding something long had a floor
+  // under them, so it looked like a rule about the workspace.
+  await page.evaluate(() => {
+    for (const link of document.querySelectorAll('td.ws .link')) {
+      link.textContent = 'a-workspace-with-a-long-name';
+    }
+  });
+
   // The direction that matters. Until the widths are taken over the table sizes
   // itself, and a column cannot be narrower than its widest cell however hard it
   // is dragged — so a resize that only ever widens is the failure to watch for.
@@ -280,6 +296,14 @@ test('a column can be dragged narrower than its own contents', async ({ page }) 
   await dragColumn(page, 'title', -120);
   const after = await columnWidth(page, 'title');
   expect(after).toBeLessThan(before - 90);
+
+  // All the way to the floor, and the floor is the only thing stopping it.
+  // Asserting "narrower than it was" is what let the bug through: the column
+  // did get narrower, just never as narrow as it was told to be.
+  for (const key of ['workspace', 'title']) {
+    await dragColumn(page, key, -600);
+    expect(await columnWidth(page, key), `${key} dragged to its floor`).toBe(24);
+  }
 
   // And the value in the cell is cut rather than spilling into what is beside
   // it — there is no column to the right of the title, but the row must not

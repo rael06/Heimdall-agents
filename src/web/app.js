@@ -541,7 +541,7 @@ function updateRow(tr, session) {
   // Only where there is a workspace to name. A session without one shows a dash,
   // and a dash wearing a project colour would read as a project.
   ws.classList.toggle('ws-tag', Boolean(session.cwd));
-  if (session.cwd) ws.style.setProperty('--hue', String(workspaceHue(workspace)));
+  if (session.cwd) ws.style.setProperty('--hue', String(hueFor(workspace)));
   else ws.style.removeProperty('--hue');
   ws.title = session.cwd ? `${t('row.openWorkspace')} ${session.cwd}` : t('row.workspaceUnknown');
   const title = tr.querySelector('.title .link');
@@ -600,6 +600,10 @@ function syncRows(target, applyOrder) {
 }
 
 function render(applyOrder = false) {
+  // Before the rows are drawn, since it decides what colour they carry. It
+  // returns early unless the set of projects actually changed, so this costs a
+  // comparison on every render and a write on almost none.
+  syncWorkspaceColours();
   const target = targetOrder();
   const shown = syncRows(target, applyOrder);
 
@@ -977,6 +981,33 @@ function syncSortHeaders() {
   }
 }
 
+// ------------------------------------------------------- workspace colours
+
+/**
+ * Which colour each project wears, remembered so it does not move.
+ *
+ * Taken from every session loaded rather than from the rows on screen: a filter
+ * narrows what is visible, and a project changing colour because something else
+ * was filtered out would make the colour worth less than no colour at all.
+ */
+const WORKSPACE_STORE = 'workspaceColours';
+let workspaceSlots = {};
+
+function syncWorkspaceColours() {
+  const names = [
+    ...new Set(
+      [...state.sessions.values()].filter((session) => session.cwd).map((s) => folder(s.cwd)),
+    ),
+  ].sort();
+  const next = assignWorkspaceSlots(names, workspaceSlots);
+  if (JSON.stringify(next) === JSON.stringify(workspaceSlots)) return;
+  workspaceSlots = next;
+  localStorage.setItem(WORKSPACE_STORE, JSON.stringify(next));
+}
+
+/** The hash is the answer only for a name that arrived after the colours ran out. */
+const hueFor = (name) => WORKSPACE_HUES[workspaceSlots[name] ?? hashSlot(name)];
+
 // ----------------------------------------------------------- column widths
 
 /**
@@ -1004,6 +1035,10 @@ function naturalWidths() {
   const table = el('sessions');
   const sized = table.hasAttribute('data-sized');
   table.removeAttribute('data-sized');
+  // Including the table's own width, or the measurement is taken inside the
+  // box the last set of widths added up to rather than in the one the contents
+  // would ask for.
+  table.style.removeProperty('width');
   for (const col of table.querySelectorAll('col')) col.style.removeProperty('width');
   const measured = {};
   for (const th of headerCells()) measured[th.dataset.column] = th.getBoundingClientRect().width;
@@ -1014,12 +1049,23 @@ function naturalWidths() {
 
 function applyColumnWidths() {
   const table = el('sessions');
-  table.toggleAttribute('data-sized', Object.keys(columnWidths).length > 0);
+  const widths = Object.values(columnWidths);
+  table.toggleAttribute('data-sized', widths.length > 0);
   for (const col of table.querySelectorAll('col')) {
     const width = columnWidths[col.dataset.column];
     if (width) col.style.width = `${width}px`;
     else col.style.removeProperty('width');
   }
+  // The table is told exactly what its columns add up to, and this is not
+  // belt and braces. A fixed table still takes its own width from `max-content`
+  // — which is measured from the contents, not from the widths asked for — and
+  // hands everything beyond the sum of its columns back to the columns. So a
+  // column holding something long kept a floor under it that no width could
+  // cross: 40px was stored and written to the `col`, and 118.9px was drawn.
+  // Only the columns with long values had it, which is why it looked like a
+  // rule about the workspace rather than about every column.
+  if (widths.length) table.style.width = `${widths.reduce((sum, value) => sum + value, 0)}px`;
+  else table.style.removeProperty('width');
   for (const th of headerCells()) {
     const handle = th.querySelector('.resizer');
     if (!handle) continue;
@@ -1429,6 +1475,7 @@ async function boot() {
   }
   // Before the language pass, which is what names the handles it builds.
   buildColumns();
+  workspaceSlots = readWorkspaceSlots(localStorage.getItem(WORKSPACE_STORE));
   applyLanguage();
   syncControls();
   wireControls();

@@ -2,18 +2,21 @@ import { describe, expect, it } from 'vitest';
 import {
   MAX_COLUMN_WIDTH,
   MIN_COLUMN_WIDTH,
+  WORKSPACE_HUES,
+  assignWorkspaceSlots,
   clampColumnWidth,
   contrast,
   day,
   folder,
+  hashSlot,
   readColumnWidths,
+  readWorkspaceSlots,
   minutesSince,
   normalizeSort,
   readable,
   splitSort,
   toHex,
   toRgb,
-  workspaceHue,
 } from './lib.js';
 
 const WHITE = [255, 255, 255];
@@ -121,45 +124,98 @@ describe('folder', () => {
   });
 });
 
-describe('workspaceHue', () => {
-  const HUES = [0, 36, 72, 108, 144, 180, 216, 252, 288, 324];
-
-  it('answers one of the ten, for anything a path can end in', () => {
-    // Never a value between two of them: the ten are spaced so that any two are
-    // tellable apart, and a hue in the gap would be the near miss the spacing
-    // exists to avoid.
+describe('hashSlot', () => {
+  it('answers a slot that exists, for anything a path can end in', () => {
     for (const name of ['webshop', 'a', '', 'PROJECT', 'projet-été', '日本語', '.hidden']) {
-      expect(HUES).toContain(workspaceHue(name));
+      const slot = hashSlot(name);
+      expect(Number.isInteger(slot)).toBe(true);
+      expect(slot).toBeGreaterThanOrEqual(0);
+      expect(slot).toBeLessThan(WORKSPACE_HUES.length);
     }
-  });
-
-  it('gives the same name the same colour every time', () => {
-    // The point of a hash over a counter: a workspace keeps its colour across
-    // reloads, across machines, and whatever order the rows arrived in.
-    expect(workspaceHue('webshop')).toBe(workspaceHue('webshop'));
   });
 
   it('separates the names that differ by one character at the end', () => {
     // The case a sum of character codes gets wrong, and the one that matters:
-    // sibling projects are named this way, and a sum puts them 1° apart.
-    expect(workspaceHue('api-v1')).not.toBe(workspaceHue('api-v2'));
-    expect(workspaceHue('service-a')).not.toBe(workspaceHue('service-b'));
-    // The pair that made the ten buckets necessary, and that flooring a hue
-    // into buckets would have left sharing one.
-    expect(workspaceHue('app')).not.toBe(workspaceHue('site'));
+    // sibling projects are named this way, and a sum puts them next to
+    // each other. This only decides the projects past the sixteenth, but those
+    // are the ones with nothing else left to separate them.
+    expect(hashSlot('api-v1')).not.toBe(hashSlot('api-v2'));
+    expect(hashSlot('service-a')).not.toBe(hashSlot('service-b'));
   });
 
-  it('uses all ten rather than crowding a few', () => {
-    const used = new Map();
-    for (let index = 0; index < 500; index += 1) {
-      const hue = workspaceHue(`project-${index}`);
-      used.set(hue, (used.get(hue) ?? 0) + 1);
+  it('uses the whole list rather than crowding a few', () => {
+    const used = new Set();
+    for (let index = 0; index < 500; index += 1) used.add(hashSlot(`project-${index}`));
+    expect(used.size).toBe(WORKSPACE_HUES.length);
+  });
+});
+
+describe('assignWorkspaceSlots', () => {
+  it('gives every project on screen a colour of its own', () => {
+    // The property the whole thing exists for, and the one a hash cannot have:
+    // six names drawn from ten colours collide 85% of the time, which is the
+    // birthday problem and not a weak hash. The first screenshot of the hashed
+    // version had two projects wearing the same colour.
+    const names = ['coly-1680', 'coly-1781', 'digicybersec', 'heimdall-agents', 'olympe', 'tva'];
+    const slots = assignWorkspaceSlots(names, {});
+    expect(new Set(Object.values(slots)).size).toBe(names.length);
+  });
+
+  it('does not move a colour when another project appears', () => {
+    // A colour that shifts under the reader is worse than no colour: the list
+    // is read by its groups, and the groups would change meaning on a scan.
+    const first = assignWorkspaceSlots(['beta', 'delta'], {});
+    const second = assignWorkspaceSlots(['alpha', 'beta', 'delta'], first);
+    expect(second.beta).toBe(first.beta);
+    expect(second.delta).toBe(first.delta);
+    expect(new Set(Object.values(second)).size).toBe(3);
+  });
+
+  it('hands out the same colours twice running on a fresh profile', () => {
+    const names = ['alpha', 'beta', 'gamma'];
+    expect(assignWorkspaceSlots(names, {})).toEqual(assignWorkspaceSlots(names, {}));
+  });
+
+  it('reuses a colour once they have all been given out', () => {
+    const many = Array.from({ length: WORKSPACE_HUES.length + 4 }, (_, i) => `project-${i}`);
+    const slots = assignWorkspaceSlots(many, {});
+    expect(Object.keys(slots)).toHaveLength(many.length);
+    for (const slot of Object.values(slots)) {
+      expect(slot).toBeGreaterThanOrEqual(0);
+      expect(slot).toBeLessThan(WORKSPACE_HUES.length);
     }
-    expect([...used.keys()].sort((a, b) => a - b)).toEqual(HUES);
-    // Even spread would be 50 each. This asserts none is nearly unused and none
-    // takes a fifth of the list, not that the hash is uniform.
-    expect(Math.min(...used.values())).toBeGreaterThan(20);
-    expect(Math.max(...used.values())).toBeLessThan(100);
+    // The first sixteen still have one each; only what follows shares.
+    expect(new Set(Object.values(slots)).size).toBe(WORKSPACE_HUES.length);
+  });
+
+  it('ignores a stored slot that is not one', () => {
+    const slots = assignWorkspaceSlots(['alpha', 'beta'], { alpha: 99, beta: 'blue' });
+    expect(new Set(Object.values(slots)).size).toBe(2);
+    for (const slot of Object.values(slots)) expect(slot).toBeLessThan(WORKSPACE_HUES.length);
+  });
+
+  it('refuses to seat two projects on one stored slot', () => {
+    // A file written by hand, or two names that were once one.
+    const slots = assignWorkspaceSlots(['alpha', 'beta'], { alpha: 3, beta: 3 });
+    expect(new Set(Object.values(slots)).size).toBe(2);
+  });
+});
+
+describe('readWorkspaceSlots', () => {
+  it('reads back what was stored', () => {
+    expect(readWorkspaceSlots('{"alpha":0,"beta":7}')).toEqual({ alpha: 0, beta: 7 });
+  });
+
+  it('keeps the part that still makes sense', () => {
+    // Unlike the column widths, a partial answer is useful: a name that lost
+    // its slot is given the next free one and nothing else moves.
+    expect(readWorkspaceSlots('{"alpha":0,"beta":99,"gamma":"x"}')).toEqual({ alpha: 0 });
+  });
+
+  it('survives anything at all in the stored value', () => {
+    for (const stored of [null, undefined, '', 'not json', '[]', '"text"', '7']) {
+      expect(readWorkspaceSlots(stored)).toEqual({});
+    }
   });
 });
 

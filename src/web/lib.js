@@ -116,11 +116,14 @@ export function splitSort(sort) {
  *
  * The minimum is not cosmetic. A column dragged to nothing cannot be dragged
  * back — there is no edge left to take hold of — so the floor is what keeps the
- * gesture reversible. The ceiling is there for the stored file rather than for
- * the pointer: a width read back from disk has been through a text editor and a
- * synchronised profile since it was written.
+ * gesture reversible. It is 24 and not 40 because the first drag records every
+ * column at whatever width it already had, and the three marker columns sit at
+ * 32: a floor above them would have quietly widened three columns as the price
+ * of touching a fourth. The ceiling is there for the stored file rather than
+ * for the pointer: a width read back from disk has been through a text editor
+ * and a synchronised profile since it was written.
  */
-export const MIN_COLUMN_WIDTH = 40;
+export const MIN_COLUMN_WIDTH = 24;
 export const MAX_COLUMN_WIDTH = 1200;
 
 export const clampColumnWidth = (value) =>
@@ -171,42 +174,40 @@ export function day(iso) {
 export const folder = (cwd) => (cwd ? cwd.split(/[\\/]/).filter(Boolean).pop() : '-');
 
 /**
- * How many colours a workspace can be drawn in.
+ * The colours a workspace can wear.
  *
- * Ten, and not "one of 360", which is what this returned first and what the
- * screen immediately argued with: the two workspaces in the fixtures came out
- * at 252° and 246°, six degrees apart, which is one blue shown twice. A near
- * miss reads as a bug. An exact repeat reads as a coincidence, and the name is
- * written inside the chip either way.
+ * Not evenly spaced, and not chosen. These are what a search returned when it
+ * was asked, at each step, for the hue furthest from every hue already taken —
+ * judged on the worse of the two themes, in CIE76, on the colours Chromium
+ * actually paints. Even steps in hue are not even steps in colour: sixteen of
+ * those leave a worst pair at ΔE 9.9 in the dark theme, where these sixteen
+ * hold 12.7 in both.
  *
- * Ten is where the measurement landed, not a round number. The chips are pale
- * enough that the sRGB gamut caps their chroma, so hue steps buy less
- * separation than they look like they should: at twelve the adjacent pairs fall
- * to ΔE 14.1 in the dark theme, under the 15 this project already treats as
- * "tellable apart at a glance" for the status colours. At ten the worst pair is
- * 16.8 there and 19.6 in the light theme.
+ * Sixteen because that is where the list stops being worth extending: eighteen
+ * drops to 10.6 and twenty to 8.3.
+ *
+ * The bar is 12 rather than the 15 the statuses are held to, and the difference
+ * is not a relaxation. A status is a 13px glyph whose colour is one of only two
+ * things saying what it is. A workspace chip is a wide patch of colour with the
+ * name written inside it, so the colour groups the list and the text identifies
+ * it. Redundant information can be told apart at a lower bar than information
+ * carrying its own meaning alone.
  */
-const WORKSPACE_HUES = 10;
+export const WORKSPACE_HUES = [
+  0, 17, 33, 60, 85, 102, 118, 133, 149, 168, 186, 204, 224, 255, 285, 328,
+];
 
 /**
- * The hue a workspace is drawn in, taken from its name.
+ * The colour a name falls into when there is none left to give it.
  *
  * FNV-1a rather than the obvious sum of character codes, and the difference is
  * not theoretical: measured over the pairs this list actually holds, `api-v1`
  * and `api-v2` land 179° apart under FNV and 1° apart under a sum. A sum moves
  * by one when a name ends in a different digit, so a family of sibling projects
- * comes out as a single shade — and sibling projects are exactly what the
- * colour exists to separate.
- *
- * The bucket comes from the hash rather than from a hue that is then rounded
- * down. Rounding keeps whatever crowding the hash had: `app` and `site` share a
- * 30° bucket precisely because they were already six degrees apart. Taking the
- * bucket straight from the hash spreads them.
- *
- * Keyed on the name shown rather than on the whole path, so what the reader can
- * see is what decides the colour.
+ * comes out as a single shade — and sibling projects are exactly what a colour
+ * per workspace exists to separate.
  */
-export function workspaceHue(name) {
+export function hashSlot(name, count = WORKSPACE_HUES.length) {
   let hash = 0x811c9dc5;
   for (let index = 0; index < name.length; index += 1) {
     hash ^= name.charCodeAt(index);
@@ -214,7 +215,79 @@ export function workspaceHue(name) {
     // the last character up into the high bits.
     hash = Math.imul(hash, 0x01000193);
   }
-  return ((hash >>> 0) % WORKSPACE_HUES) * (360 / WORKSPACE_HUES);
+  return (hash >>> 0) % count;
+}
+
+/**
+ * A colour each, for the workspaces on screen.
+ *
+ * Handing every name to a hash and hoping cannot do this, and the arithmetic
+ * says so rather than a preference: six workspaces drawn from ten colours
+ * collide 85% of the time, and that is not a flaw in the hash. It is the
+ * birthday problem, and it does not go away by adding colours — six from
+ * sixteen still collide two times in three, and there are nowhere near enough
+ * distinguishable colours to make it rare. The first version of this shipped
+ * with a hash and the very first screenshot of it had two projects wearing the
+ * same colour.
+ *
+ * So the colours are given out rather than computed, lowest free one first, and
+ * remembered. What that buys is the property the feature exists for: no two
+ * projects on screen share a colour while there are colours left. What it costs
+ * is that the colour is no longer a function of the name alone — the same
+ * project can come out differently on another machine, which is a fair price
+ * for a view aid that is stored beside the theme.
+ *
+ * `names` is expected sorted, so a profile that has never seen any of them
+ * hands out the same colours in the same order twice running.
+ */
+/**
+ * What was stored, kept wherever it is still a colour.
+ *
+ * A partial answer is useful here, unlike the column widths: a name whose slot
+ * was lost is simply given the next free one, and every other project keeps the
+ * colour it had. There is nothing to squash.
+ */
+export function readWorkspaceSlots(stored, count = WORKSPACE_HUES.length) {
+  let parsed;
+  try {
+    parsed = JSON.parse(stored ?? '');
+  } catch {
+    return {};
+  }
+  if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) return {};
+  const slots = {};
+  for (const [name, slot] of Object.entries(parsed)) {
+    if (Number.isInteger(slot) && slot >= 0 && slot < count) slots[name] = slot;
+  }
+  return slots;
+}
+
+export function assignWorkspaceSlots(names, stored, count = WORKSPACE_HUES.length) {
+  const slots = {};
+  const taken = new Set();
+  // What was already given out stays given out. A project changing colour
+  // because another one appeared is the thing this has to avoid.
+  for (const name of names) {
+    const slot = stored?.[name];
+    if (Number.isInteger(slot) && slot >= 0 && slot < count && !taken.has(slot)) {
+      slots[name] = slot;
+      taken.add(slot);
+    }
+  }
+  let next = 0;
+  for (const name of names) {
+    if (slots[name] !== undefined) continue;
+    while (next < count && taken.has(next)) next += 1;
+    if (next < count) {
+      slots[name] = next;
+      taken.add(next);
+    } else {
+      // More projects than colours. Two of them share, and the hash at least
+      // makes it stable and spread rather than "whichever loaded first".
+      slots[name] = hashSlot(name, count);
+    }
+  }
+  return slots;
 }
 
 /** `now` is passed in rather than read, so this can be asked about a fixed one. */
