@@ -1,5 +1,66 @@
 # Changelog
 
+## 1.1.7
+
+**The statuses are drawn**, the marker columns are headed by their own marks and
+sort by them, and reset turns back while refresh turns forward.
+
+### The status shapes were four glyphs from four type families
+
+They had been `●✕▲◇`, kept as characters twice over an argument that solid
+geometric primitives beat drawings at the size of a line of 13px text. The
+argument was asserted and never shown. Rendering the three candidates side by
+side at three times size settles it: the dot is small, the cross is thin, the
+diamond is a hairline outline — because they came from four different type
+families, which is exactly what they were. Drawn from one set they carry one
+weight.
+
+The prettiest candidate lost for being pretty. Play, x, pause and question in
+circles read beautifully at three times size and share a **circular
+silhouette**, and a silhouette is what survives when the centre does not. Circle,
+diamond, square and triangle keep the property the whole scheme exists for:
+colour is never the only thing saying what a row is.
+
+### The order changed, and it means two things
+
+`STATUS_ORDER` is now running, unknown, failed, idle. That list is the order the
+filter chips are drawn in *and* what "status, most urgent first" sorts by — so an
+unknown session now outranks a failed one, and idle comes last.
+
+### The marker columns sort
+
+The watched and starred columns are headed by their own marks, in tight columns,
+and clicking either sorts by it. Sorting by a marker **replaces** the automatic
+grouping rather than losing to it: the grouping lifts what you follow without
+being asked, so a sort that lost to it could never do anything — least of all put
+watched rows last, which is the one ordering the grouping can never produce.
+
+Reset wears a counter-clockwise arrow, refresh a clockwise one.
+
+### The file lock, a fourth time
+
+In the layer beneath the third. Windows reports a lock file pending deletion as
+`EPERM`, and 1.1.6 told contention from a permission problem by asking whether
+the lock still existed. **That question is itself a race.** When the holder's
+delete completes in between, the answer is "no file", the conclusion is
+"unwritable directory", and the change runs with no lock at all — `expected 2 to
+be 16`.
+
+Nothing is asked now. A transient code is retried like any other contention, and
+only a run of them — about a second — is taken to mean the directory genuinely
+will not have us, which is the case the fallback was written for. Sixteen
+consecutive full runs clean, against roughly one failure in eight.
+
+| release | what was losing the write |
+|---|---|
+| 1.1.4 | a 500 ms deadline that broke a live holder's lock |
+| 1.1.5 | a vanished lock treated as one to remove |
+| 1.1.6 | `EPERM` read as fatal, so the change ran unlocked |
+| 1.1.7 | asking *whether the lock exists* to classify that `EPERM` |
+
+Every one of the four was found by a change to the interface rather than by
+reading the file, and every one was measured before it was fixed.
+
 ## 1.1.6
 
 **The markers say what they mean, and the status column is as wide as its
