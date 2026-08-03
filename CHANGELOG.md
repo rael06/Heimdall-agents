@@ -1,5 +1,56 @@
 # Changelog
 
+## 1.1.3
+
+**Nothing a user can see has changed.** The source that runs is the source that
+ran in 1.1.2; this rebuilds it on a current toolchain. It is published rather
+than held back because a release that changes nothing is the cheapest way to
+exercise the update path, and that path has had three defects in as many
+versions.
+
+### Vitest 4, and floors that measure the same thing again
+
+The upgrade passed every one of the 421 tests and failed on the coverage
+thresholds, which is a different sentence and had to be treated as one. Measured
+on the same commit, one version apart:
+
+|            | Vitest 3           | Vitest 4               |
+|------------|--------------------|------------------------|
+| statements | 64.27% (2933/4563) | **65.60%** (1438/2192) |
+| lines      | 64.27% (2933/4563) | **65.60%** (1366/2082) |
+| branches   | 88.68% (995/1122)  | 70.77% (879/**1242**)  |
+| functions  | 81.27% (230/283)   | 62.12% (333/**536**)   |
+
+The denominators carry it. Functions go from 283 to 536 — Vitest 4 counts the
+callbacks and arrow functions that 3 walked past — and branches gain 120.
+Statements and lines *rise*, because the old total was padded with lines that
+never execute. Coverage did not fall; 87% of a branch count missing a tenth of
+the branches was never the stricter bar it looked like. The comparison sits in
+`vitest.config.ts` beside the numbers, so the next reader of "62% functions"
+does not mistake it for a collapse.
+
+### `@types/node` follows the floor, not the ceiling
+
+It described Node 22 while `engines` promised `>=20.11.0`, and Dependabot
+proposed 26. Types ahead of the supported runtime let `tsc` accept a call that
+does not exist where the code has to run, so the compiler stops guarding the
+promise and starts contradicting it. Measured before choosing: with
+`@types/node@20.19.43`, `tsc --noEmit` exits 0 — nothing in `src/` reaches past
+Node 20. The major is ignored in `dependabot.yml` with the reason written there,
+and moves when `engines` moves.
+
+None of this ships. `dependencies` is empty, `files` is `["dist"]`, and what
+runs on a machine is the Node bundled inside Electron.
+
+### Dependabot stops proposing the impossible
+
+Its first run opened seven pull requests, four of which could never have passed.
+`vitest` and `@vitest/coverage-v8` are peers of one another, so each arrived
+alone and died at `npm ci`; the same for `typescript` against `typescript-eslint`,
+which accepts `>=4.8.4 <6.1.0` and will not take TypeScript 7 until it does.
+Packages that cannot move without each other are now grouped, majors included.
+The configuration was corrected by the thing it configures, on its first run.
+
 ## 1.1.2
 
 **Refresh sits next to Acknowledge visible**, on the bar that carries the
