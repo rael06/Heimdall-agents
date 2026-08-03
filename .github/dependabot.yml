@@ -35,6 +35,18 @@ updates:
       routine:
         patterns: ['*']
         update-types: [minor, patch]
+    ignore:
+      # `@types/node` is not Node. It describes an API surface, and `engines`
+      # promises `>=20.11.0` — so types from a later Node would have `tsc`
+      # accept a call the supported runtime does not have, and say nothing. The
+      # compiler would stop guarding that promise and start contradicting it.
+      #
+      # It is pinned to the floor on purpose, and it moves when `engines` moves,
+      # not before. Ignored rather than closed weekly: a pull request reopened
+      # every Monday and shut every Monday is the noise this file exists to
+      # avoid.
+      - dependency-name: '@types/node'
+        update-types: [version-update:semver-major]
     open-pull-requests-limit: 5
     commit-message:
       prefix: build
