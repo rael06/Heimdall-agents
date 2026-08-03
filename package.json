@@ -48,7 +48,7 @@
     "globals": "^17.8.0",
     "typescript": "^5.7.2",
     "typescript-eslint": "^8.65.0",
-    "vitest": "^3.2.7"
+    "vitest": "^4.1.10"
   },
   "main": "dist/app/main.js",
   "build": {
