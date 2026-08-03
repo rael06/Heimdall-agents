@@ -10,6 +10,7 @@ import {
   day,
   folder,
   hashSlot,
+  ink,
   readColumnWidths,
   readSlots,
   minutesSince,
@@ -151,8 +152,31 @@ describe('hashSlot', () => {
   });
 });
 
+describe('ink', () => {
+  it('writes dark on light and light on dark', () => {
+    expect(ink('#ffffff')).toBe('#000000');
+    expect(ink('#000000')).toBe('#ffffff');
+  });
+
+  it('clears 4.5:1 on any colour that can be picked at all', () => {
+    // The claim the free picker rests on. The worst background sits at relative
+    // luminance 0.179, where black and white come out equal — and equal is
+    // 4.58:1, still above what is asked of text. Swept rather than reasoned.
+    let worst = Infinity;
+    for (let r = 0; r < 256; r += 15) {
+      for (let g = 0; g < 256; g += 15) {
+        for (let b = 0; b < 256; b += 15) {
+          const hex = toHex([r, g, b]);
+          worst = Math.min(worst, contrast(toRgb(ink(hex)), [r, g, b]));
+        }
+      }
+    }
+    expect(worst).toBeGreaterThanOrEqual(4.5);
+  });
+});
+
 describe('assignSlots', () => {
-  const fresh = { slots: {}, pinned: [] };
+  const fresh = { slots: {}, colours: {} };
 
   it('gives every project on screen a colour of its own', () => {
     // The property the whole thing exists for, and the one a hash cannot have:
@@ -179,30 +203,20 @@ describe('assignSlots', () => {
     expect(assignSlots(names, fresh)).toEqual(assignSlots(names, fresh));
   });
 
-  it('keeps a colour the reader chose, even against a project that wants it', () => {
-    // The point of pinning. A chosen colour that the next scan quietly moved
-    // would be the application overruling the person using it.
-    const chosen = { slots: { alpha: 3 }, pinned: ['alpha'] };
+  it('keeps a colour the reader chose, whatever else turns up', () => {
+    const chosen = { slots: {}, colours: { alpha: '#ff0000' } };
     const after = assignSlots(['alpha', 'beta', 'gamma'], chosen);
-    expect(after.slots.alpha).toBe(3);
-    expect(after.pinned).toEqual(['alpha']);
+    expect(after.colours).toEqual({ alpha: '#ff0000' });
+    // And it takes no slot: it is not competing for the sixteen, so holding one
+    // would starve a project that still needs it.
+    expect(after.slots.alpha).toBeUndefined();
+    expect(new Set(Object.values(after.slots)).size).toBe(2);
   });
 
-  it('lets two projects share a colour when that is what was asked for', () => {
-    // Both pinned to the same slot by hand. Silently moving one would be a
-    // setting that pretends to save.
-    const chosen = { slots: { alpha: 5, beta: 5 }, pinned: ['alpha', 'beta'] };
-    const after = assignSlots(['alpha', 'beta'], chosen);
-    expect(after.slots).toEqual({ alpha: 5, beta: 5 });
-  });
-
-  it('gives an automatic colour up rather than a chosen one', () => {
-    // `beta` held 1 automatically; `alpha` is pinned to it. The pin wins and
-    // beta moves, which is the only order that keeps a choice meaningful.
-    const stored = { slots: { alpha: 1, beta: 1 }, pinned: ['alpha'] };
-    const after = assignSlots(['alpha', 'beta'], stored);
-    expect(after.slots.alpha).toBe(1);
-    expect(after.slots.beta).not.toBe(1);
+  it('gives the palette back when a chosen colour is dropped', () => {
+    const after = assignSlots(['alpha', 'beta'], { slots: { beta: 0 }, colours: {} });
+    expect(after.slots.alpha).toBeDefined();
+    expect(after.colours).toEqual({});
   });
 
   it('reuses a colour once they have all been given out', () => {
@@ -241,17 +255,17 @@ describe('assignSlots', () => {
     expect(new Set(Object.values(slots)).size).toBe(WORKSPACE_HUES.length);
   });
 
-  it('forgets a pin for a project that is no longer anywhere', () => {
-    const after = assignSlots(['alpha'], { slots: { gone: 2 }, pinned: ['gone'] });
-    expect(after.pinned).toEqual([]);
+  it('forgets a colour for a project that is no longer anywhere', () => {
+    const after = assignSlots(['alpha'], { slots: {}, colours: { gone: '#ff0000' } });
+    expect(after.colours).toEqual({});
   });
 });
 
 describe('readSlots', () => {
   it('reads back what was stored', () => {
-    expect(readSlots('{"slots":{"alpha":0,"beta":7},"pinned":["beta"]}')).toEqual({
-      slots: { alpha: 0, beta: 7 },
-      pinned: ['beta'],
+    expect(readSlots('{"slots":{"alpha":0},"colours":{"beta":"#FF8800"}}')).toEqual({
+      slots: { alpha: 0 },
+      colours: { beta: '#ff8800' },
     });
   });
 
@@ -260,19 +274,18 @@ describe('readSlots', () => {
     // its slot is given the next free one and nothing else moves.
     expect(readSlots('{"slots":{"alpha":0,"beta":99,"gamma":"x"}}')).toEqual({
       slots: { alpha: 0 },
-      pinned: [],
+      colours: {},
     });
   });
 
-  it('drops a pin with no colour behind it', () => {
-    expect(readSlots('{"slots":{"alpha":0},"pinned":["alpha","ghost",7]}').pinned).toEqual([
-      'alpha',
-    ]);
+  it('refuses anything that is not a colour it could paint', () => {
+    const stored = '{"colours":{"a":"red","b":"#fff","c":"#12345g","d":"#abcdef","e":7}}';
+    expect(readSlots(stored).colours).toEqual({ d: '#abcdef' });
   });
 
   it('survives anything at all in the stored value', () => {
     for (const stored of [null, undefined, '', 'not json', '[]', '"text"', '7']) {
-      expect(readSlots(stored)).toEqual({ slots: {}, pinned: [] });
+      expect(readSlots(stored)).toEqual({ slots: {}, colours: {} });
     }
   });
 });

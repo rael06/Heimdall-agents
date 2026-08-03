@@ -265,41 +265,61 @@ export function hashSlot(name, count = WORKSPACE_HUES.length) {
  * hands out the same colours in the same order twice running.
  */
 /**
+ * The one colour a chip carrying a chosen background can safely write on it.
+ *
+ * Black or white rather than a tint of the same hue, and that is not a
+ * simplification — it is the only choice that holds for a colour nobody
+ * constrained. Whatever is picked, the better of the two clears 4.58:1: the
+ * worst background for this sits at relative luminance 0.179, where both come
+ * out equal, and equal is still above the 4.5 asked of text.
+ */
+export function ink(hex) {
+  const background = toRgb(hex);
+  return contrast([0, 0, 0], background) >= contrast([255, 255, 255], background)
+    ? '#000000'
+    : '#ffffff';
+}
+
+const HEX = /^#[0-9a-f]{6}$/i;
+
+/**
  * What was stored, kept wherever it is still a colour.
  *
  * A partial answer is useful here, unlike the column widths: a name whose slot
  * was lost is simply given the next free one, and every other project keeps the
  * colour it had. There is nothing to squash.
  *
- * `pinned` is the set the reader chose by hand. It is stored apart from the
- * slots rather than as a flag on each, because the distinction is not "which
- * colour" but "who decided": an automatic slot may be moved aside to make room,
- * and a chosen one may not.
+ * `colours` are the ones chosen by hand, held as what was chosen rather than as
+ * a place in a list — the picker offers the whole range now, so there is no
+ * list to hold a place in. A name in there takes no slot at all: it is not
+ * competing for the sixteen, so reserving one would have starved a project that
+ * still needed it.
  */
 export function readSlots(stored, count = WORKSPACE_HUES.length) {
   let parsed;
   try {
     parsed = JSON.parse(stored ?? '');
   } catch {
-    return { slots: {}, pinned: [] };
+    return { slots: {}, colours: {} };
   }
   if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) {
-    return { slots: {}, pinned: [] };
+    return { slots: {}, colours: {} };
   }
   const slots = {};
   for (const [name, slot] of Object.entries(parsed.slots ?? {})) {
     if (Number.isInteger(slot) && slot >= 0 && slot < count) slots[name] = slot;
   }
-  const pinned = (Array.isArray(parsed.pinned) ? parsed.pinned : []).filter(
-    (name) => typeof name === 'string' && slots[name] !== undefined,
-  );
-  return { slots, pinned };
+  const colours = {};
+  for (const [name, value] of Object.entries(parsed.colours ?? {})) {
+    if (typeof value === 'string' && HEX.test(value)) colours[name] = value.toLowerCase();
+  }
+  return { slots, colours };
 }
 
 /**
  * @param names sorted, so a profile that has never seen any of them hands out
  *   the same colours in the same order twice running.
- * @param stored `{ slots, pinned }` as {@link readSlots} returns it.
+ * @param stored `{ slots, colours }` as {@link readSlots} returns it.
  * @param offset where in the list to start handing colours out. Two columns
  *   drawing from one palette both open on its first colour otherwise, which had
  *   `claude` and the first workspace wearing the same pink — a relationship the
@@ -308,7 +328,11 @@ export function readSlots(stored, count = WORKSPACE_HUES.length) {
  */
 export function assignSlots(names, stored, count = WORKSPACE_HUES.length, offset = 0) {
   const previous = stored?.slots ?? {};
-  const pinned = new Set(stored?.pinned ?? []);
+  const colours = stored?.colours ?? {};
+  // A name with a colour of its own is not competing for the sixteen, so it is
+  // left out of the assignment entirely rather than holding a slot it does not
+  // use — which would have starved a project that still needed one.
+  const automatic = names.filter((name) => colours[name] === undefined);
   const slots = {};
   const taken = new Set();
 
@@ -317,24 +341,15 @@ export function assignSlots(names, stored, count = WORKSPACE_HUES.length, offset
     taken.add(slot);
   };
 
-  // Chosen by hand first, and unconditionally. A colour the reader picked has to
-  // survive every project that turns up afterwards, including one that wants the
-  // same slot — two chips the same colour is a choice they are allowed to make,
-  // and silently moving it would be the application overruling them.
-  for (const name of names) {
+  // What was given out before stays given out, where it is still free. A project
+  // changing colour because another one appeared is the thing this must avoid.
+  for (const name of automatic) {
     const slot = previous[name];
-    if (pinned.has(name) && Number.isInteger(slot) && slot >= 0 && slot < count) claim(name, slot);
-  }
-  // Then what was given out before, where it is still free. A project changing
-  // colour because another one appeared is the thing this has to avoid.
-  for (const name of names) {
-    const slot = previous[name];
-    if (slots[name] !== undefined) continue;
     if (Number.isInteger(slot) && slot >= 0 && slot < count && !taken.has(slot)) claim(name, slot);
   }
   const order = Array.from({ length: count }, (_, index) => (index + offset) % count);
   let next = 0;
-  for (const name of names) {
+  for (const name of automatic) {
     if (slots[name] !== undefined) continue;
     while (next < count && taken.has(order[next])) next += 1;
     if (next < count) claim(name, order[next]);
@@ -342,7 +357,9 @@ export function assignSlots(names, stored, count = WORKSPACE_HUES.length, offset
     // makes it stable and spread rather than "whichever loaded first".
     else slots[name] = hashSlot(name, count);
   }
-  return { slots, pinned: [...pinned].filter((name) => slots[name] !== undefined) };
+  const kept = {};
+  for (const name of names) if (colours[name] !== undefined) kept[name] = colours[name];
+  return { slots, colours: kept };
 }
 
 /** `now` is passed in rather than read, so this can be asked about a fixed one. */

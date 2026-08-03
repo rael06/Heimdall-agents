@@ -543,7 +543,7 @@ function updateRow(tr, session) {
   tr.querySelector('.updated').textContent = at(session.updatedAt);
   const badge = tr.querySelector('.badge');
   badge.textContent = session.provider;
-  badge.style.setProperty('--hue', String(hueFor('provider', session.provider)));
+  paintTag(badge, 'provider', session.provider);
   const ws = tr.querySelector('.ws .link');
   const workspace = folder(session.cwd);
   ws.textContent = workspace;
@@ -556,8 +556,8 @@ function updateRow(tr, session) {
   // Only where there is a workspace to name. A session without one shows a dash,
   // and a dash wearing a project colour would read as a project.
   ws.classList.toggle('tag', Boolean(session.cwd));
-  if (session.cwd) ws.style.setProperty('--hue', String(hueFor('workspace', workspace)));
-  else ws.style.removeProperty('--hue');
+  if (session.cwd) paintTag(ws, 'workspace', workspace);
+  else for (const p of ['--hue', 'background', 'color', 'border-color']) ws.style.removeProperty(p);
   // A brush on a row with no workspace would open a picker for a dash.
   const brush = tr.querySelector('.ws .brush');
   brush.hidden = !session.cwd;
@@ -1024,13 +1024,13 @@ function syncSortHeaders() {
  * fix — a third would arrive with no colour and no way to give it one.
  */
 const PALETTES = {
-  workspace: { store: 'workspaceColours', offset: 0, state: { slots: {}, pinned: [] } },
+  workspace: { store: 'workspaceColours', offset: 0, state: { slots: {}, colours: {} } },
   // Half the list along, so the provider column and the workspace column do not
   // both open on the same colour and imply a link between them that is not one.
   provider: {
     store: 'providerColours',
     offset: WORKSPACE_HUES.length / 2,
-    state: { slots: {}, pinned: [] },
+    state: { slots: {}, colours: {} },
   },
 };
 
@@ -1052,64 +1052,78 @@ function syncColours() {
   }
 }
 
-/** The hash is the answer only for a name that arrived after the colours ran out. */
-const hueFor = (kind, name) =>
-  WORKSPACE_HUES[PALETTES[kind].state.slots[name] ?? hashSlot(name)];
+/**
+ * Paints one chip, either from the palette or from a colour that was chosen.
+ *
+ * The two are not the same mechanism and cannot be. An assigned colour is a hue,
+ * and the stylesheet turns it into a light chip or a dark one depending on the
+ * theme in force. A chosen colour is a colour: it is what was asked for, in both
+ * themes, so it is written straight onto the element — and the only thing left
+ * to decide is what can be read on top of it.
+ */
+function paintTag(node, kind, name) {
+  const chosen = PALETTES[kind].state.colours[name];
+  if (chosen) {
+    const readable = ink(chosen);
+    node.style.setProperty('background', chosen);
+    node.style.setProperty('color', readable);
+    // The edge, for a chip that lands on a row of nearly its own colour. It is
+    // the ink rather than a shade of the fill, because a colour picked freely
+    // has no shade this could safely derive.
+    node.style.setProperty('border-color', readable);
+    node.style.removeProperty('--hue');
+    return;
+  }
+  for (const property of ['background', 'color', 'border-color']) node.style.removeProperty(property);
+  node.style.setProperty('--hue', String(WORKSPACE_HUES[PALETTES[kind].state.slots[name] ?? hashSlot(name)]));
+}
 
 /** What the picker is currently pointed at. */
 let recolouring = null;
 
+/** What a chip is painted right now, as the colour input needs it: a hex. */
+function paintedTag(kind, name) {
+  const chosen = PALETTES[kind].state.colours[name];
+  if (chosen) return chosen;
+  // The palette's own answer is a hue the stylesheet resolves, so it is asked of
+  // an element that has applied it rather than computed a second time here.
+  const probe = document.createElement('span');
+  probe.className = 'tag';
+  probe.style.cssText = 'position: absolute; visibility: hidden';
+  paintTag(probe, kind, name);
+  document.body.append(probe);
+  const painted = toHex(parseRgb(getComputedStyle(probe).backgroundColor));
+  probe.remove();
+  return painted;
+}
+
 function openPalette(kind, name) {
   recolouring = { kind, name };
   el('palette-heading').textContent = t('palette.heading', { name });
-  const swatches = el('palette-swatches');
-  swatches.setAttribute('aria-label', t('palette.heading', { name }));
-  const current = PALETTES[kind].state.slots[name];
-  const chosen = PALETTES[kind].state.pinned.includes(name);
-  swatches.textContent = '';
-  WORKSPACE_HUES.forEach((hue, slot) => {
-    const swatch = document.createElement('button');
-    swatch.type = 'button';
-    swatch.className = 'swatch-colour tag';
-    swatch.style.setProperty('--hue', String(hue));
-    swatch.dataset.slot = String(slot);
-    // The colour is the label, so the name it is being tried on is the text: a
-    // swatch reading "colour 7" says nothing anyone can act on.
-    swatch.textContent = name;
-    swatch.setAttribute('aria-pressed', String(slot === current));
-    swatch.setAttribute('aria-label', t('palette.swatch', { number: slot + 1 }));
-    swatch.addEventListener('click', () => {
-      chooseColour(kind, name, slot);
-      el('palette').close();
-    });
-    swatches.append(swatch);
-  });
+  const preview = el('palette-preview');
+  preview.textContent = name;
+  const input = el('palette-colour');
+  input.value = paintedTag(kind, name);
+  paintTag(preview, kind, name);
   // Nothing to take back when the colour was never chosen by hand.
-  el('palette-auto').disabled = !chosen;
+  el('palette-auto').disabled = PALETTES[kind].state.colours[name] === undefined;
   el('palette').showModal();
 }
 
 /**
  * A colour chosen by hand, or the choice taken back.
  *
- * Pinning writes the slot and the name; unpinning drops the name from the
- * pinned list and lets the next assignment decide, which is what "automatic"
- * has to mean if it is offered at all.
+ * Taking it back drops the name and lets the next assignment decide, which is
+ * what "automatic" has to mean if it is offered at all.
  */
-function chooseColour(kind, name, slot) {
+function chooseColour(kind, name, colour) {
   const palette = PALETTES[kind];
-  const pinned = new Set(palette.state.pinned);
-  const slots = { ...palette.state.slots };
-  if (slot === null) {
-    pinned.delete(name);
-    delete slots[name];
-  } else {
-    pinned.add(name);
-    slots[name] = slot;
-  }
+  const colours = { ...palette.state.colours };
+  if (colour === null) delete colours[name];
+  else colours[name] = colour;
   palette.state = assignSlots(
     namesOf(kind),
-    { slots, pinned: [...pinned] },
+    { slots: palette.state.slots, colours },
     WORKSPACE_HUES.length,
     palette.offset,
   );
@@ -1376,9 +1390,21 @@ function wireControls() {
     syncControls();
     applyFilters();
   });
+  // `input` rather than `change`: the rows follow the picker while it is being
+  // dragged, which is the same immediacy the frame colour already has and the
+  // only way to judge a colour against the list it will live in.
+  el('palette-colour').addEventListener('input', (event) => {
+    if (!recolouring) return;
+    chooseColour(recolouring.kind, recolouring.name, event.target.value);
+    paintTag(el('palette-preview'), recolouring.kind, recolouring.name);
+    el('palette-auto').disabled = false;
+  });
   el('palette-auto').addEventListener('click', () => {
-    if (recolouring) chooseColour(recolouring.kind, recolouring.name, null);
-    el('palette').close();
+    if (!recolouring) return;
+    chooseColour(recolouring.kind, recolouring.name, null);
+    el('palette-colour').value = paintedTag(recolouring.kind, recolouring.name);
+    paintTag(el('palette-preview'), recolouring.kind, recolouring.name);
+    el('palette-auto').disabled = true;
   });
   el('open-settings').addEventListener('click', () => void openSettings());
   // Named on `window` so the native menu can reach it: the page and the menu

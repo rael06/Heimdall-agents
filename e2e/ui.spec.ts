@@ -373,31 +373,74 @@ test('the provider is a coloured chip, like the workspace', async ({ page }) => 
   expect(await hueOf(page, '.badge')).not.toBe('');
 });
 
-test('a colour can be chosen by hand, and stays chosen', async ({ page }) => {
+test('any colour at all can be chosen by hand, and stays chosen', async ({ page }) => {
   await open(page);
   const automatic = await hueOf(page, '.badge');
+  const badge = rows(page).first().locator('.badge');
+  const painted = () =>
+    badge.evaluate((node) => {
+      const style = getComputedStyle(node);
+      return { background: style.backgroundColor, colour: style.color };
+    });
 
   const brush = rows(page).first().locator('td.provider .brush');
   await expect(brush).toHaveAttribute('aria-label', /claude|codex/);
   await brush.click();
   await expect(page.locator('#palette')).toBeVisible();
 
-  // The tenth colour, which is hue 168 — the list is not evenly spaced, so the
-  // position and the hue are deliberately unrelated numbers.
-  await page.locator('#palette-swatches button').nth(9).click();
-  await expect(page.locator('#palette')).not.toBeVisible();
-  expect(await hueOf(page, '.badge')).toBe('168');
+  // Not one of a list. The picker offers what the frame colour offers, so the
+  // test picks a colour that is deliberately not in the palette at all.
+  await page.locator('#palette-colour').fill('#fa1f19');
+  // Black on this red, not white: it sits at relative luminance 0.213, where
+  // black gives 5.26:1 and white only 3.99:1. A saturated colour is not
+  // necessarily a dark one, which is the assumption the ink exists to replace.
+  expect(await painted()).toEqual({ background: 'rgb(250, 31, 25)', colour: 'rgb(0, 0, 0)' });
+  await page.locator('#palette').getByText('Close').click();
 
   await page.reload();
   await expect(rows(page)).not.toHaveCount(0);
-  expect(await hueOf(page, '.badge')).toBe('168');
+  expect((await painted()).background).toBe('rgb(250, 31, 25)');
 
   // And handing it back returns it to whatever the assignment would have said.
   await rows(page).first().locator('td.provider .brush').click();
   await page.locator('#palette-auto').click();
-  await expect(page.locator('#palette')).not.toBeVisible();
+  await page.locator('#palette').getByText('Close').click();
   expect(await hueOf(page, '.badge')).toBe(automatic);
   expect(problems).toEqual([]);
+});
+
+test('what is written on a chosen colour stays readable on it', async ({ page }) => {
+  await open(page);
+  const badge = rows(page).first().locator('.badge');
+  await rows(page).first().locator('td.provider .brush').click();
+
+  // Across the range, including the mid greys where black and white are closest
+  // to each other — that band is the whole reason the ink is one or the other.
+  for (const colour of ['#ffffff', '#000000', '#808080', '#6b6b6b', '#fa1f19', '#00ff00']) {
+    await page.locator('#palette-colour').fill(colour);
+    const seen = await badge.evaluate((node) => {
+      const style = getComputedStyle(node);
+      return { background: style.backgroundColor, colour: style.color };
+    });
+    expect(ratio(seen.colour, seen.background), `text on ${colour}`).toBeGreaterThanOrEqual(4.5);
+  }
+  await page.locator('#palette-auto').click();
+  await page.locator('#palette').getByText('Close').click();
+});
+
+test('the provider chip is drawn at the size of the workspace chip', async ({ page }) => {
+  await open(page);
+  const row = rows(page).first();
+  const sizes = await row.evaluate((node) => {
+    const read = (selector: string) => {
+      const style = getComputedStyle(node.querySelector(selector)!);
+      return `${style.fontSize} ${style.paddingLeft} ${style.paddingRight}`;
+    };
+    return { provider: read('.badge'), workspace: read('td.ws .link') };
+  });
+  // Two chips of two sizes in neighbouring columns read as a difference in
+  // importance between a provider and a workspace, and there is not one.
+  expect(sizes.provider).toBe(sizes.workspace);
 });
 
 test('the workspace column starts at a readable width, not at its floor', async ({ page }) => {

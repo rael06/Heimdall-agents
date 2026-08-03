@@ -231,9 +231,11 @@ Open that URL and you get the list, live.
   near enough distinguishable ones to make it rare. Giving them out means no two projects on screen
   share a colour while any are left. There are sixteen, spaced by measurement rather than evenly,
   and the two columns start half the list apart so they do not mirror each other.
-- **The brush beside each value reassigns its colour**, and a chosen one is then never moved to make
-  room — including when that means two things share a colour, which is a choice you are allowed to
-  make. *Choose for me* hands it back to the automatic assignment.
+- **The brush beside each value opens a free colour picker**, the same one the frame colour uses —
+  not a list to choose from. A colour you pick is used exactly as picked, in both themes, and the
+  text on it is black or white, whichever can be read: whatever colour is chosen, the better of the
+  two clears 4.58:1. A chosen colour takes no place in the palette, so it never costs another
+  project one. *Choose for me* hands it back to the automatic assignment.
 - **Filters, sort and search live in the URL**, so a view reloads and can be bookmarked.
 - **A click opens the session** in VS Code — the title opens the conversation, the workspace opens
   its window, and the icon on the left opens the raw transcript. Opening a session acknowledges it.
