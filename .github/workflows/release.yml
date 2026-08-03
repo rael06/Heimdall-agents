@@ -8,12 +8,19 @@ name: Release
 on:
   push:
     tags: ['v*']
-  # So a release can be rehearsed without pushing a tag.
+  # So a release can be rehearsed without pushing a tag — and, by default,
+  # without publishing anything. This workflow only ever ran on a real release
+  # before, which meant a change to it could not be tried except by publishing,
+  # and the packaging step is exactly the part worth trying.
   workflow_dispatch:
     inputs:
       tag:
-        description: Tag to build, e.g. v1.0.2
+        description: Tag to build, e.g. v1.1.4
         required: true
+      publish:
+        description: Publish it, rather than stopping after the checks
+        type: boolean
+        default: false
 
 permissions:
   contents: write
@@ -48,15 +55,69 @@ jobs:
       - run: npx vitest run
       - run: npm run contrast
 
+      # electron-builder fetches its packaging toolchain at build time and
+      # unpacks Electron itself — measured at 138 MB and 31 MB on a machine that
+      # has built this. Keeping both takes roughly 170 MB of downloading off the
+      # critical path of every release, which is one of the two ways this step
+      # has actually failed.
+      - name: Cache the packaging toolchain
+        uses: actions/cache@v6
+        with:
+          path: |
+            ~\AppData\Local\electron\Cache
+            ~\AppData\Local\electron-builder\Cache
+          key: packaging-${{ runner.os }}-${{ hashFiles('package-lock.json') }}
+          # NSIS and 7zip do not move with the lockfile, so a near miss is still
+          # worth restoring.
+          restore-keys: packaging-${{ runner.os }}-
+
+      # The one step in any of these workflows that reaches the network beyond
+      # `npm ci` and runs a heavy native pack. It has failed twice, and neither
+      # time was the code: GitHub answered 500 for a packaging resource, and on
+      # the next release node.exe died mid-package with 0xC0000005. Both passed
+      # on a re-run — and a release that needs somebody to press "re-run" is a
+      # release that waits for one.
+      #
+      # Two attempts, not five. A third would start concealing a failure that
+      # genuinely reproduces, which is the opposite of what this workflow is
+      # for. The attempt that failed is left in the log as a warning rather than
+      # swallowed, so a run that needed its second try still says so.
       - name: Build the installer
-        run: npm run dist
+        shell: pwsh
+        run: |
+          # Both are deliberate, and neither is currently required. GitHub runs
+          # this step with ErrorActionPreference = Stop, and a PowerShell where
+          # a failing native command also throws would abort the loop on its
+          # first attempt instead of retrying — measured: one attempt made
+          # rather than two. It is off by default on 7.6, and a default that can
+          # flip is a poor thing to rest on when the failure is silent: the
+          # retry would simply stop retrying, and only on the runs where it
+          # mattered.
+          $ErrorActionPreference = 'Continue'
+          $PSNativeCommandUseErrorActionPreference = $false
+
+          foreach ($attempt in 1..2) {
+            # A previous attempt may have left a partial installer behind, and
+            # the artifact check below counts what it finds.
+            if (Test-Path release) { Remove-Item release -Recurse -Force }
+            npm run dist
+            if ($LASTEXITCODE -eq 0) { exit 0 }
+            Write-Host "::warning::packaging attempt $attempt failed with exit code $LASTEXITCODE"
+            Start-Sleep -Seconds 15
+          }
+          Write-Host "::error::packaging failed twice; this is not the flake it looks like"
+          exit 1
 
       # Both artefacts, and the manifest actually covering the installer beside
       # it. Publishing 1.0.0 is what proved these can be named differently.
       - name: The artifacts are complete
         run: node scripts/check-release.mjs --artifacts
 
+      # A tag push always publishes; a manual run has to ask for it. Everything
+      # above this line has already run either way, so a rehearsal exercises the
+      # whole thing except the one irreversible step.
       - name: Publish
+        if: github.event_name == 'push' || inputs.publish
         shell: pwsh
         env:
           GH_TOKEN: ${{ github.token }}
