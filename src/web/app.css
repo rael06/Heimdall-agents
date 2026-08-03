@@ -529,7 +529,7 @@ td.ws .link {
  * which the interface test then read as 1.17:1 against a stylesheet that was
  * otherwise right.
  */
-.ws-tag {
+.tag {
   --tag-fg: light-dark(oklch(.34 .13 var(--hue)), oklch(.88 .12 var(--hue)));
   color: var(--tag-fg);
   /*
@@ -559,7 +559,53 @@ td.ws .link {
 /* A plain link recolours to the accent on hover. On a chip that drops a blue
    word onto a coloured field with no contrast guarantee, so the tag keeps its
    own foreground and the underline carries the affordance. */
-.ws-tag:hover { color: var(--tag-fg); }
+.tag:hover { color: var(--tag-fg); }
+
+/*
+ * The provider wears the same chip as the workspace, and its grey border goes
+ * with it — two columns of names, drawn the same way, told apart by colour.
+ */
+.badge.tag { border-color: light-dark(oklch(.55 .12 var(--hue)), oklch(.68 .12 var(--hue))); }
+
+/*
+ * The brush that opens the colour picker, before the value it paints.
+ *
+ * Quiet by colour rather than by opacity, like the transcript icon it sits in a
+ * row with: it is on every row and repeats one action per project, so at full
+ * strength it would read as a third thing to do with a workspace. Always drawn
+ * rather than revealed on hover — a control that only exists under a pointer is
+ * one a keyboard never finds.
+ */
+.brush {
+  background: none;
+  border: 1px solid transparent;
+  border-radius: 4px;
+  padding: 0 .15rem;
+  margin-right: .1rem;
+  color: var(--faint);
+  line-height: 1.2;
+}
+.brush:hover { color: var(--fg); border-color: var(--edge); }
+.brush[hidden] { display: none; }
+
+/* The picker itself: every colour shown on the name it would be given to. */
+.swatches {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: .35rem;
+  margin-bottom: .75rem;
+}
+.swatch-colour {
+  font: inherit;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  padding: .15rem .45rem;
+  cursor: pointer;
+}
+/* The one in force, marked by more than its colour: on a grid of colours, a
+   coloured outline is the one signal that cannot be read. */
+.swatch-colour[aria-pressed="true"] { outline: 2px solid var(--fg); outline-offset: 1px; }
 
 .matched { color: var(--muted); font-size: .85em; margin-left: .4rem; }
 

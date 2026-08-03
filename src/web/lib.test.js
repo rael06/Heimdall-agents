@@ -1,16 +1,17 @@
 import { describe, expect, it } from 'vitest';
 import {
+  COLUMN_FORMAT,
   MAX_COLUMN_WIDTH,
   MIN_COLUMN_WIDTH,
   WORKSPACE_HUES,
-  assignWorkspaceSlots,
+  assignSlots,
   clampColumnWidth,
   contrast,
   day,
   folder,
   hashSlot,
   readColumnWidths,
-  readWorkspaceSlots,
+  readSlots,
   minutesSince,
   normalizeSort,
   readable,
@@ -150,35 +151,63 @@ describe('hashSlot', () => {
   });
 });
 
-describe('assignWorkspaceSlots', () => {
+describe('assignSlots', () => {
+  const fresh = { slots: {}, pinned: [] };
+
   it('gives every project on screen a colour of its own', () => {
     // The property the whole thing exists for, and the one a hash cannot have:
     // six names drawn from ten colours collide 85% of the time, which is the
     // birthday problem and not a weak hash. The first screenshot of the hashed
     // version had two projects wearing the same colour.
     const names = ['coly-1680', 'coly-1781', 'digicybersec', 'heimdall-agents', 'olympe', 'tva'];
-    const slots = assignWorkspaceSlots(names, {});
+    const { slots } = assignSlots(names, fresh);
     expect(new Set(Object.values(slots)).size).toBe(names.length);
   });
 
   it('does not move a colour when another project appears', () => {
     // A colour that shifts under the reader is worse than no colour: the list
     // is read by its groups, and the groups would change meaning on a scan.
-    const first = assignWorkspaceSlots(['beta', 'delta'], {});
-    const second = assignWorkspaceSlots(['alpha', 'beta', 'delta'], first);
-    expect(second.beta).toBe(first.beta);
-    expect(second.delta).toBe(first.delta);
-    expect(new Set(Object.values(second)).size).toBe(3);
+    const first = assignSlots(['beta', 'delta'], fresh);
+    const second = assignSlots(['alpha', 'beta', 'delta'], first);
+    expect(second.slots.beta).toBe(first.slots.beta);
+    expect(second.slots.delta).toBe(first.slots.delta);
+    expect(new Set(Object.values(second.slots)).size).toBe(3);
   });
 
   it('hands out the same colours twice running on a fresh profile', () => {
     const names = ['alpha', 'beta', 'gamma'];
-    expect(assignWorkspaceSlots(names, {})).toEqual(assignWorkspaceSlots(names, {}));
+    expect(assignSlots(names, fresh)).toEqual(assignSlots(names, fresh));
+  });
+
+  it('keeps a colour the reader chose, even against a project that wants it', () => {
+    // The point of pinning. A chosen colour that the next scan quietly moved
+    // would be the application overruling the person using it.
+    const chosen = { slots: { alpha: 3 }, pinned: ['alpha'] };
+    const after = assignSlots(['alpha', 'beta', 'gamma'], chosen);
+    expect(after.slots.alpha).toBe(3);
+    expect(after.pinned).toEqual(['alpha']);
+  });
+
+  it('lets two projects share a colour when that is what was asked for', () => {
+    // Both pinned to the same slot by hand. Silently moving one would be a
+    // setting that pretends to save.
+    const chosen = { slots: { alpha: 5, beta: 5 }, pinned: ['alpha', 'beta'] };
+    const after = assignSlots(['alpha', 'beta'], chosen);
+    expect(after.slots).toEqual({ alpha: 5, beta: 5 });
+  });
+
+  it('gives an automatic colour up rather than a chosen one', () => {
+    // `beta` held 1 automatically; `alpha` is pinned to it. The pin wins and
+    // beta moves, which is the only order that keeps a choice meaningful.
+    const stored = { slots: { alpha: 1, beta: 1 }, pinned: ['alpha'] };
+    const after = assignSlots(['alpha', 'beta'], stored);
+    expect(after.slots.alpha).toBe(1);
+    expect(after.slots.beta).not.toBe(1);
   });
 
   it('reuses a colour once they have all been given out', () => {
     const many = Array.from({ length: WORKSPACE_HUES.length + 4 }, (_, i) => `project-${i}`);
-    const slots = assignWorkspaceSlots(many, {});
+    const { slots } = assignSlots(many, fresh);
     expect(Object.keys(slots)).toHaveLength(many.length);
     for (const slot of Object.values(slots)) {
       expect(slot).toBeGreaterThanOrEqual(0);
@@ -189,32 +218,61 @@ describe('assignWorkspaceSlots', () => {
   });
 
   it('ignores a stored slot that is not one', () => {
-    const slots = assignWorkspaceSlots(['alpha', 'beta'], { alpha: 99, beta: 'blue' });
+    const { slots } = assignSlots(['alpha', 'beta'], { slots: { alpha: 99, beta: 'blue' } });
     expect(new Set(Object.values(slots)).size).toBe(2);
     for (const slot of Object.values(slots)) expect(slot).toBeLessThan(WORKSPACE_HUES.length);
   });
 
-  it('refuses to seat two projects on one stored slot', () => {
-    // A file written by hand, or two names that were once one.
-    const slots = assignWorkspaceSlots(['alpha', 'beta'], { alpha: 3, beta: 3 });
-    expect(new Set(Object.values(slots)).size).toBe(2);
+  it('starts where it is told, so two columns do not open on one colour', () => {
+    // The provider column draws from the same list as the workspace column, and
+    // both opening on the first colour had `claude` and the first workspace
+    // wearing the same pink — a relationship anyone can see and that is not one.
+    // Half the list along rather than reversed: the list is a loop, and its last
+    // colour sits 32° from its first, which is where reversing first put them.
+    const forward = assignSlots(['claude', 'codex'], fresh);
+    const shifted = assignSlots(['claude', 'codex'], fresh, WORKSPACE_HUES.length, 8);
+    expect(forward.slots).toEqual({ claude: 0, codex: 1 });
+    expect(shifted.slots).toEqual({ claude: 8, codex: 9 });
+  });
+
+  it('wraps round the list rather than running off the end of it', () => {
+    const names = Array.from({ length: WORKSPACE_HUES.length }, (_, i) => `p${i}`);
+    const { slots } = assignSlots(names, fresh, WORKSPACE_HUES.length, 14);
+    expect(new Set(Object.values(slots)).size).toBe(WORKSPACE_HUES.length);
+  });
+
+  it('forgets a pin for a project that is no longer anywhere', () => {
+    const after = assignSlots(['alpha'], { slots: { gone: 2 }, pinned: ['gone'] });
+    expect(after.pinned).toEqual([]);
   });
 });
 
-describe('readWorkspaceSlots', () => {
+describe('readSlots', () => {
   it('reads back what was stored', () => {
-    expect(readWorkspaceSlots('{"alpha":0,"beta":7}')).toEqual({ alpha: 0, beta: 7 });
+    expect(readSlots('{"slots":{"alpha":0,"beta":7},"pinned":["beta"]}')).toEqual({
+      slots: { alpha: 0, beta: 7 },
+      pinned: ['beta'],
+    });
   });
 
   it('keeps the part that still makes sense', () => {
     // Unlike the column widths, a partial answer is useful: a name that lost
     // its slot is given the next free one and nothing else moves.
-    expect(readWorkspaceSlots('{"alpha":0,"beta":99,"gamma":"x"}')).toEqual({ alpha: 0 });
+    expect(readSlots('{"slots":{"alpha":0,"beta":99,"gamma":"x"}}')).toEqual({
+      slots: { alpha: 0 },
+      pinned: [],
+    });
+  });
+
+  it('drops a pin with no colour behind it', () => {
+    expect(readSlots('{"slots":{"alpha":0},"pinned":["alpha","ghost",7]}').pinned).toEqual([
+      'alpha',
+    ]);
   });
 
   it('survives anything at all in the stored value', () => {
     for (const stored of [null, undefined, '', 'not json', '[]', '"text"', '7']) {
-      expect(readWorkspaceSlots(stored)).toEqual({});
+      expect(readSlots(stored)).toEqual({ slots: {}, pinned: [] });
     }
   });
 });
@@ -242,9 +300,10 @@ describe('clampColumnWidth', () => {
 
 describe('readColumnWidths', () => {
   const keys = ['status', 'title'];
+  const stored = (widths) => JSON.stringify({ v: COLUMN_FORMAT, widths });
 
   it('reads back a complete set', () => {
-    expect(readColumnWidths('{"status":50,"title":300}', keys)).toEqual({
+    expect(readColumnWidths(stored({ status: 50, title: 300 }), keys)).toEqual({
       status: 50,
       title: 300,
     });
@@ -253,10 +312,20 @@ describe('readColumnWidths', () => {
   it('clamps on the way in, not only on the way out', () => {
     // What was stored has been through a synchronised profile and possibly a
     // text editor since it was written.
-    expect(readColumnWidths('{"status":1,"title":99999}', keys)).toEqual({
+    expect(readColumnWidths(stored({ status: 1, title: 99999 }), keys)).toEqual({
       status: MIN_COLUMN_WIDTH,
       title: MAX_COLUMN_WIDTH,
     });
+  });
+
+  it('throws away a set written before the widths were drawn correctly', () => {
+    // The migration, and the reason for the stamp. Until 1.1.9 a column could be
+    // dragged narrow, the width stored, and something else drawn entirely — so
+    // those files describe a layout nobody ever saw. Restoring one after the fix
+    // applied it for the first time, and a workspace column that had looked
+    // untouched came back at its floor.
+    expect(readColumnWidths('{"status":50,"title":300}', keys)).toEqual({});
+    expect(readColumnWidths(JSON.stringify({ v: 1, widths: { status: 50 } }), keys)).toEqual({});
   });
 
   it('drops the whole set when a column is missing from it', () => {
@@ -264,23 +333,23 @@ describe('readColumnWidths', () => {
     // equal share of the leftover space instead of sizing to its contents, so
     // restoring "most of" a layout would quietly squash whatever it could not
     // name — after a rename, or an upgrade that added a column.
-    expect(readColumnWidths('{"status":50}', keys)).toEqual({});
-    expect(readColumnWidths('{"status":50,"title":"wide"}', keys)).toEqual({});
-    expect(readColumnWidths('{"status":50,"title":null}', keys)).toEqual({});
+    expect(readColumnWidths(stored({ status: 50 }), keys)).toEqual({});
+    expect(readColumnWidths(stored({ status: 50, title: 'wide' }), keys)).toEqual({});
+    expect(readColumnWidths(stored({ status: 50, title: null }), keys)).toEqual({});
   });
 
   it('ignores a column it no longer has', () => {
     // The opposite case: a column that was removed leaves a key behind, and the
     // ones still on screen are all present, so the layout is restorable.
-    expect(readColumnWidths('{"status":50,"title":300,"gone":90}', keys)).toEqual({
+    expect(readColumnWidths(stored({ status: 50, title: 300, gone: 90 }), keys)).toEqual({
       status: 50,
       title: 300,
     });
   });
 
   it('survives anything at all in the stored value', () => {
-    for (const stored of [null, undefined, '', 'not json', '[]', '"text"', '7', '{}']) {
-      expect(readColumnWidths(stored, keys)).toEqual({});
+    for (const value of [null, undefined, '', 'not json', '[]', '"text"', '7', '{}']) {
+      expect(readColumnWidths(value, keys)).toEqual({});
     }
   });
 });

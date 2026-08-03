@@ -178,6 +178,23 @@
   <p id="empty" class="empty hidden" role="status"></p>
 </main>
 
+<!--
+  The colour picker. A dialog rather than a floating panel, for the same reason
+  the settings are one: it is the element that traps focus, closes on Escape and
+  restores focus to what opened it, all without a line of script.
+-->
+<dialog id="palette">
+  <form method="dialog">
+    <h2 id="palette-heading"></h2>
+    <div id="palette-swatches" class="swatches" role="group"></div>
+    <div class="bar">
+      <button id="palette-auto" type="button" data-i18n="palette.auto">Automatic</button>
+      <span class="grow"></span>
+      <button value="cancel" type="submit" data-i18n="settings.close">Close</button>
+    </div>
+  </form>
+</dialog>
+
 <dialog id="settings">
   <form method="dialog">
     <h2 data-i18n="settings.heading">Settings</h2>
