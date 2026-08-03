@@ -31,11 +31,11 @@ function session(overrides: Partial<AgentSession> & { id: string }): AgentSessio
 }
 
 describe('compareSessions', () => {
-  it('orders running, failed, idle, unknown', () => {
-    const order: SessionStatus[] = ['unknown', 'idle', 'failed', 'running'];
+  it('orders running, unknown, failed, idle', () => {
+    const order: SessionStatus[] = ['idle', 'failed', 'unknown', 'running'];
     const sessions = order.map((status, index) => session({ id: `s${index}`, status }));
     const sorted = [...sessions].sort(compareSessions).map((item) => item.status);
-    expect(sorted).toEqual(['running', 'failed', 'idle', 'unknown']);
+    expect(sorted).toEqual(['running', 'unknown', 'failed', 'idle']);
   });
 
   it('puts the most recently active session first within a status', () => {

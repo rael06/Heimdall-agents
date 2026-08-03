@@ -31,28 +31,33 @@ function announce(text) {
 }
 
 /** Display priority, matching the service. */
-const STATUSES = ['running', 'failed', 'idle', 'unknown'];
+/** Matches STATUS_ORDER in the service: the chips and the sort share one order. */
+const STATUSES = ['running', 'unknown', 'failed', 'idle'];
 const PROVIDERS = ['claude', 'codex'];
 /** A shape per status, so colour is never the only carrier. */
 /*
- * Circle, cross, triangle, diamond: four shapes nobody has to compare against
- * each other to tell apart, which is the whole point of not leaving the meaning
- * to colour.
+ * Circle, diamond, square, triangle: four silhouettes nobody has to compare
+ * against each other to tell apart, which is the whole point of not leaving the
+ * meaning to colour.
  *
- * `failed` was a filled square and is now a cross. A square says nothing on its
- * own — it was only ever "the red one" — while a cross reads as a failure with
- * the colour taken away, which is exactly the condition this set exists for.
+ * They were characters — `●✕▲◇` — until the three candidates were rendered side
+ * by side at three times size and looked at. The dot is small, the cross is
+ * thin, the diamond is a hairline: four glyphs from four type families, because
+ * that is what they were. Drawn from one set they carry one weight.
  *
- * The other three are unchanged, and `idle` deliberately so: the triangle is the
- * application's own icon, drawn by `scripts/make-icon.mjs` as "the one shape in
- * the interface that means this one has stopped and is waiting for you". Picking
- * a prettier glyph here would quietly desynchronise the taskbar from the list.
+ * The prettiest candidate was rejected for being pretty. Play, x, pause and
+ * question in circles read beautifully at three times size and share a circular
+ * silhouette, and a silhouette is what survives when the centre does not.
+ *
+ * `idle` keeps its triangle: that triangle is the application's own icon, drawn
+ * by `scripts/make-icon.mjs` as "the one shape in the interface that means this
+ * one has stopped and is waiting for you".
  */
-const GLYPH = {
-  running: '●',
-  failed: '✕',
-  idle: '▲',
-  unknown: '◇',
+const STATUS_ICON = {
+  running: 'status-running',
+  unknown: 'status-unknown',
+  failed: 'status-failed',
+  idle: 'status-idle',
 };
 
 const state = {
@@ -423,8 +428,24 @@ const ASCENDING = {
  */
 function comparator(sort) {
   const { key, ascending } = splitSort(sort);
-  const primary = ASCENDING[key] ?? ASCENDING.created;
+  const marked = {
+    watched: (session) => state.marks.watched.includes(session.id),
+    starred: (session) => state.marks.favorites.includes(session.id),
+  };
+  const primary =
+    marked[key] !== undefined
+      ? (a, b) => Number(marked[key](a)) - Number(marked[key](b))
+      : (ASCENDING[key] ?? ASCENDING.created);
   const ordered = (a, b) => (ascending ? primary(a, b) : -primary(a, b)) || byTitle(a, b);
+
+  // Sorting *by* a marker replaces the automatic grouping rather than fighting
+  // it. The grouping is a default — it lifts what you follow without being
+  // asked — and a default that outranked an explicit click would make the two
+  // new columns do nothing at all: watched rows are already first, so ordering
+  // by them could never change anything, least of all put them last.
+  if (marked[key] !== undefined) {
+    return ordered;
+  }
 
   const rank = (session) => {
     if (state.marks.watched.includes(session.id)) return 0;
@@ -468,7 +489,8 @@ function updateRow(tr, session) {
   const unseen = state.marks.unacknowledged.includes(session.id);
 
   const status = tr.querySelector('.status');
-  status.textContent = GLYPH[session.status] ?? '?';
+  prependIcon(status, STATUS_ICON[session.status] ?? 'status-unknown');
+  swapIcon(status, STATUS_ICON[session.status] ?? 'status-unknown');
   status.dataset.status = session.status;
   status.dataset.unseen = String(unseen);
   // An inferred status has to justify itself, and the label carries the meaning
@@ -883,11 +905,13 @@ function swapIcon(button, name) {
 function decorate(button, status, label) {
   button.textContent = '';
   if (status) {
-    const glyph = document.createElement('span');
-    glyph.className = 'chip-glyph';
+    const glyph = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+    glyph.setAttribute('class', 'icon chip-glyph');
     glyph.dataset.status = status;
-    glyph.textContent = GLYPH[status] ?? '?';
     glyph.setAttribute('aria-hidden', 'true');
+    const use = document.createElementNS('http://www.w3.org/2000/svg', 'use');
+    use.setAttribute('href', `#icon-${STATUS_ICON[status] ?? 'status-unknown'}`);
+    glyph.append(use);
     button.append(glyph);
   }
   // The word in a span of its own rather than loose in the button: with a glyph
@@ -1204,9 +1228,19 @@ async function boot() {
   prependIcon(el('watched-only'), 'eye');
   prependIcon(el('favorites-only'), 'star');
   prependIcon(el('notify'), 'bell');
-  // The status column header, whose word moved to `sr-only` so the column stops
-  // being five times wider than the shape it holds.
-  prependIcon(document.querySelector('button.sort[data-key="status"]'), 'circles-three');
+  // Reset turns back, refresh turns forward.
+  prependIcon(el('reset'), 'reset');
+  prependIcon(el('refresh'), 'refresh');
+  // The three headers whose words moved to `sr-only`, so a column stops being
+  // several times wider than the mark it holds. Each wears what its column
+  // carries; all three still sort.
+  for (const [key, icon] of [
+    ['status', 'circles-three'],
+    ['watched', 'eye'],
+    ['starred', 'star'],
+  ]) {
+    prependIcon(document.querySelector(`button.sort[data-key="${key}"]`), icon);
+  }
   applyLanguage();
   syncControls();
   wireControls();

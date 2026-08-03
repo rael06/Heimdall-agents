@@ -67,11 +67,24 @@ export function readable(hex, background) {
 
 // --------------------------------------------------------------------- sort
 
-export const SORT_KEYS = ['status', 'created', 'updated', 'provider', 'workspace', 'title'];
+export const SORT_KEYS = [
+  'status',
+  'watched',
+  'starred',
+  'created',
+  'updated',
+  'provider',
+  'workspace',
+  'title',
+];
 
 /** The direction a column takes on its first click, which is the useful one. */
 export const FIRST_DIRECTION = {
   status: 'asc',
+  // Marked first: nobody clicks the eye to be shown everything they are not
+  // following.
+  watched: 'desc',
+  starred: 'desc',
   created: 'desc',
   updated: 'desc',
   provider: 'asc',

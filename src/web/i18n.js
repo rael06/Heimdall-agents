@@ -43,6 +43,10 @@ const TRANSLATIONS = {
     'notifyScope.watched': 'watched sessions',
     'notifyScope.unacknowledged': 'anything unacknowledged',
 
+    'sort.watched-desc': 'watched first',
+    'sort.watched-asc': 'watched last',
+    'sort.starred-desc': 'starred first',
+    'sort.starred-asc': 'starred last',
     'sort.status-asc': 'status, most urgent first',
     'sort.status-desc': 'status, least urgent first',
     'sort.created-desc': 'created, newest first',
@@ -188,6 +192,10 @@ const TRANSLATIONS = {
     'notifyScope.watched': 'sessions suivies',
     'notifyScope.unacknowledged': 'tout ce qui est non vu',
 
+    'sort.watched-desc': 'suivies d’abord',
+    'sort.watched-asc': 'suivies en dernier',
+    'sort.starred-desc': 'favorites d’abord',
+    'sort.starred-asc': 'favorites en dernier',
     'sort.status-asc': 'statut, plus urgent d’abord',
     'sort.status-desc': 'statut, moins urgent d’abord',
     'sort.created-desc': 'création, plus récent d’abord',
