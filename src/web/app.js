@@ -480,6 +480,12 @@ function updateRow(tr, session) {
   // A hollow shape when unset and a filled one when set. Drawing both the same
   // and colouring the difference makes every row look marked at a glance, and
   // leaves nothing at all for anyone who does not see the colour.
+  //
+  // The star is drawn rather than typed: `☆` and `★` are two characters from a
+  // block the rest of the interface does not use, and they were the pair that
+  // looked foreign next to the geometric shapes. Phosphor's `star` and
+  // `star-fill` are the same drawing in two weights, which is exactly the
+  // off/on the marker means.
   const favorite = state.marks.favorites.includes(session.id);
   const mark = (selector, on, offGlyph, onGlyph, onKey, offKey) => {
     const button = tr.querySelector(selector);
@@ -489,7 +495,7 @@ function updateRow(tr, session) {
     button.title = t(on ? onKey : offKey);
   };
   mark('.watched', watched, '○', '◉', 'row.watchedOn', 'row.watchedOff');
-  mark('.favorite', favorite, '☆', '★', 'row.starredOn', 'row.starredOff');
+  markWithIcon(tr.querySelector('.favorite'), favorite, 'star', 'row.starredOn', 'row.starredOff');
   // Set here rather than in the markup, so it follows the language like the rest.
   const transcript = tr.querySelector('.transcript');
   transcript.title = t('row.openTranscript');
@@ -831,6 +837,31 @@ function statusLabel(status) {
  * announcing "black circle running" is worse than one announcing "running".
  * It is decoration for the eye and duplication for anything else.
  */
+/**
+ * Points a button at one of the sprite's symbols.
+ *
+ * Built with `createElementNS` and `<use>` rather than assigned as markup: SVG
+ * is not HTML, `innerHTML` would silently produce elements in the wrong
+ * namespace that render as nothing, and this file writes no markup from a
+ * string anywhere else either.
+ */
+function markWithIcon(button, on, name, onKey, offKey) {
+  const id = on ? `${name}-fill` : name;
+  let svg = button.querySelector('svg');
+  if (!svg) {
+    svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+    svg.setAttribute('class', 'icon');
+    svg.setAttribute('aria-hidden', 'true');
+    svg.append(document.createElementNS('http://www.w3.org/2000/svg', 'use'));
+    button.textContent = '';
+    button.append(svg);
+  }
+  svg.firstChild.setAttribute('href', `#icon-${id}`);
+  button.setAttribute('aria-pressed', String(on));
+  button.setAttribute('aria-label', t(on ? onKey : offKey));
+  button.title = t(on ? onKey : offKey);
+}
+
 function decorate(button, status, label) {
   button.textContent = '';
   if (status) {
@@ -1025,6 +1056,15 @@ function wireControls() {
 
   document.addEventListener('keydown', (event) => {
     const typing = ['INPUT', 'SELECT', 'TEXTAREA'].includes(event.target.tagName);
+    // The same shortcut the native menu advertises, so the two hosts answer the
+    // same key. The desktop application hides its settings button because the
+    // menu carries it; a browser has no menu, so without this the panel would
+    // have exactly one door and losing it would lose the settings.
+    if (event.key === ',' && (event.ctrlKey || event.metaKey)) {
+      event.preventDefault();
+      void openSettings();
+      return;
+    }
     if (event.key === '/' && !typing) {
       event.preventDefault();
       el('query').focus();
@@ -1146,6 +1186,10 @@ async function boot() {
   state.service = initial.state;
   state.marks = initial.marks;
   for (const session of initial.sessions) state.sessions.set(session.id, session);
+  // Where a native menu already carries Settings, the button in the bar is a
+  // second door to one room and takes space from the controls that have none.
+  // Where there is no menu — a browser — it is the only door, and stays.
+  el('open-settings').classList.toggle('hidden', Boolean(initial.host?.nativeMenu));
   renderService();
   applyFilters();
 

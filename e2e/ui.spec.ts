@@ -320,6 +320,50 @@ test('every status glyph is a glyph this machine actually has', async ({ page })
   }
 });
 
+test('the starred marker is drawn from the sprite, in two weights', async ({ page }) => {
+  await open(page);
+
+  // The sprite is inlined into the document like the stylesheet, because a
+  // browser does not carry the token across to a relative asset.
+  await expect(page.locator('#icon-star')).toHaveCount(1);
+  await expect(page.locator('#icon-star-fill')).toHaveCount(1);
+
+  const row = rows(page).first();
+  const marker = row.locator('.favorite');
+  await expect(marker.locator('svg use')).toHaveAttribute('href', '#icon-star');
+
+  await marker.click();
+  await expect(marker).toHaveAttribute('aria-pressed', 'true');
+  // The same drawing at a heavier weight, which is what on/off means here.
+  await expect(marker.locator('svg use')).toHaveAttribute('href', '#icon-star-fill');
+  // One element reused rather than replaced, so nothing under the cursor moves.
+  await expect(marker.locator('svg')).toHaveCount(1);
+
+  // It takes its colour from the marker state, as the typed glyphs beside it do.
+  const painted = await marker.locator('svg').evaluate((node) => getComputedStyle(node).color);
+  expect(painted).toMatch(/^rgb/);
+
+  await marker.click();
+  await expect(marker.locator('svg use')).toHaveAttribute('href', '#icon-star');
+  expect(problems).toEqual([]);
+});
+
+test('settings stay reachable on a service with no menu of its own', async ({ page }) => {
+  await open(page);
+
+  // This suite drives `asm serve`, which is read in a browser: there is no File
+  // menu, so the button is the only door and must not be hidden.
+  await expect(page.locator('#open-settings')).toBeVisible();
+
+  // And the shortcut the desktop menu advertises works here too, which is what
+  // lets the application hide its button without losing the room behind it.
+  await page.locator('body').press('Control+,');
+  await expect(page.locator('#settings')).toBeVisible();
+  await page.keyboard.press('Escape');
+  await expect(page.locator('#settings')).toBeHidden();
+  expect(problems).toEqual([]);
+});
+
 test('an inferred status justifies itself in its tooltip', async ({ page }) => {
   await open(page);
   const status = rows(page).first().locator('.status');

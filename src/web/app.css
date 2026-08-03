@@ -326,6 +326,22 @@ td.num { min-width: 5ch; }
   font-size: .85em;
 }
 
+/*
+ * A drawn icon, sized to sit on the same line as the typed ones beside it.
+ *
+ * `1em` and `vertical-align: -0.14em` rather than a pixel size: the markers in a
+ * row are characters sharing the text baseline, and an SVG has none. Without
+ * this the star rides high and the row of markers stops being a row.
+ *
+ * `currentColor` comes from the sprite, so the marker states colour it exactly
+ * as they colour the characters.
+ */
+.icon {
+  width: 1em;
+  height: 1em;
+  vertical-align: -0.14em;
+}
+
 /* A marker is a button: a click lands on the thing it means, never on the row. */
 .marker {
   background: none;

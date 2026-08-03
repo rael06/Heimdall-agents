@@ -21,7 +21,7 @@
     "dist"
   ],
   "scripts": {
-    "build": "node scripts/make-icon.mjs && tsc && node scripts/copy-assets.mjs",
+    "build": "node scripts/make-icon.mjs && node scripts/make-sprite.mjs && tsc && node scripts/copy-assets.mjs",
     "check-types": "tsc --noEmit",
     "lint": "eslint src",
     "test": "vitest run",
@@ -39,6 +39,7 @@
   },
   "devDependencies": {
     "@eslint/js": "^10.0.1",
+    "@phosphor-icons/core": "^2.1.1",
     "@playwright/test": "^1.62.1",
     "@types/node": "^20.19.43",
     "@vitest/coverage-v8": "^4.1.10",

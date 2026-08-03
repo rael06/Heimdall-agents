@@ -33,13 +33,20 @@ function sleep(ms: number): Promise<void> {
   });
 }
 
-async function isStale(lockPath: string, now: number): Promise<boolean> {
+/**
+ * How long the lock has been held, or `undefined` if there is no longer one.
+ *
+ * The distinction is the whole point, and collapsing it into "stale: yes/no" was
+ * a way to lose a write. A lock that has *gone* is not a lock to remove — by the
+ * time the caller acts on the answer, somebody else may hold a fresh one, and
+ * removing that leaves two writers believing they have exclusive access.
+ */
+async function lockAge(lockPath: string, now: number): Promise<number | undefined> {
   try {
     const stat = await fs.stat(lockPath);
-    return now - stat.mtimeMs > STALE_AFTER_MS;
+    return now - stat.mtimeMs;
   } catch {
-    // Released while we were looking: treat it as free.
-    return true;
+    return undefined;
   }
 }
 
@@ -72,7 +79,18 @@ async function acquire(lockPath: string): Promise<void> {
     // STALE_AFTER_MS. Waiting up to five seconds for a live holder is slower
     // than overwriting it, and it is the difference between a change that
     // arrives late and a change that is silently gone.
-    if (await isStale(lockPath, Date.now())) {
+    const age = await lockAge(lockPath, Date.now());
+
+    // The lock went away while we were looking at it. Try again at once and
+    // remove nothing: between this answer and any `rm` acting on it, another
+    // writer can have taken a fresh lock, and deleting that one puts two of them
+    // inside at the same time. Removing it here cost exactly one write per
+    // occurrence — `expected 15 to be 16`, and seven stars kept out of eight.
+    if (age === undefined) {
+      continue;
+    }
+
+    if (age > STALE_AFTER_MS) {
       await fs.rm(lockPath, { force: true });
       continue;
     }
