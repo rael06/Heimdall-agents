@@ -142,7 +142,9 @@ test('the interface and the dates follow the chosen language', async ({ page }) 
   );
 
   // Statuses are words, so they are translated; providers are names and are not.
-  await expect(page.locator('#status-filters button').first()).toHaveText('en cours');
+  // The label, not the whole button: a status chip carries its shape too, and
+  // `textContent` on the button would be "●en cours".
+  await expect(page.locator('#status-filters .chip-label').first()).toHaveText('en cours');
   await expect(page.locator('#provider-filters button').first()).toHaveText('claude');
   // The header carries a date too, and drawing the list does not touch it.
   await expect(page.locator('#service-state')).toHaveText(/\d{2}\/\d{2}\/\d{4}/);
@@ -254,6 +256,68 @@ test('refresh sits beside acknowledge, on the bar that carries the counter', asy
   await page.locator('body').press('r');
   await expect(rows(page)).toHaveCount(3);
   expect(problems).toEqual([]);
+});
+
+test('a status filter shows the shape it filters on', async ({ page }) => {
+  await open(page);
+
+  // The rows have carried a shape per status from the beginning; the chips
+  // carried the word alone, so the mapping had to be learned twice.
+  for (const [status, glyph] of [
+    ['running', '●'],
+    ['failed', '✕'],
+    ['idle', '▲'],
+    ['unknown', '◇'],
+  ]) {
+    const chip = page.locator(`#status-filters .chip[data-value="${status}"]`);
+    await expect(chip.locator('.chip-glyph')).toHaveText(glyph);
+    // The word is beside it, so the shape is decoration for the eye and noise
+    // for anything reading the page aloud.
+    await expect(chip.locator('.chip-glyph')).toHaveAttribute('aria-hidden', 'true');
+
+    // The same shape in the row, when a row of that status is on screen. The
+    // fixtures only ever produce `running` and `idle` — asserting all four here
+    // is what the first version of this test did, and it failed for a reason
+    // that had nothing to do with the chips.
+    const row = page.locator(`tbody .status[data-status="${status}"]`).first();
+    if (await row.count()) {
+      await expect(row).toHaveText(new RegExp(glyph));
+    }
+  }
+
+  // The statuses that raise a notification are the same four, and say so.
+  await expect(page.locator('#notify-on .chip[data-status="failed"] .chip-glyph')).toHaveText('✕');
+  // Providers are names, not states: no shape to show.
+  await expect(page.locator('#provider-filters .chip-glyph')).toHaveCount(0);
+  expect(problems).toEqual([]);
+});
+
+test('every status glyph is a glyph this machine actually has', async ({ page }) => {
+  await open(page);
+
+  // A missing glyph renders as .notdef — the tofu box — and looks deliberate
+  // enough to ship. Measured against a codepoint no font defines: anything
+  // whose advance width matches that is not being drawn.
+  const widths = await page.evaluate(() => {
+    const probe = document.createElement('span');
+    probe.style.cssText = 'position:absolute; visibility:hidden; font: inherit';
+    document.body.append(probe);
+    const measure = (text: string): number => {
+      probe.textContent = text;
+      return probe.getBoundingClientRect().width;
+    };
+    const result = {
+      tofu: measure('￿'),
+      glyphs: ['●', '✕', '▲', '◇'].map((g) => ({ g, width: measure(g) })),
+    };
+    probe.remove();
+    return result;
+  });
+
+  for (const { g, width } of widths.glyphs) {
+    expect(width, `${g} appears to be missing from the font`).toBeGreaterThan(0);
+    expect(Math.abs(width - widths.tofu), `${g} renders at the notdef width`).toBeGreaterThan(0.5);
+  }
 });
 
 test('an inferred status justifies itself in its tooltip', async ({ page }) => {
