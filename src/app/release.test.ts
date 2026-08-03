@@ -1,5 +1,12 @@
 import { describe, expect, it } from 'vitest';
-import { compareVersions, isNewer, isTrustedHost, parseRelease, sha512For } from './release';
+import {
+  compareVersions,
+  isInstallable,
+  isNewer,
+  isTrustedHost,
+  parseRelease,
+  sha512For,
+} from './release';
 
 const payload = {
   tag_name: 'v0.27.0',
@@ -149,5 +156,27 @@ describe('isTrustedHost', () => {
     expect(isTrustedHost('https://github.com.example.net/o/r')).toBe(false);
     expect(isTrustedHost('https://evil.test/setup.exe')).toBe(false);
     expect(isTrustedHost('not a url')).toBe(false);
+  });
+});
+
+describe('isInstallable', () => {
+  const asset = (name: string) => ({ name, url: `https://github.com/${name}`, size: 1 });
+
+  it('wants the installer and the manifest that vouches for it', () => {
+    expect(
+      isInstallable({ version: '1.0.2', installer: asset('setup.exe'), manifest: asset('latest.yml') }),
+    ).toBe(true);
+  });
+
+  it('refuses a release with no manifest rather than skipping the checksum', () => {
+    // This is the case that used to install anyway, verifying nothing but the
+    // declared byte length. Without a certificate the published sha512 is the
+    // whole of what can be checked, so its absence is a refusal.
+    expect(isInstallable({ version: '1.0.2', installer: asset('setup.exe') })).toBe(false);
+  });
+
+  it('refuses a release with nothing to install', () => {
+    expect(isInstallable({ version: '1.0.2', manifest: asset('latest.yml') })).toBe(false);
+    expect(isInstallable({ version: '1.0.2' })).toBe(false);
   });
 });

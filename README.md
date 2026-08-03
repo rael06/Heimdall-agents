@@ -58,9 +58,15 @@ interrupt you about exactly one thing.
 
 The installer is unsigned, so what is verified is worth stating: the address at **every** redirect
 hop (GitHub serves assets from `objects.githubusercontent.com`, and each hop is checked to still be
-a GitHub host over TLS), the length against what the release declared, and the `sha512` when the
-release carries electron-builder's `latest.yml`. That is the whole of it without a certificate, and
-the dialog says as much rather than implying more.
+a GitHub host over TLS), the length against what the release declared, and the `sha512` published in
+electron-builder's `latest.yml`. That is the whole of it without a certificate, and the dialog says
+as much rather than implying more.
+
+**A release with no `latest.yml` is not installed from.** That manifest carries the only checksum
+there is, so without it nothing about the download can be checked, and the alternative would be
+running an installer whose sole credential is that it arrived over TLS. The dialog says so instead,
+before you choose rather than after — and the release workflow refuses to publish a release that is
+missing it, so the situation should not arise.
 
 **It needs a published release to do anything.** An unauthenticated request to a private repository
 answers 404, which is indistinguishable from having no releases — so both are reported as *no

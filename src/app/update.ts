@@ -104,15 +104,19 @@ export async function downloadInstaller(release: Release): Promise<string> {
     throw new Error('That release carries no Windows installer.');
   }
 
-  let expected: string | undefined;
-  if (release.manifest) {
-    expected = sha512For(await body(await request(release.manifest.url, {})), installer.name);
-    if (!expected) {
-      // A release that publishes a manifest and yet says nothing about this file
-      // is not a release to install from. Carrying on unverified would be the
-      // worst of both: the check advertised, and quietly not performed.
-      throw new Error('The release publishes a checksum manifest that does not cover this file.');
-    }
+  if (!release.manifest) {
+    // No longer treated as "then skip the checksum". Without a certificate the
+    // published sha512 is the whole of what can be verified, so a release
+    // without one cannot be installed from — and saying so beats running an
+    // installer whose only credential is that it arrived over TLS.
+    throw new Error('That release publishes no checksum manifest, so nothing about it can be verified.');
+  }
+  const expected = sha512For(await body(await request(release.manifest.url, {})), installer.name);
+  if (!expected) {
+    // A release that publishes a manifest and yet says nothing about this file
+    // is not a release to install from. Carrying on unverified would be the
+    // worst of both: the check advertised, and quietly not performed.
+    throw new Error('The release publishes a checksum manifest that does not cover this file.');
   }
 
   const target = path.join(
@@ -134,7 +138,7 @@ export async function downloadInstaller(release: Release): Promise<string> {
     throw new Error(`Downloaded ${received} bytes where the release declared ${installer.size}.`);
   }
   const actual = digest.digest('base64');
-  if (expected && actual !== expected) {
+  if (actual !== expected) {
     throw new Error('The download does not match the checksum published with the release.');
   }
 
