@@ -118,6 +118,20 @@ export function isNewer(current: string, candidate: string): boolean {
 }
 
 /**
+ * Whether this release carries enough to be installed from.
+ *
+ * Both halves are required, and the manifest is the one that used to be
+ * optional. Without a code-signing certificate the published `sha512` is the
+ * only thing standing between a download and running an installer, so a release
+ * that omits it cannot be verified at all — and the choice is then between
+ * running it unverified and not running it. Refusing is the honest half, and it
+ * is decided here rather than discovered halfway through a download.
+ */
+export function isInstallable(release: Release): boolean {
+  return Boolean(release.installer && release.manifest);
+}
+
+/**
  * One file name as another spelling of itself.
  *
  * The same installer is called three different things: electron-builder writes

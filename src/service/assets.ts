@@ -18,6 +18,20 @@ const STYLES = '<!--{{styles}}-->';
 const I18N = '<!--{{i18n}}-->';
 const SCRIPT = '<!--{{script}}-->';
 
+/**
+ * `lib.js` and `app.js` go into the *same* module script, in that order.
+ *
+ * Not two scripts and not an import: a browser does not carry the token in the
+ * query string over to a relative `./lib.js`, so importing would mean exempting
+ * one file from the rule that every route needs the token. Concatenated, the
+ * two share one module scope and `lib.js`'s `export` keywords are simply inert —
+ * an inline module has no importer. They exist for Vitest, which imports the
+ * file directly and never sees this page at all.
+ */
+function moduleScript(lib: string, app: string): string {
+  return `<script type="module">\n${lib}\n${app}\n</script>`;
+}
+
 export class AssetReader {
   private page?: string;
 
@@ -30,10 +44,11 @@ export class AssetReader {
     }
     const file = (name: string): Promise<string> =>
       fs.readFile(path.join(this.directory, name), 'utf8');
-    const [html, css, i18n, js] = await Promise.all([
+    const [html, css, i18n, lib, js] = await Promise.all([
       file('index.html'),
       file('app.css'),
       file('i18n.js'),
+      file('lib.js'),
       file('app.js'),
     ]);
     // The files cannot change while the service runs, so one read is enough.
@@ -42,7 +57,7 @@ export class AssetReader {
     this.page = html
       .replace(STYLES, `<style>\n${css}\n</style>`)
       .replace(I18N, `<script>\n${i18n}\n</script>`)
-      .replace(SCRIPT, `<script type="module">\n${js}\n</script>`);
+      .replace(SCRIPT, moduleScript(lib, js));
     return this.page;
   }
 }

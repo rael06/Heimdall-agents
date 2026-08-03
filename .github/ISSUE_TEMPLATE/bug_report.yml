@@ -1,0 +1,44 @@
+name: Something is wrong
+description: A status that is not what happened, a click that leads nowhere, a window that does not come back.
+labels: [bug]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Please do not report a security problem here — see
+        [SECURITY.md](../blob/main/SECURITY.md) for the private route.
+
+  - type: textarea
+    id: what
+    attributes:
+      label: What happened, and what you expected instead
+      description: The second half matters as much as the first.
+    validations:
+      required: true
+
+  - type: input
+    id: version
+    attributes:
+      label: Version
+      description: From Help → About, which also prints where the shared files are.
+      placeholder: Heimdall agents 1.0.1
+    validations:
+      required: true
+
+  - type: dropdown
+    id: provider
+    attributes:
+      label: Which provider's sessions
+      options: [Claude, Codex, Both, Not about a session]
+    validations:
+      required: true
+
+  - type: textarea
+    id: transcript
+    attributes:
+      label: Anything from the transcript, if a status is wrong
+      description: |
+        A status is inferred from the last entries of a `.jsonl` transcript, so
+        those lines are usually the whole answer. Please remove anything you do
+        not want public — paths, folder names and prompts all end up in there.
+      render: json

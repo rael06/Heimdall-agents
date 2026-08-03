@@ -100,6 +100,25 @@ export interface ScanPreferences {
   handoffDelaySeconds: number;
 }
 
+/**
+ * What each of those numbers may actually be.
+ *
+ * The interface offers these as `min` and `max` on the inputs, which is a hint
+ * to a form and nothing to a service: `POST /api/settings` took whatever number
+ * arrived. The route is behind the token, so this was never a way in — it was a
+ * way to persist `maxSessions: 1e9` and have the providers built with it, which
+ * surfaces much later as an application that reads nothing.
+ *
+ * The markup mirrors these, and this is the side that decides.
+ */
+export const SCAN_BOUNDS: Readonly<Record<string, { min: number; max: number }>> = {
+  maxSessions: { min: 10, max: 5000 },
+  // 0 means everything, which is why the floor is not 1.
+  historyDays: { min: 0, max: 3650 },
+  staleAfterMinutes: { min: 1, max: 10080 },
+  handoffDelaySeconds: { min: 0, max: 30 },
+};
+
 export const DEFAULT_SCAN: ScanPreferences = {
   maxSessions: 300,
   historyDays: 30,
@@ -166,9 +185,21 @@ export function sanitizePreferences(value: unknown, fallback: NotificationPrefer
     // A value of the wrong shape is dropped rather than carried: these are
     // written by an interface, and a string where a number belongs would only
     // surface much later, as a provider that quietly reads nothing.
-    if (typeof value === wanted && (wanted !== 'number' || Number.isFinite(value as number))) {
-      (scan as Record<string, unknown>)[key] = value;
+    if (typeof value !== wanted || (wanted === 'number' && !Number.isFinite(value as number))) {
+      continue;
     }
+    if (wanted !== 'number') {
+      (scan as Record<string, unknown>)[key] = value;
+      continue;
+    }
+    // Clamped rather than rejected: a number out of range is a slider pushed too
+    // far, and the nearest legal value is what was meant. A fraction is not —
+    // these all count things.
+    const bounds = SCAN_BOUNDS[key];
+    const rounded = Math.round(value as number);
+    (scan as Record<string, unknown>)[key] = bounds
+      ? Math.min(bounds.max, Math.max(bounds.min, rounded))
+      : rounded;
   }
 
   return {

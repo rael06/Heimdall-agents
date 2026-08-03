@@ -23,6 +23,10 @@ export class SseHub {
       Connection: 'keep-alive',
       // Nothing about a session should ever be cached by anything in between.
       'X-Accel-Buffering': 'no',
+      // This stream is opened with the token in its address like every other
+      // route, so it carries the same two headers as the rest.
+      'X-Content-Type-Options': 'nosniff',
+      'Referrer-Policy': 'no-referrer',
     });
     // Tell the browser to come back quickly, and flush the headers now so the
     // connection counts as open even before the first event.

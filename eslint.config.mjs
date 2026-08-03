@@ -22,11 +22,31 @@ export default tseslint.config(
   },
   {
     // `i18n.js` is served as a classic script before the module, so what it
-    // declares is a global by the time `app.js` runs. Declared here rather than
-    // silenced with a comment, so an actual typo is still caught.
+    // declares is a global by the time `app.js` runs. `lib.js` is concatenated
+    // into the same module script just above `app.js`, so what it exports is in
+    // scope by the same trick. Declared here rather than silenced with a
+    // comment, so an actual typo is still caught.
     files: ['src/web/app.js'],
     languageOptions: {
-      globals: { resolveLanguage: 'readonly', translate: 'readonly', TRANSLATIONS: 'readonly' },
+      globals: {
+        resolveLanguage: 'readonly',
+        translate: 'readonly',
+        TRANSLATIONS: 'readonly',
+        channel: 'readonly',
+        luminance: 'readonly',
+        contrast: 'readonly',
+        toRgb: 'readonly',
+        toHex: 'readonly',
+        parseRgb: 'readonly',
+        readable: 'readonly',
+        SORT_KEYS: 'readonly',
+        FIRST_DIRECTION: 'readonly',
+        normalizeSort: 'readonly',
+        splitSort: 'readonly',
+        day: 'readonly',
+        folder: 'readonly',
+        minutesSince: 'readonly',
+      },
     },
   },
   {

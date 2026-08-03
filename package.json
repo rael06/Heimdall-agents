@@ -1,6 +1,6 @@
 {
   "name": "heimdall-agents",
-  "version": "1.0.1",
+  "version": "1.1.0",
   "description": "Watches local Claude Code and Codex sessions, and tells you when a model stops working.",
   "license": "MIT",
   "author": "rael06",
@@ -26,17 +26,22 @@
     "lint": "eslint src",
     "test": "vitest run",
     "test:watch": "vitest",
+    "test:coverage": "vitest run --coverage",
     "asm": "node dist/cli/main.js",
     "test:e2e": "playwright test",
     "icon": "node scripts/make-icon.mjs",
     "app": "npm run build && electron .",
     "dist": "npm run build && electron-builder --publish never",
-    "contrast": "node scripts/check-contrast.mjs"
+    "contrast": "node scripts/check-contrast.mjs",
+    "check-release": "node scripts/check-release.mjs",
+    "prepack": "npm run build",
+    "prepublishOnly": "npm run build"
   },
   "devDependencies": {
     "@eslint/js": "^10.0.1",
     "@playwright/test": "^1.62.1",
     "@types/node": "^22.10.0",
+    "@vitest/coverage-v8": "^3.2.7",
     "electron": "^43.2.0",
     "electron-builder": "^26.15.3",
     "eslint": "^10.8.0",
@@ -56,6 +61,9 @@
       }
     ],
     "productName": "Heimdall agents",
+    "directories": {
+      "output": "release"
+    },
     "files": [
       "dist/**/*",
       "!dist/builder-debug.yml",

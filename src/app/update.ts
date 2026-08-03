@@ -1,9 +1,10 @@
 import { spawn } from 'node:child_process';
 import { createHash } from 'node:crypto';
-import { promises as fs } from 'node:fs';
+import { createWriteStream, promises as fs } from 'node:fs';
 import { get as httpsGet } from 'node:https';
 import * as os from 'node:os';
 import * as path from 'node:path';
+import { pipeline } from 'node:stream/promises';
 import { IncomingMessage } from 'node:http';
 import { Release, isNewer, isTrustedHost, parseRelease, releaseUrl, sha512For } from './release';
 
@@ -98,47 +99,76 @@ export async function checkForUpdate(currentVersion: string): Promise<UpdateChec
  * when the release carries one. Without a code-signing certificate that is the
  * whole of what can be verified, and it is stated rather than implied.
  */
-export async function downloadInstaller(release: Release): Promise<string> {
+export async function downloadInstaller(
+  release: Release,
+  /**
+   * Called as bytes arrive, with a fraction when the release declared a length
+   * and `undefined` when it did not. A 200 MB download behind a modal that does
+   * not move reads as a hang rather than as work.
+   */
+  onProgress?: (fraction: number | undefined, received: number) => void,
+): Promise<string> {
   const installer = release.installer;
   if (!installer) {
     throw new Error('That release carries no Windows installer.');
   }
 
-  let expected: string | undefined;
-  if (release.manifest) {
-    expected = sha512For(await body(await request(release.manifest.url, {})), installer.name);
-    if (!expected) {
-      // A release that publishes a manifest and yet says nothing about this file
-      // is not a release to install from. Carrying on unverified would be the
-      // worst of both: the check advertised, and quietly not performed.
-      throw new Error('The release publishes a checksum manifest that does not cover this file.');
-    }
+  if (!release.manifest) {
+    // No longer treated as "then skip the checksum". Without a certificate the
+    // published sha512 is the whole of what can be verified, so a release
+    // without one cannot be installed from — and saying so beats running an
+    // installer whose only credential is that it arrived over TLS.
+    throw new Error('That release publishes no checksum manifest, so nothing about it can be verified.');
+  }
+  const expected = sha512For(await body(await request(release.manifest.url, {})), installer.name);
+  if (!expected) {
+    // A release that publishes a manifest and yet says nothing about this file
+    // is not a release to install from. Carrying on unverified would be the
+    // worst of both: the check advertised, and quietly not performed.
+    throw new Error('The release publishes a checksum manifest that does not cover this file.');
   }
 
-  const target = path.join(
-    await fs.mkdtemp(path.join(os.tmpdir(), 'heimdall-agents-update-')),
-    installer.name,
-  );
+  const directory = await fs.mkdtemp(path.join(os.tmpdir(), 'heimdall-agents-update-'));
+  const target = path.join(directory, installer.name);
   const response = await request(installer.url, {});
-  const chunks: Buffer[] = [];
+
+  // Written as it arrives rather than assembled in memory first. The installer
+  // is around 200 MB, and holding all of it to hand the same bytes to a file a
+  // moment later is a cost paid for nothing — on a machine short of memory it
+  // is a cost paid at exactly the moment somebody asked for an upgrade.
+  //
+  // It reaches disk before it is trusted, which is safe because nothing runs it
+  // until both checks below pass, and the file is thrown away if they do not.
   const digest = createHash('sha512');
   let received = 0;
-  for await (const chunk of response) {
-    const buffer = chunk as Buffer;
-    received += buffer.length;
-    digest.update(buffer);
-    chunks.push(buffer);
+  const file = createWriteStream(target);
+  try {
+    await pipeline(
+      response,
+      async function* (source: AsyncIterable<Buffer>) {
+        for await (const chunk of source) {
+          received += chunk.length;
+          digest.update(chunk);
+          onProgress?.(installer.size ? received / installer.size : undefined, received);
+          yield chunk;
+        }
+      },
+      file,
+    );
+
+    if (installer.size && received !== installer.size) {
+      throw new Error(`Downloaded ${received} bytes where the release declared ${installer.size}.`);
+    }
+    if (digest.digest('base64') !== expected) {
+      throw new Error('The download does not match the checksum published with the release.');
+    }
+  } catch (error) {
+    // Nothing half-verified is left lying in the temporary directory for
+    // something else to find and run.
+    await fs.rm(directory, { recursive: true, force: true }).catch(() => undefined);
+    throw error;
   }
 
-  if (installer.size && received !== installer.size) {
-    throw new Error(`Downloaded ${received} bytes where the release declared ${installer.size}.`);
-  }
-  const actual = digest.digest('base64');
-  if (expected && actual !== expected) {
-    throw new Error('The download does not match the checksum published with the release.');
-  }
-
-  await fs.writeFile(target, Buffer.concat(chunks));
   return target;
 }
 

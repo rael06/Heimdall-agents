@@ -1,0 +1,72 @@
+name: Release
+
+# Publishing was a sequence of remembered steps: bump, tag, build, and attach
+# the installer *and* latest.yml. The update path refuses to install from a
+# release whose manifest does not cover the file, so forgetting the manifest
+# does not fail loudly — it quietly downgrades the check to a length comparison.
+# A step the code defends itself against at runtime is a step worth automating.
+on:
+  push:
+    tags: ['v*']
+  # So a release can be rehearsed without pushing a tag.
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: Tag to build, e.g. v1.0.2
+        required: true
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    # electron-builder produces an NSIS installer, which is built on Windows.
+    runs-on: windows-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+
+      - run: npm ci
+
+      # Before anything is built: the tag, package.json and the changelog have
+      # to be telling the same story. app.getVersion() is what the update check
+      # compares against, so a tag that disagrees with it produces an updater
+      # that appears broken rather than a release that is obviously mistagged.
+      - name: The version agrees with itself
+        shell: pwsh
+        run: node scripts/check-release.mjs "${{ inputs.tag || github.ref_name }}"
+
+      # A release is exactly where the gate belongs, and a tag push does not run
+      # the checks workflow.
+      - run: npx tsc --noEmit
+      - run: npx eslint src
+      - run: npx vitest run
+      - run: npm run contrast
+
+      - name: Build the installer
+        run: npm run dist
+
+      # Both artefacts, and the manifest actually covering the installer beside
+      # it. Publishing 1.0.0 is what proved these can be named differently.
+      - name: The artifacts are complete
+        run: node scripts/check-release.mjs --artifacts
+
+      - name: Publish
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          $tag = "${{ inputs.tag || github.ref_name }}"
+          $installer = (Get-ChildItem release -Filter '*Setup*.exe' | Select-Object -First 1).FullName
+          # latest.yml is not decoration: the update path reads the sha512 out
+          # of it, and refuses to install when it does not cover the installer.
+          gh release create $tag `
+            "$installer" `
+            'release/latest.yml' `
+            --title $tag `
+            --generate-notes

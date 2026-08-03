@@ -65,7 +65,7 @@
     <button id="reset" type="button" data-i18n="bar.reset">Reset</button>
   </div>
 
-  <div class="bar wrap">
+  <div class="bar">
     <label><span data-i18n="bar.match">match</span>
       <select id="match">
         <option value="all" data-i18n="match.all">all of them</option>
@@ -89,18 +89,32 @@
   </div>
 
   <div class="bar">
-    <span id="counts" class="muted"></span>
-    <button id="reorder" type="button" class="hidden"></button>
+    <!-- Both change for the same reason — the list moved — so they are announced
+         together rather than as two unrelated interruptions. -->
+    <span class="live" role="status">
+      <span id="counts" class="muted"></span>
+      <button id="reorder" type="button" class="hidden"></button>
+    </span>
     <span class="grow"></span>
     <button id="ack-visible" type="button" data-i18n="bar.acknowledge">Acknowledge visible</button>
   </div>
 
-  <div id="notices"></div>
+  <div id="notices" role="status"></div>
+
+  <!--
+    What is worth interrupting for and has nowhere on screen to live: the event
+    stream dropping, a handover that led nowhere. The visible copy of these sits
+    in #service-state, which is deliberately not a live region — it restates the
+    last scan time every thirty seconds, and a region that speaks on a timer is
+    one people switch off.
+  -->
+  <p id="announcer" class="sr-only" role="status"></p>
 </header>
 
-<main>
+<main data-i18n-aria-label="main.label">
   <div class="scroller">
-    <table>
+    <table id="sessions">
+      <caption class="sr-only" data-i18n="table.caption">Claude and Codex sessions</caption>
       <thead>
         <tr>
           <th scope="col"><button class="sort" type="button" data-key="status" data-i18n="column.status">status</button></th>
@@ -118,7 +132,7 @@
       <tbody id="rows"></tbody>
     </table>
   </div>
-  <p id="empty" class="empty hidden"></p>
+  <p id="empty" class="empty hidden" role="status"></p>
 </main>
 
 <dialog id="settings">

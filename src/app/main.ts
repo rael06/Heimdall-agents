@@ -12,6 +12,7 @@ import { HostControls } from '../service/settingsApi';
 import { createDesktop } from '../service/desktop';
 import { ElectronNotifier } from './notifier';
 import { AppRequest, PROTOCOL, openUri, requestFromArgv, showUri } from './protocol';
+import { isInstallable } from './release';
 import { checkForUpdate, downloadInstaller, runInstaller } from './update';
 
 /**
@@ -219,17 +220,52 @@ async function checkForUpdates(): Promise<void> {
     });
     return;
   }
-  if (found.kind === 'current' || !found.release?.installer) {
+  if (found.kind === 'current') {
     await dialog.showMessageBox({
       type: 'info',
       title: 'Up to date',
       message: `${APP_NAME} ${app.getVersion()} is the latest version.`,
-      detail: found.release?.installer ? '' : 'The latest release carries no Windows installer.',
     });
     return;
   }
 
   const release = found.release;
+  if (!release) {
+    return;
+  }
+
+  // A newer release with nothing to install is not "up to date", which is what
+  // this used to say — a version number the reader can see is newer than theirs,
+  // under a title claiming they have the latest.
+  if (!release.installer) {
+    await dialog.showMessageBox({
+      type: 'info',
+      title: 'Nothing to install',
+      message: `Version ${release.version} is published, and carries no Windows installer.`,
+      detail: `You are on ${app.getVersion()}. There is nothing here to install from yet.`,
+    });
+    return;
+  }
+
+  // Said before the choice rather than discovered after it. The published
+  // sha512 is the only thing that can be verified without a certificate, so a
+  // release that carries no manifest is one this cannot install from — and
+  // offering the button and then failing would be the same lie, later.
+  if (!isInstallable(release)) {
+    await dialog.showMessageBox({
+      type: 'warning',
+      title: 'Update available, but not verifiable',
+      message: `Version ${release.version} is published, and cannot be installed from here.`,
+      detail:
+        `The release carries no checksum manifest, so there is nothing to check ` +
+        `the download against. Without a code-signing certificate that manifest ` +
+        `is the whole of what can be verified, and running an installer whose ` +
+        `only credential is that it arrived over TLS is not something this will ` +
+        `do quietly.\n\nInstall it by hand from the releases page if you want it.`,
+    });
+    return;
+  }
+
   const { response } = await dialog.showMessageBox({
     type: 'question',
     buttons: ['Not now', 'Download and install'],
@@ -238,9 +274,10 @@ async function checkForUpdates(): Promise<void> {
     title: 'Update available',
     message: `Version ${release.version} is available. You have ${app.getVersion()}.`,
     detail:
-      `The installer is downloaded, checked against the length and checksum ` +
-      `published with the release, then run. ${APP_NAME} closes while it works ` +
-      `and comes back on the new version.\n\n` +
+      `The installer is downloaded, checked against the length and the sha512 ` +
+      `published with the release, then run — and nothing is run that fails ` +
+      `either check. ${APP_NAME} closes while it works and comes back on the ` +
+      `new version.\n\n` +
       `It is not code-signed, so Windows may warn about it — the only thing ` +
       `vouching for it is that it came from GitHub over TLS.`,
   });
@@ -249,17 +286,32 @@ async function checkForUpdates(): Promise<void> {
   }
 
   try {
-    const installer = await downloadInstaller(release);
+    // On the taskbar button, which is where Windows already shows the progress
+    // of a download and needs no window of our own. A modal that cannot be
+    // updated is why this used to look like a hang for the length of a 200 MB
+    // transfer.
+    const installer = await downloadInstaller(release, (fraction) => {
+      // -1 clears it; 2 is the indeterminate barber's pole, for a release that
+      // declared no length.
+      window?.setProgressBar(fraction ?? 2);
+    });
+    window?.setProgressBar(-1);
     runInstaller(installer, () => {
       quitting = true;
       app.quit();
     });
   } catch (error) {
+    window?.setProgressBar(-1);
     await dialog.showMessageBox({
       type: 'error',
       title: 'Update failed',
       message: 'Nothing was installed.',
-      detail: String(error instanceof Error ? error.message : error),
+      detail:
+        `${String(error instanceof Error ? error.message : error)}\n\n` +
+        `You are still on ${app.getVersion()} and nothing was replaced. Every ` +
+        `release stays on the releases page, so an installer can be fetched by ` +
+        `hand — and going back to an earlier version is the same thing: install ` +
+        `it over this one.`,
     });
   }
 }

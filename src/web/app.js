@@ -3,6 +3,33 @@ const token = new URLSearchParams(location.search).get('token') ?? '';
 const el = (id) => document.getElementById(id);
 const rowsBody = el('rows');
 
+/**
+ * Writes text only when it actually changed.
+ *
+ * Three of these elements are live regions now, and a live region is announced
+ * whenever its content is *written*, not whenever it differs. The list restates
+ * itself every thirty seconds on the full scan, so writing unconditionally
+ * would have a screen reader read the counter aloud on a timer — which is how
+ * an announcement channel gets switched off for good.
+ */
+function setText(node, text) {
+  if (node.textContent !== text) {
+    node.textContent = text;
+  }
+}
+
+/**
+ * Says something that is worth interrupting for and has nowhere on screen to
+ * live: the stream dropping, a handover that led nowhere. The visible copy goes
+ * to #service-state, which is not a live region on purpose.
+ */
+function announce(text) {
+  const announcer = el('announcer');
+  // Cleared first, so the same message twice in a row is still the second time.
+  announcer.textContent = '';
+  announcer.textContent = text;
+}
+
 /** Display priority, matching the service. */
 const STATUSES = ['running', 'failed', 'idle', 'unknown'];
 const PROVIDERS = ['claude', 'codex'];
@@ -144,28 +171,9 @@ async function detectProviders() {
 
 const THEMES = ['auto', 'light', 'dark'];
 
-function channel(value) {
-  const c = value / 255;
-  return c <= 0.03928 ? c / 12.92 : ((c + 0.055) / 1.055) ** 2.4;
-}
-
-function luminance([r, g, b]) {
-  return 0.2126 * channel(r) + 0.7152 * channel(g) + 0.0722 * channel(b);
-}
-
-function contrast(a, b) {
-  const [high, low] = [luminance(a), luminance(b)].sort((x, y) => y - x);
-  return (high + 0.05) / (low + 0.05);
-}
-
-const toRgb = (hex) => {
-  const n = parseInt(hex.slice(1), 16);
-  return [(n >> 16) & 255, (n >> 8) & 255, n & 255];
-};
-const toHex = ([r, g, b]) =>
-  '#' + [r, g, b].map((v) => Math.round(v).toString(16).padStart(2, '0')).join('');
-
-const parseRgb = (value) => (value.match(/\d+/g) ?? ['255', '255', '255']).slice(0, 3).map(Number);
+// The colour arithmetic — channel, luminance, contrast, readable and the hex
+// conversions — is in `lib.js`, which Vitest can import and a browser cannot
+// reach on a route of its own. What stays here is what needs a document.
 
 /** The background actually painted, which resolves whatever light-dark() chose. */
 function backgroundRgb() {
@@ -183,23 +191,6 @@ function paintedAccent() {
   const painted = parseRgb(getComputedStyle(probe).color);
   probe.remove();
   return toHex(painted);
-}
-
-/**
- * A readable version of the chosen colour.
- *
- * The frame only has to be seen, so it wears the colour as picked. The accent is
- * read as text — a link, a pressed chip — and a colour chosen at random is
- * about as likely to be illegible as not. So it is walked towards white or
- * black, whichever the background is not, until it clears 4.5:1.
- */
-function readable(hex, background) {
-  const target = luminance(background) > 0.5 ? [0, 0, 0] : [255, 255, 255];
-  let colour = toRgb(hex);
-  for (let step = 0; step < 40 && contrast(colour, background) < 4.5; step += 1) {
-    colour = colour.map((value, index) => value + (target[index] - value) * 0.08);
-  }
-  return toHex(colour);
 }
 
 function applyAppearance() {
@@ -302,6 +293,9 @@ function applyLanguage() {
   for (const node of document.querySelectorAll('[data-i18n-placeholder]')) {
     node.placeholder = translate(lang, node.dataset.i18nPlaceholder);
   }
+  for (const node of document.querySelectorAll('[data-i18n-aria-label]')) {
+    node.setAttribute('aria-label', translate(lang, node.dataset.i18nAriaLabel));
+  }
   // The two that name themselves rather than carrying a fixed key.
   const system = resolveLanguage('auto', navigator.languages);
   el('set-language').options[0].textContent = translate(lang, 'settings.languageAuto', {
@@ -311,49 +305,12 @@ function applyLanguage() {
   el('set-date-locale').options[1].textContent = translate(lang, 'settings.dateIso');
 }
 
-function day(iso) {
-  const date = new Date(iso);
-  if (Number.isNaN(date.getTime())) {
-    return '';
-  }
-  const pad = (value) => String(value).padStart(2, '0');
-  return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}`;
-}
-
-const folder = (cwd) => (cwd ? cwd.split(/[\\/]/).filter(Boolean).pop() : '-');
-
-function minutesSince(iso) {
-  const started = Date.parse(iso);
-  if (Number.isNaN(started)) {
-    return 0;
-  }
-  return Math.max(0, Math.floor((Date.now() - started) / 60000));
-}
-
 // ------------------------------------------------------------- URL as state
 
-const SORT_KEYS = ['status', 'created', 'updated', 'provider', 'workspace', 'title'];
-/** The direction a column takes on its first click, which is the useful one. */
-const FIRST_DIRECTION = {
-  status: 'asc',
-  created: 'desc',
-  updated: 'desc',
-  provider: 'asc',
-  workspace: 'asc',
-  title: 'asc',
-};
-
-/** Accepts the names earlier versions wrote, so an old bookmark still sorts. */
-function normalizeSort(value) {
-  if (!value) return 'created-desc';
-  if (value === 'status' || value === 'title') return `${value}-asc`;
-  const at = value.lastIndexOf('-');
-  const key = value.slice(0, at);
-  const direction = value.slice(at + 1);
-  return SORT_KEYS.includes(key) && (direction === 'asc' || direction === 'desc')
-    ? value
-    : 'created-desc';
-}
+// `day`, `folder`, `minutesSince`, `normalizeSort`, `splitSort`, `SORT_KEYS`
+// and `FIRST_DIRECTION` are in `lib.js` for the same reason as the colour
+// arithmetic: none of them needs a document, and all of them are worth asking
+// directly rather than through a browser.
 
 function readUrl() {
   const query = new URLSearchParams(location.search);
@@ -441,11 +398,6 @@ const ASCENDING = {
   workspace: (a, b) => (a.cwd ?? '').localeCompare(b.cwd ?? ''),
   title: byTitle,
 };
-
-function splitSort(sort) {
-  const at = sort.lastIndexOf('-');
-  return { key: sort.slice(0, at), ascending: sort.slice(at + 1) === 'asc' };
-}
 
 /**
  * Watched sessions come first, then starred ones, then the rest — the chosen
@@ -609,17 +561,20 @@ function render(applyOrder = false) {
   const reorder = el('reorder');
   if (moved > 0 && !applyOrder) {
     state.pendingOrder = true;
-    reorder.textContent = t('state.reorder', { count: moved });
+    setText(reorder, t('state.reorder', { count: moved }));
     reorder.classList.remove('hidden');
   } else {
     state.pendingOrder = null;
+    // Emptied as well as hidden: it shares a live region with the counter, and
+    // a hidden button that keeps its text would be read out with it.
+    setText(reorder, '');
     reorder.classList.add('hidden');
   }
 
-  el('counts').textContent = t('state.counts', {
-    visible: target.length,
-    loaded: state.sessions.size,
-  });
+  setText(
+    el('counts'),
+    t('state.counts', { visible: target.length, loaded: state.sessions.size }),
+  );
   renderEmpty(target.length);
   renderWorkspaces();
   if (state.selected && !target.includes(state.selected)) {
@@ -631,11 +586,13 @@ function renderEmpty(visible) {
   const empty = el('empty');
   if (visible > 0) {
     empty.classList.add('hidden');
+    // Cleared, or the live region would still hold the last "nothing matched".
+    setText(empty, '');
     return;
   }
   empty.classList.remove('hidden');
   if (state.sessions.size > 0) {
-    empty.textContent = t('state.noMatch');
+    setText(empty, t('state.noMatch'));
     return;
   }
   // An empty list must say where it looked; a missing provider is not the same
@@ -643,33 +600,50 @@ function renderEmpty(visible) {
   const roots = (state.service?.providers ?? [])
     .map((provider) => t('state.emptyProvider', { provider: provider.provider, root: provider.root }))
     .join('\n');
-  empty.textContent = roots || t('state.nothingFound');
+  setText(empty, roots || t('state.nothingFound'));
 }
 
+/**
+ * The notices, rebuilt only when they actually say something different.
+ *
+ * This used to empty the container and refill it on every state event, which is
+ * every scan. That is invisible when it only paints, and not invisible at all
+ * now that it is a live region: identical notices, torn down and put back every
+ * thirty seconds, would be read out every thirty seconds.
+ */
 function renderNotices() {
   const notices = el('notices');
-  notices.textContent = '';
   const service = state.service;
-  if (!service) return;
-  const add = (text) => {
-    const div = document.createElement('div');
-    div.className = 'notice';
-    div.textContent = text;
-    notices.append(div);
-  };
-  if (service.paused) add(t('notice.paused'));
-  for (const provider of service.providers) {
-    if (provider.error) {
-      add(t('notice.scanFailed', {
-        provider: provider.provider, root: provider.root, error: provider.error,
-      }));
+  const messages = [];
+  if (service) {
+    if (service.paused) messages.push(t('notice.paused'));
+    for (const provider of service.providers) {
+      if (provider.error) {
+        messages.push(t('notice.scanFailed', {
+          provider: provider.provider, root: provider.root, error: provider.error,
+        }));
+      }
+    }
+    for (const failure of service.watchFailures) {
+      messages.push(t('notice.notWatching', { root: failure.root, error: failure.error }));
+    }
+    if (service.truncated > 0) {
+      messages.push(t('notice.truncated', { count: service.truncated }));
     }
   }
-  for (const failure of service.watchFailures) {
-    add(t('notice.notWatching', { root: failure.root, error: failure.error }));
+
+  // A newline, not a NUL, for the same reason the workspace list uses one.
+  const signature = messages.join('\n');
+  if (notices.dataset.signature === signature) {
+    return;
   }
-  if (service.truncated > 0) {
-    add(t('notice.truncated', { count: service.truncated }));
+  notices.dataset.signature = signature;
+  notices.textContent = '';
+  for (const message of messages) {
+    const div = document.createElement('div');
+    div.className = 'notice';
+    div.textContent = message;
+    notices.append(div);
   }
 }
 
@@ -725,11 +699,21 @@ async function acknowledge(ids) {
  * service acknowledges it and pushes the new marks back.
  */
 async function open(id, target) {
+  const say = (message) => {
+    el('service-state').textContent = message;
+    // Only the outcomes worth interrupting for: a handover that reached what it
+    // was asked for says so on screen and stays quiet.
+    announce(message);
+  };
   try {
     const result = await post('/api/open', { id, target });
-    el('service-state').textContent = t(result.fellBack ? 'state.fellBack' : 'state.opening');
+    const message = t(result.fellBack ? 'state.fellBack' : 'state.opening');
+    el('service-state').textContent = message;
+    if (result.fellBack) {
+      announce(message);
+    }
   } catch (error) {
-    el('service-state').textContent = t('settings.failed', { error: error.message });
+    say(t('settings.failed', { error: error.message }));
   }
 }
 
@@ -845,14 +829,23 @@ function buildChips(container, values, selected, onToggle, label = (value) => va
   }
 }
 
-/** The header says which column orders the list, and which way. */
+/**
+ * The header says which column orders the list, and which way.
+ *
+ * On the `th`, not on the button inside it: `aria-sort` is only supported on a
+ * `columnheader`, and a `<button>` has role `button`. Set on the button — which
+ * is where it was — assistive technology drops it silently, so the one thing
+ * the attribute exists to convey was conveyed to nobody. The arrow is drawn in
+ * CSS off the same attribute, so it moves with it.
+ */
 function syncSortHeaders() {
   const { key, ascending } = splitSort(filters.sort);
   for (const button of document.querySelectorAll('button.sort')) {
+    const header = button.closest('th');
     if (button.dataset.key === key) {
-      button.setAttribute('aria-sort', ascending ? 'ascending' : 'descending');
+      header.setAttribute('aria-sort', ascending ? 'ascending' : 'descending');
     } else {
-      button.removeAttribute('aria-sort');
+      header.removeAttribute('aria-sort');
     }
   }
 }
@@ -1071,9 +1064,12 @@ function renderService() {
   const notifications = service?.notifications;
   const notify = el('notify');
   notify.setAttribute('aria-pressed', String(notifications?.enabled ?? false));
+  // Through the dictionary like everything else. These two were written in
+  // English in place, so switching to French left them behind — and the
+  // interface test asserted the English wording, which locked that in.
   notify.title = notifications?.enabled
-    ? `Notifying on: ${notifications.on.join(', ')}`
-    : 'Notifications are off';
+    ? t('notify.enabledTitle', { statuses: notifications.on.map(statusLabel).join(', ') })
+    : t('notify.disabledTitle');
   const scope = el('notify-scope');
   if (notifications?.scope) scope.value = notifications.scope;
   scope.disabled = !notifications?.enabled;
@@ -1131,7 +1127,11 @@ async function boot() {
     render();
   });
   stream.onerror = () => {
-    el('service-state').textContent = t('state.streamLost');
+    const message = t('state.streamLost');
+    el('service-state').textContent = message;
+    // The list silently stops updating otherwise, which looks exactly like a
+    // quiet afternoon.
+    announce(message);
   };
 
   // The minute counts climb without anything being written, so they are the one

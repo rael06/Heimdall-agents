@@ -1,0 +1,84 @@
+name: Checks
+
+# The rhythm this project already holds itself to, run by something other than
+# the person who wrote the change. Every step below was previously a line in
+# CLAUDE.md and a habit; a habit is not a gate.
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+# A newer push supersedes an older one: nothing is learned from finishing a run
+# whose commit is already history.
+concurrency:
+  group: checks-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  checks:
+    # Windows, and not for portability reasons. The end-to-end suite drives the
+    # real service through the compiled CLI, the notification path is PowerShell,
+    # and the handover asks Windows to open a URI. A green Linux run would be a
+    # green run of something else.
+    runs-on: windows-latest
+
+    strategy:
+      # Both ends of what package.json claims to support: the declared minimum,
+      # so `engines` stays a promise rather than a wish, and the version the
+      # application is actually developed on.
+      fail-fast: false
+      matrix:
+        node: [20, 24]
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ matrix.node }}
+          cache: npm
+
+      - name: Install
+        run: npm ci
+
+      - name: Types
+        run: npx tsc --noEmit
+
+      - name: Lint
+        run: npx eslint src
+
+      # With coverage, which carries a floor: "the tests pass" said nothing at
+      # all about what they reach until this was measured.
+      - name: Unit tests
+        run: npm run test:coverage
+
+      # Reads the stylesheet that ships, so it measures what a reader sees
+      # rather than a copy of the palette that can drift.
+      - name: Contrast
+        run: npm run contrast
+
+      - name: Build
+        run: npm run build
+
+      # The e2e suite starts its own service, on its own port, in its own
+      # temporary home, with notifications off. It needs no secret and touches
+      # nothing on the runner.
+      - name: Install the browser
+        run: npx playwright install chromium
+
+      - name: Interface tests
+        run: npx playwright test
+
+      - name: Keep the report of a failed run
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-report-node${{ matrix.node }}
+          path: |
+            playwright-report/
+            test-results/
+          retention-days: 7
+          if-no-files-found: ignore

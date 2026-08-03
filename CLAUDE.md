@@ -89,7 +89,7 @@ of wrong answer to give.
 ```sh
 taskkill /F /IM "Heimdall agents.exe"     # first, always
 npm run dist
-"dist/Heimdall agents Setup <version>.exe" /S
+"release/Heimdall agents Setup <version>.exe" /S
 # then launch it detached, from the desktop `tools` shortcut
 ```
 
@@ -122,9 +122,16 @@ npx playwright test`, `npm run contrast`. Then bump the version, update
 `CHANGELOG.md` and `README.md`, commit, merge into `main`, push, and restart the
 application as above.
 
-A user-visible release also needs `gh release create v<version>` with the
-installer **and** `latest.yml` attached — the update check refuses to install
-from a release whose manifest does not cover the file.
+A user-visible release is published by pushing the `v<version>` tag: the release
+workflow builds it and attaches the installer **and** `latest.yml` together. It
+refuses to publish if the tag, `package.json` and the changelog disagree, or if
+either artefact is missing — the update check refuses to install from a release
+whose manifest does not cover the file, and now refuses one carrying no manifest
+at all. `npm run check-release` runs the same check before tagging.
+
+`npm run dist` writes to `release/`, not to `dist/`. They shared a directory
+once, which made `files: ["dist"]` describe a 209 MB npm package with the
+installer inside it.
 
 Commit messages explain *why*, in prose, without bullet lists.
 

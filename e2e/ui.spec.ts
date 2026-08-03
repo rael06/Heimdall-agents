@@ -111,8 +111,11 @@ test('a random primary stays readable as text, whatever it is', async ({ page })
       return { accent: accentColour, background: getComputedStyle(document.body).backgroundColor };
     });
     // The frame only has to be seen; the accent is read, so it is walked until
-    // it clears the same 4.5:1 the palette is held to.
-    expect(ratio(accent, background)).toBeGreaterThanOrEqual(4.4);
+    // it clears the same 4.5:1 the palette is held to. The bar was 4.4 here,
+    // and that tenth of tolerance was hiding a real miss: `readable` judged the
+    // fractional colour it was walking rather than the rounded one it returns,
+    // and came back with 4.4967:1.
+    expect(ratio(accent, background)).toBeGreaterThanOrEqual(4.5);
   }
 
   await page.evaluate(() => localStorage.removeItem('primary'));
@@ -171,6 +174,64 @@ test('a bare service offers only what it can actually do', async ({ page }) => {
   await expect(page.locator('#host-settings')).toBeHidden();
   await expect(page.locator('#set-stale')).toBeVisible();
   await page.keyboard.press('Escape');
+  expect(problems).toEqual([]);
+});
+
+test('the page is served under a policy, and every answer refuses to leak its address', async ({
+  page,
+}) => {
+  const response = await page.goto(service.url);
+  const headers = response?.headers() ?? {};
+  expect(headers['content-security-policy']).toContain("default-src 'none'");
+  expect(headers['content-security-policy']).toContain("frame-ancestors 'none'");
+  // The token is in the address, so the address is a credential.
+  expect(headers['referrer-policy']).toBe('no-referrer');
+  expect(headers['x-content-type-options']).toBe('nosniff');
+
+  // Not only the document: an API answer carries the token in its address too.
+  const api = await page.request.get(service.url.replace('/?token=', '/api/state?token='));
+  expect(api.headers()['referrer-policy']).toBe('no-referrer');
+  expect(api.headers()['x-content-type-options']).toBe('nosniff');
+});
+
+test('the settings dialog still closes from its own button, under that policy', async ({ page }) => {
+  await open(page);
+  await page.locator('#open-settings').click();
+  await expect(page.locator('#settings')).toBeVisible();
+
+  // `form-action 'none'` must not reach a form whose only job is to close a
+  // dialog. Nothing else in the suite clicks this button, so the policy could
+  // have broken it without a single test noticing.
+  await page.locator('#settings button[value="cancel"]').click();
+  await expect(page.locator('#settings')).toBeHidden();
+  // A blocked policy shows up here, since `open` fails the test on any console
+  // error the page reports.
+  expect(problems).toEqual([]);
+});
+
+test('the toolbars wrap instead of pushing the page sideways', async ({ page }) => {
+  await open(page);
+
+  // The frame is a fixed overlay: it cannot follow a document that scrolls
+  // sideways, so the document must never do it. The first toolbar carries
+  // eleven controls and used to have no wrap at all.
+  for (const width of [1280, 1024, 800, 640, 480]) {
+    await page.setViewportSize({ width, height: 820 });
+    const overflow = await page.evaluate(() => ({
+      scroll: document.documentElement.scrollWidth,
+      client: document.documentElement.clientWidth,
+    }));
+    expect(
+      overflow.scroll,
+      `the document scrolls sideways at ${width}px`,
+    ).toBeLessThanOrEqual(overflow.client);
+  }
+
+  // The table is the one thing allowed to be wider than the window, and it
+  // scrolls inside its own box rather than moving the page.
+  await expect(page.locator('.scroller')).toHaveCSS('overflow-x', 'auto');
+
+  await page.setViewportSize({ width: 1280, height: 820 });
   expect(problems).toEqual([]);
 });
 
@@ -298,6 +359,9 @@ test('every action is a target of its own, reachable by keyboard', async ({ page
   await expect(row.locator('td.ws .link')).toHaveAttribute('title', /Open /);
 });
 
+/** The column header cell, which is the only element `aria-sort` is valid on. */
+const header = (page: Page, key: string) => page.locator(`th:has(button.sort[data-key="${key}"])`);
+
 test('a column header sorts, and reverses when clicked again', async ({ page }) => {
   await open(page);
   const titles = () => rows(page).locator('.title .text').allInnerTexts();
@@ -305,18 +369,14 @@ test('a column header sorts, and reverses when clicked again', async ({ page }) 
   await clearMarks(page);
 
   await page.locator('button.sort[data-key="title"]').click();
-  await expect(page.locator('button.sort[data-key="title"]')).toHaveAttribute(
-    'aria-sort',
-    'ascending',
-  );
+  // On the `th`: `aria-sort` is only supported on a `columnheader`, so on the
+  // button it was there to be read by nothing.
+  await expect(header(page, 'title')).toHaveAttribute('aria-sort', 'ascending');
   const ascending = await titles();
   expect(ascending).toEqual([...ascending].sort());
 
   await page.locator('button.sort[data-key="title"]').click();
-  await expect(page.locator('button.sort[data-key="title"]')).toHaveAttribute(
-    'aria-sort',
-    'descending',
-  );
+  await expect(header(page, 'title')).toHaveAttribute('aria-sort', 'descending');
   expect(await titles()).toEqual([...ascending].reverse());
 
   // The select and the header are the same control, said twice.
@@ -327,8 +387,25 @@ test('only one column claims the ordering at a time', async ({ page }) => {
   await open(page);
   await page.locator('button.sort[data-key="title"]').click();
   await page.locator('button.sort[data-key="provider"]').click();
-  await expect(page.locator('button.sort[data-key="provider"]')).toHaveAttribute('aria-sort', /.+/);
-  await expect(page.locator('button.sort[data-key="title"]')).not.toHaveAttribute('aria-sort', /.+/);
+  await expect(header(page, 'provider')).toHaveAttribute('aria-sort', /.+/);
+  await expect(header(page, 'title')).not.toHaveAttribute('aria-sort', /.+/);
+});
+
+test('the list announces what changed, without announcing every scan', async ({ page }) => {
+  await open(page);
+  // The regions a screen reader is meant to hear.
+  await expect(page.locator('#notices')).toHaveAttribute('role', 'status');
+  await expect(page.locator('#empty')).toHaveAttribute('role', 'status');
+  await expect(page.locator('#announcer')).toHaveAttribute('role', 'status');
+  await expect(page.locator('.live[role="status"]')).toContainText(/visible/);
+
+  // And the one that is deliberately not a region: it restates the last scan
+  // time on a timer, and a region that speaks on a timer gets switched off.
+  await expect(page.locator('#service-state')).not.toHaveAttribute('role', 'status');
+
+  // The table and the landmark say what they hold.
+  await expect(page.locator('table#sessions caption')).toHaveText(/sessions/i);
+  await expect(page.locator('main')).toHaveAttribute('aria-label', /.+/);
 });
 
 test('filters narrow with all, and widen with any', async ({ page }) => {
@@ -405,8 +482,25 @@ test('the notification switch shows its state, and can be turned back on', async
   await notify.click();
   await expect(notify).toHaveAttribute('aria-pressed', 'true');
   await expect(notify).toHaveAttribute('title', /idle/);
+
+  // This tooltip was written in English in place, and this assertion is what
+  // kept that from being noticed: it passed precisely because the wording never
+  // followed the language. It has to change with it now.
+  await page.locator('#open-settings').click();
+  await page.locator('#set-language').selectOption('fr');
+  await page.keyboard.press('Escape');
+  await expect(notify).toHaveAttribute('title', /Notifie sur/);
+  await expect(notify).toHaveAttribute('title', /en attente/);
+
+  await page.locator('#open-settings').click();
+  await page.locator('#set-language').selectOption('auto');
+  await page.keyboard.press('Escape');
+  await expect(notify).toHaveAttribute('title', /Notifying on/);
+
   await notify.click();
   await expect(notify).toHaveAttribute('aria-pressed', 'false');
+  await expect(notify).toHaveAttribute('title', /off/);
+  await page.evaluate(() => localStorage.removeItem('language'));
 });
 
 test('the statuses that notify are chosen from the interface, and remembered', async ({ page }) => {
