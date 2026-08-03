@@ -1,5 +1,59 @@
 # Changelog
 
+## 1.1.6
+
+**The markers say what they mean, and the status column is as wide as its
+shapes.**
+
+### An eye, not a radio button
+
+`○` and `◉` were a ring and a dot — which is a radio button, and that is what
+they looked like rather than what they meant. The watched marker is an eye now,
+in the same two weights the star already used, and the filters that narrow to
+those markers wear the same drawings: a filter for a mark should look like the
+mark it filters on. The notification switch shows a bell with a stroke through
+it when off, because a bell that is not ringing looks exactly like one that is.
+
+### The status column stops being named
+
+Measured before touching it: 93px of column for a 21px shape, against about 50px
+for the icon-only columns beside it. The word moves to `sr-only` — the column is
+still named for anything reading the page aloud, and still sortable — and an
+icon takes its place so the sort control stays visible rather than becoming an
+invisible target. **93px to 32px.**
+
+The four status shapes stay characters. At the size of a line of 13px text a
+solid geometric primitive is more distinguishable by shape than a drawing scaled
+down to meet it, and shape is what carries the meaning when colour cannot.
+
+### The lock stops letting go, for the third and last reason
+
+Windows does not answer `EEXIST` when a lock file is being deleted. The last
+handle has closed with a delete pending, and the attempt to create it comes back
+**`EPERM`**. `acquire` treated anything but `EEXIST` as fatal and rethrew — and
+`withFileLock` answers a throw by running the change **with no lock at all**.
+
+Measured, after two wrong guesses. An isolated probe of 640 concurrent writes
+reproduced nothing at all; instrumenting the fallback under a loaded test run
+printed `EPERM` on exactly the runs that lost writes. It cost between one and
+twelve of sixteen concurrent writers, at roughly one run in six.
+
+What decides is not the error code but whether a lock is there. If the path
+exists, somebody holds it and waiting is right, whatever the platform called the
+failure. If it does not and the file still cannot be created, the directory is
+unwritable — which is the case the fallback was written for.
+
+That closes the third of three ways this file could lose a write, all found in
+the last three releases, all measured:
+
+| release | what was losing the write |
+|---|---|
+| 1.1.4 | a 500 ms deadline that broke a live holder's lock |
+| 1.1.5 | a vanished lock treated as one to remove |
+| 1.1.6 | `EPERM` read as fatal, so the change ran unlocked |
+
+It holds your marks, and it is shared with the VS Code extension.
+
 ## 1.1.5
 
 **The starred marker is drawn rather than typed**, and the settings button steps
