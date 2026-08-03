@@ -409,6 +409,35 @@ test('any colour at all can be chosen by hand, and stays chosen', async ({ page 
   expect(problems).toEqual([]);
 });
 
+test('the picker opens on the colour the chip is already wearing', async ({ page }) => {
+  await open(page);
+  await rows(page).first().locator('td.ws .brush').click();
+  await expect(page.locator('#palette')).toBeVisible();
+
+  const same = await page.evaluate(() => {
+    // Both sides through a painted pixel: the chip's computed background is an
+    // `oklch(...)` string and the input holds a hex, so comparing the text of
+    // them compares two spellings rather than two colours. Reading the numbers
+    // out of the oklch is what put `#005400` in the picker for a pink chip.
+    const canvas = document.createElement('canvas');
+    const context = canvas.getContext('2d')!;
+    const srgb = (value: string): string => {
+      context.clearRect(0, 0, 1, 1);
+      context.fillStyle = value;
+      context.fillRect(0, 0, 1, 1);
+      return [...context.getImageData(0, 0, 1, 1).data].slice(0, 3).join(',');
+    };
+    const chip = document.querySelector('tbody tr td.ws .link')!;
+    const input = document.querySelector('#palette-colour') as HTMLInputElement;
+    return {
+      chip: srgb(getComputedStyle(chip).backgroundColor),
+      picker: srgb(input.value),
+    };
+  });
+  expect(same.picker).toBe(same.chip);
+  await page.locator('#palette').getByText('Close').click();
+});
+
 test('what is written on a chosen colour stays readable on it', async ({ page }) => {
   await open(page);
   const badge = rows(page).first().locator('.badge');

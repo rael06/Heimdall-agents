@@ -1,5 +1,25 @@
 # Changelog
 
+## 1.1.12
+
+**The colour picker opens on the colour the chip is already wearing.** It opened
+on a dark green whatever the chip was, which is the same trap that cost this
+project a measurement once already and had not been closed where it mattered.
+
+`getComputedStyle` does not convert a colour function any more. A chip comes
+back as `oklch(0.84 0.12 285)`, and reading the numbers out of that string takes
+the lightness for red and the chroma for green: 0, 84, 0 — `#005400`. Every chip
+prefilled the same dark green because every chip is an `oklch`, and the number
+that varies, the hue, is the one that was thrown away.
+
+The interface test caught the same thing in the test suite three releases ago
+and the fix went in there and nowhere else. The picker now fills a pixel and
+reads it back — the engine answering in the space the screen works in — and the
+new test compares the two as painted colours rather than as strings, because
+comparing an `oklch(...)` to a `#rrggbb` compares two spellings. It was run
+against the old code first: it fails with `0,84,0` against a chip painted
+`255,169,199`.
+
 ## 1.1.11
 
 **The colour picker offers every colour**, the way the frame colour already did,
