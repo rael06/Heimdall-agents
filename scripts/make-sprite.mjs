@@ -45,6 +45,28 @@ const WANTED = [
   // The status column header. Three circles for distinct states, which echoes
   // the four shapes in the column below it.
   { id: 'circles-three', from: '@phosphor-icons/core/assets/regular/circles-three.svg' },
+  /*
+   * The four statuses. Circle, square, triangle and diamond — the same four
+   * silhouettes the characters had, because they are the set nobody has to
+   * compare against each other to tell apart, and that is what has to survive
+   * when colour cannot be seen.
+   *
+   * They were `●✕▲◇` until this was rendered at three times size and looked at:
+   * the dot is small, the cross is thin, the diamond is a hairline outline. Four
+   * glyphs from different type families, because that is exactly what they were.
+   * Drawn together they carry one weight.
+   *
+   * The all-circle semantic set — play, x, pause, question — was the prettiest of
+   * the three and was rejected for it: four circular silhouettes distinguish by
+   * their centres, and a centre is the first thing lost at this size.
+   */
+  { id: 'status-running', from: '@phosphor-icons/core/assets/fill/circle-fill.svg' },
+  { id: 'status-unknown', from: '@phosphor-icons/core/assets/fill/diamond-fill.svg' },
+  { id: 'status-failed', from: '@phosphor-icons/core/assets/fill/x-fill.svg' },
+  { id: 'status-idle', from: '@phosphor-icons/core/assets/fill/triangle-fill.svg' },
+  // Reset turns back, refresh turns forward.
+  { id: 'reset', from: '@phosphor-icons/core/assets/regular/arrow-counter-clockwise.svg' },
+  { id: 'refresh', from: '@phosphor-icons/core/assets/regular/arrow-clockwise.svg' },
 ];
 
 /**

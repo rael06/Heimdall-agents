@@ -261,16 +261,17 @@ test('refresh sits beside acknowledge, on the bar that carries the counter', asy
 test('a status filter shows the shape it filters on', async ({ page }) => {
   await open(page);
 
-  // The rows have carried a shape per status from the beginning; the chips
-  // carried the word alone, so the mapping had to be learned twice.
-  for (const [status, glyph] of [
-    ['running', '●'],
-    ['failed', '✕'],
-    ['idle', '▲'],
-    ['unknown', '◇'],
+  // Four silhouettes, one drawing set. They were characters from four different
+  // type families until the three candidates were rendered side by side and
+  // looked at.
+  for (const [status, icon] of [
+    ['running', '#icon-status-running'],
+    ['unknown', '#icon-status-unknown'],
+    ['failed', '#icon-status-failed'],
+    ['idle', '#icon-status-idle'],
   ]) {
     const chip = page.locator(`#status-filters .chip[data-value="${status}"]`);
-    await expect(chip.locator('.chip-glyph')).toHaveText(glyph);
+    await expect(chip.locator('.chip-glyph use')).toHaveAttribute('href', icon);
     // The word is beside it, so the shape is decoration for the eye and noise
     // for anything reading the page aloud.
     await expect(chip.locator('.chip-glyph')).toHaveAttribute('aria-hidden', 'true');
@@ -281,43 +282,69 @@ test('a status filter shows the shape it filters on', async ({ page }) => {
     // that had nothing to do with the chips.
     const row = page.locator(`tbody .status[data-status="${status}"]`).first();
     if (await row.count()) {
-      await expect(row).toHaveText(new RegExp(glyph));
+      await expect(row.locator('use')).toHaveAttribute('href', icon);
     }
   }
 
+  // Left to right in the order the service ranks them, so the chips and the
+  // "most urgent first" sort cannot disagree.
+  expect(
+    await page.locator('#status-filters .chip').evaluateAll((n) => n.map((c) => c.dataset.value)),
+  ).toEqual(['running', 'unknown', 'failed', 'idle']);
+
   // The statuses that raise a notification are the same four, and say so.
-  await expect(page.locator('#notify-on .chip[data-status="failed"] .chip-glyph')).toHaveText('✕');
+  await expect(page.locator('#notify-on .chip[data-status="failed"] .chip-glyph use')).toHaveAttribute(
+    'href',
+    '#icon-status-failed',
+  );
   // Providers are names, not states: no shape to show.
   await expect(page.locator('#provider-filters .chip-glyph')).toHaveCount(0);
   expect(problems).toEqual([]);
 });
 
-test('every status glyph is a glyph this machine actually has', async ({ page }) => {
+test('the marker columns are headed by their mark, and sort by it', async ({ page }) => {
   await open(page);
 
-  // A missing glyph renders as .notdef — the tofu box — and looks deliberate
-  // enough to ship. Measured against a codepoint no font defines: anything
-  // whose advance width matches that is not being drawn.
-  const widths = await page.evaluate(() => {
-    const probe = document.createElement('span');
-    probe.style.cssText = 'position:absolute; visibility:hidden; font: inherit';
-    document.body.append(probe);
-    const measure = (text: string): number => {
-      probe.textContent = text;
-      return probe.getBoundingClientRect().width;
-    };
-    const result = {
-      tofu: measure('￿'),
-      glyphs: ['●', '✕', '▲', '◇'].map((g) => ({ g, width: measure(g) })),
-    };
-    probe.remove();
-    return result;
-  });
-
-  for (const { g, width } of widths.glyphs) {
-    expect(width, `${g} appears to be missing from the font`).toBeGreaterThan(0);
-    expect(Math.abs(width - widths.tofu), `${g} renders at the notdef width`).toBeGreaterThan(0.5);
+  for (const [key, icon] of [
+    ['watched', '#icon-eye'],
+    ['starred', '#icon-star'],
+  ]) {
+    const header = page.locator(`th:has(button.sort[data-key="${key}"])`);
+    await expect(header.locator('use')).toHaveAttribute('href', icon);
+    // The word survives for anything reading the page aloud.
+    await expect(header.locator('.sr-only')).toHaveText(/\w/);
+    // And the column is no wider than the mark it holds.
+    expect((await header.boundingBox())?.width ?? 0).toBeLessThan(60);
   }
+
+  // Nothing is marked or unmarked here. Marks are shared state that outlives a
+  // page, and a previous version of this test cleared them — which cost the
+  // auto-watch test its subject three tests later, because a session is watched
+  // on the *transition* into running and that had already happened.
+  //
+  // The fixtures give one watched session and two unwatched ones, which is all
+  // this needs.
+  const reorder = page.locator('#reorder');
+  await page.locator('button.sort[data-key="watched"]').click();
+  if (await reorder.isVisible()) await reorder.click();
+  await expect(rows(page).first().locator('.watched')).toHaveAttribute('aria-pressed', 'true');
+
+  // Clicking again reverses it — which the automatic grouping alone could never
+  // do, since it always lifts what you follow.
+  await page.locator('button.sort[data-key="watched"]').click();
+  if (await reorder.isVisible()) await reorder.click();
+  await expect(rows(page).first().locator('.watched')).toHaveAttribute('aria-pressed', 'false');
+
+  await expect(page.locator('#sort')).toHaveValue('watched-asc');
+  expect(problems).toEqual([]);
+});
+
+test('reset turns back and refresh turns forward', async ({ page }) => {
+  await open(page);
+  await expect(page.locator('#reset use')).toHaveAttribute('href', '#icon-reset');
+  await expect(page.locator('#refresh use')).toHaveAttribute('href', '#icon-refresh');
+  // The words are still there, and still follow the language.
+  await expect(page.locator('#reset .chip-label')).toHaveText(/\w/);
 });
 
 test('the starred marker is drawn from the sprite, in two weights', async ({ page }) => {

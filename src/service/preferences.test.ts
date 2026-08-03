@@ -57,10 +57,11 @@ describe('sanitizePreferences', () => {
   it('leaves that choice alone once it has been made deliberately', () => {
     // Otherwise the chip un-ticks itself at every start, which is a setting that
     // pretends to save.
+    // Returned in STATUS_ORDER, which is now running, unknown, failed, idle.
     expect(
       sanitizePreferences({ version: 2, notifications: { on: ['idle', 'unknown'] } }, fallback)
         .notifications.on,
-    ).toEqual(['idle', 'unknown']);
+    ).toEqual(['unknown', 'idle']);
   });
 
   it('does not list the same status twice when both old names were stored', () => {

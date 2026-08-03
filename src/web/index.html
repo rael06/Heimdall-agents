@@ -52,6 +52,10 @@
       <select id="sort">
         <option value="status-asc" data-i18n="sort.status-asc">status, most urgent first</option>
         <option value="status-desc" data-i18n="sort.status-desc">status, least urgent first</option>
+        <option value="watched-desc" data-i18n="sort.watched-desc">watched first</option>
+        <option value="watched-asc" data-i18n="sort.watched-asc">watched last</option>
+        <option value="starred-desc" data-i18n="sort.starred-desc">starred first</option>
+        <option value="starred-asc" data-i18n="sort.starred-asc">starred last</option>
         <option value="created-desc" data-i18n="sort.created-desc">created, newest first</option>
         <option value="created-asc" data-i18n="sort.created-asc">created, oldest first</option>
         <option value="updated-desc" data-i18n="sort.updated-desc">last activity, newest first</option>
@@ -64,7 +68,9 @@
         <option value="title-desc" data-i18n="sort.title-desc">title, Z to A</option>
       </select>
     </label>
-    <button id="reset" type="button" data-i18n="bar.reset">Reset</button>
+    <button id="reset" type="button">
+      <span class="chip-label" data-i18n="bar.reset">Reset</span>
+    </button>
   </div>
 
   <div class="bar">
@@ -107,8 +113,10 @@
          either did anything, rather than three toolbars apart among the
          settings. -->
     <button id="ack-visible" type="button" data-i18n="bar.acknowledge">Acknowledge visible</button>
-    <button id="refresh" type="button" data-i18n="bar.refresh" data-i18n-title="bar.refreshTitle"
-            title="Re-scan the transcripts and redraw the list (r)">Refresh</button>
+    <button id="refresh" type="button" data-i18n-title="bar.refreshTitle"
+            title="Re-scan the transcripts and redraw the list (r)">
+      <span class="chip-label" data-i18n="bar.refresh">Refresh</span>
+    </button>
   </div>
 
   <div id="notices" role="status"></div>
@@ -138,8 +146,19 @@
               <span class="sr-only" data-i18n="column.status">status</span>
             </button>
           </th>
-          <th scope="col"><span class="sr-only" data-i18n="column.watched">Watched</span></th>
-          <th scope="col"><span class="sr-only" data-i18n="column.starred">Starred</span></th>
+          <!-- Sortable like the columns that carry words, and wearing the same
+               mark they hold, so the header says what the column is without
+               taking the width of a label. -->
+          <th scope="col" class="tight">
+            <button class="sort" type="button" data-key="watched">
+              <span class="sr-only" data-i18n="column.watched">Watched</span>
+            </button>
+          </th>
+          <th scope="col" class="tight">
+            <button class="sort" type="button" data-key="starred">
+              <span class="sr-only" data-i18n="column.starred">Starred</span>
+            </button>
+          </th>
           <th scope="col"><span class="sr-only" data-i18n="column.transcript">Transcript</span></th>
           <th scope="col" class="num"><span class="sr-only" data-i18n="column.minutes">Minutes in this status</span></th>
           <th scope="col"><button class="sort" type="button" data-key="created" data-i18n="column.created">created</button></th>

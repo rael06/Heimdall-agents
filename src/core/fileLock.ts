@@ -70,23 +70,12 @@ async function lockAge(lockPath: string, now: number): Promise<number | undefine
  * still cannot create it, the directory is not writable, which is the case the
  * caller's fallback was written for.
  */
-async function isContended(error: unknown, lockPath: string): Promise<boolean> {
-  const code = (error as NodeJS.ErrnoException).code;
-  if (code === 'EEXIST') {
-    return true;
-  }
-  if (code !== 'EPERM' && code !== 'EBUSY' && code !== 'EACCES') {
-    return false;
-  }
-  try {
-    await fs.stat(lockPath);
-    return true;
-  } catch {
-    return false;
-  }
-}
+const TRANSIENT = new Set(['EPERM', 'EBUSY', 'EACCES']);
+/** About a second at {@link RETRY_DELAY_MS}, then the failure is believed. */
+const MAX_TRANSIENT = 40;
 
 async function acquire(lockPath: string): Promise<void> {
+  let transient = 0;
   for (;;) {
     try {
       const handle = await fs.open(lockPath, 'wx');
@@ -94,9 +83,32 @@ async function acquire(lockPath: string): Promise<void> {
       await handle.close();
       return;
     } catch (error) {
-      if (!(await isContended(error, lockPath))) {
-        throw error;
+      const code = (error as NodeJS.ErrnoException).code;
+      if (code !== 'EEXIST') {
+        /*
+         * Not an error to believe on sight.
+         *
+         * Windows will not open a file whose deletion is still pending, and
+         * reports it as EPERM — or EBUSY, or EACCES, depending where in that
+         * window the attempt lands. It is contention, and the previous version
+         * of this code decided which by asking whether the lock still existed.
+         * That question is itself a race: if the holder's delete completed in
+         * between, the answer is "no file", the conclusion is "unwritable
+         * directory", and `withFileLock` then runs the change with no lock. It
+         * cost fourteen of sixteen concurrent writes on the run that caught it.
+         *
+         * So nothing is asked. A transient code is retried like any other
+         * contention, and only a run of them — about a second — is taken to mean
+         * the directory genuinely will not have us, which is the case the
+         * caller's fallback exists for.
+         */
+        if (!TRANSIENT.has(code ?? '') || (transient += 1) > MAX_TRANSIENT) {
+          throw error;
+        }
+        await sleep(RETRY_DELAY_MS);
+        continue;
       }
+      transient = 0;
     }
 
     // Only an abandoned lock is taken over. There used to be a second reason —

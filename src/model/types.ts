@@ -25,8 +25,15 @@ export type ProviderId = 'claude' | 'codex';
  */
 export type SessionStatus = 'running' | 'failed' | 'idle' | 'unknown';
 
-/** Display priority: running, failed, idle, unknown. */
-export const STATUS_ORDER: SessionStatus[] = ['running', 'failed', 'idle', 'unknown'];
+/**
+ * Display priority: running, unknown, failed, idle.
+ *
+ * This is one list doing two jobs — the order the filter chips are drawn in, and
+ * what "status, most urgent first" means. Changing it changes both, which is why
+ * it is worth saying what it now claims: an *unknown* session outranks a failed
+ * one, and *idle* comes last.
+ */
+export const STATUS_ORDER: SessionStatus[] = ['running', 'unknown', 'failed', 'idle'];
 
 export function statusRank(status: SessionStatus): number {
   const rank = STATUS_ORDER.indexOf(status);
