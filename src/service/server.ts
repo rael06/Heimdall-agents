@@ -183,6 +183,10 @@ export function createServiceServer(engine: ServiceEngine, options: ServerOption
           state: engine.state,
           marks: engine.currentMarks,
           sessions: engine.sessions,
+          // What the host can do that the page cannot work out for itself. The
+          // desktop application has a menu carrying Settings, so the page hides
+          // its own button there; a browser has none and must keep it.
+          host: { nativeMenu: options.settings?.hasNativeMenu ?? false },
         });
         return;
       }

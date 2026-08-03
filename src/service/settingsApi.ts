@@ -66,6 +66,19 @@ export class SettingsApi {
     private readonly host?: HostControls,
   ) {}
 
+  /**
+   * Whether the host has a menu of its own.
+   *
+   * The desktop application carries Settings under File on `Ctrl+,`, so the
+   * button in the page is a second door to the same room. A bare `asm serve` is
+   * read in a browser and has no menu, so there the button is the only door.
+   * `HostControls` is present for exactly one of those, which makes it the
+   * honest signal rather than sniffing a user agent.
+   */
+  get hasNativeMenu(): boolean {
+    return Boolean(this.host);
+  }
+
   async read(): Promise<SettingsView> {
     const stored = await this.preferences.read();
     return {

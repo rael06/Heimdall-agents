@@ -17,6 +17,14 @@ import * as path from 'node:path';
 const STYLES = '<!--{{styles}}-->';
 const I18N = '<!--{{i18n}}-->';
 const SCRIPT = '<!--{{script}}-->';
+/**
+ * The icon sprite, built at compile time by `scripts/make-sprite.mjs` out of the
+ * handful of Phosphor icons the page references. Inlined for the same reason as
+ * everything else here: a browser does not carry the token across to a relative
+ * asset, and a sprite fetched on its own route would be the one thing exempt
+ * from it.
+ */
+const ICONS = '<!--{{icons}}-->';
 
 /**
  * `lib.js` and `app.js` go into the *same* module script, in that order.
@@ -44,12 +52,13 @@ export class AssetReader {
     }
     const file = (name: string): Promise<string> =>
       fs.readFile(path.join(this.directory, name), 'utf8');
-    const [html, css, i18n, lib, js] = await Promise.all([
+    const [html, css, i18n, lib, js, icons] = await Promise.all([
       file('index.html'),
       file('app.css'),
       file('i18n.js'),
       file('lib.js'),
       file('app.js'),
+      file('icons.svg'),
     ]);
     // The files cannot change while the service runs, so one read is enough.
     // The dictionary goes in as a classic script so the module can read it as a
@@ -57,6 +66,7 @@ export class AssetReader {
     this.page = html
       .replace(STYLES, `<style>\n${css}\n</style>`)
       .replace(I18N, `<script>\n${i18n}\n</script>`)
+      .replace(ICONS, icons)
       .replace(SCRIPT, moduleScript(lib, js));
     return this.page;
   }

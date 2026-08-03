@@ -2,6 +2,9 @@ node_modules/
 dist/
 release/
 build/
+# Built from @phosphor-icons/core by scripts/make-sprite.mjs. Derived from a
+# dependency, so a committed copy is one that can silently disagree with it.
+src/web/icons.svg
 test-results/
 playwright-report/
 .DS_Store
