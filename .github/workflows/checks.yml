@@ -50,8 +50,10 @@ jobs:
       - name: Lint
         run: npx eslint src
 
+      # With coverage, which carries a floor: "the tests pass" said nothing at
+      # all about what they reach until this was measured.
       - name: Unit tests
-        run: npx vitest run
+        run: npm run test:coverage
 
       # Reads the stylesheet that ships, so it measures what a reader sees
       # rather than a copy of the palette that can drift.

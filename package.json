@@ -26,6 +26,7 @@
     "lint": "eslint src",
     "test": "vitest run",
     "test:watch": "vitest",
+    "test:coverage": "vitest run --coverage",
     "asm": "node dist/cli/main.js",
     "test:e2e": "playwright test",
     "icon": "node scripts/make-icon.mjs",
