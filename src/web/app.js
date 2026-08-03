@@ -1081,6 +1081,23 @@ function paintTag(node, kind, name) {
 /** What the picker is currently pointed at. */
 let recolouring = null;
 
+/**
+ * A computed colour as a hex, whatever space the engine chose to write it in.
+ *
+ * `getComputedStyle` does not convert a colour function any more: a chip comes
+ * back as `oklch(0.84 0.12 285)`, and reading the numbers out of that takes the
+ * lightness and the chroma for red and green. That put `#005400` — 0, 84, 0 —
+ * into the picker for a chip that was painted pink. Filling a pixel and reading
+ * it back is the engine answering in the space the screen works in.
+ */
+function paintedHex(value) {
+  const context = document.createElement('canvas').getContext('2d');
+  context.fillStyle = '#000000';
+  context.fillStyle = value;
+  context.fillRect(0, 0, 1, 1);
+  return toHex([...context.getImageData(0, 0, 1, 1).data].slice(0, 3));
+}
+
 /** What a chip is painted right now, as the colour input needs it: a hex. */
 function paintedTag(kind, name) {
   const chosen = PALETTES[kind].state.colours[name];
@@ -1092,7 +1109,7 @@ function paintedTag(kind, name) {
   probe.style.cssText = 'position: absolute; visibility: hidden';
   paintTag(probe, kind, name);
   document.body.append(probe);
-  const painted = toHex(parseRgb(getComputedStyle(probe).backgroundColor));
+  const painted = paintedHex(getComputedStyle(probe).backgroundColor);
   probe.remove();
   return painted;
 }
