@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { DEFAULT_NOTIFICATIONS, sanitizePreferences } from './preferences';
+import { DEFAULT_NOTIFICATIONS, DEFAULT_SCAN, sanitizePreferences } from './preferences';
 
 const fallback = DEFAULT_NOTIFICATIONS;
 
@@ -81,5 +81,39 @@ describe('sanitizePreferences', () => {
   it('survives a file that is not what it should be', () => {
     expect(sanitizePreferences(null, fallback).notifications).toEqual(fallback);
     expect(sanitizePreferences({ notifications: 'yes' }, fallback).notifications).toEqual(fallback);
+  });
+});
+
+describe('sanitizePreferences, on the numbers', () => {
+  const scanOf = (scan: unknown) =>
+    sanitizePreferences({ scan }, DEFAULT_NOTIFICATIONS).scan;
+
+  it('clamps a value the interface would never have sent', () => {
+    // The min and max on the inputs are a hint to a form and nothing to the
+    // service, which took whatever number arrived and built providers with it.
+    expect(scanOf({ maxSessions: 1e9 }).maxSessions).toBe(5000);
+    expect(scanOf({ maxSessions: -4 }).maxSessions).toBe(10);
+    expect(scanOf({ historyDays: -1 }).historyDays).toBe(0);
+    expect(scanOf({ historyDays: 99_999 }).historyDays).toBe(3650);
+    expect(scanOf({ staleAfterMinutes: 0 }).staleAfterMinutes).toBe(1);
+    expect(scanOf({ handoffDelaySeconds: 600 }).handoffDelaySeconds).toBe(30);
+  });
+
+  it('rounds, because every one of these counts something', () => {
+    expect(scanOf({ maxSessions: 42.7 }).maxSessions).toBe(43);
+    expect(scanOf({ handoffDelaySeconds: 2.4 }).handoffDelaySeconds).toBe(2);
+  });
+
+  it('still drops a value of the wrong shape rather than coercing it', () => {
+    expect(scanOf({ maxSessions: '900' }).maxSessions).toBe(DEFAULT_SCAN.maxSessions);
+    expect(scanOf({ maxSessions: Number.NaN }).maxSessions).toBe(DEFAULT_SCAN.maxSessions);
+    expect(scanOf({ maxSessions: Infinity }).maxSessions).toBe(DEFAULT_SCAN.maxSessions);
+  });
+
+  it('leaves a value inside the range exactly as it was', () => {
+    expect(scanOf({ maxSessions: 300, historyDays: 30 })).toMatchObject({
+      maxSessions: 300,
+      historyDays: 30,
+    });
   });
 });
