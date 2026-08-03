@@ -70,6 +70,14 @@ const sprite =
  *
  * Gitignored for the same reason as `build/icon.png`: it is derived from a
  * dependency, and a committed copy is one that can silently disagree with it.
+ *
+ * Which is why `package.json` runs this as `prepare`, not only inside `build`.
+ * npm runs `prepare` after every install, `npm ci` included, so the file exists
+ * before anything reads it. Without that, the unit tests — which read `src/web`
+ * directly — fail on a fresh clone: CI put `Unit tests` before `Build` and the
+ * page came back as a 400 where a document should have been. A source directory
+ * that is only complete after a build is a trap, and the install is the last
+ * moment it can be closed for everyone at once.
  */
 const target = path.join('src', 'web', 'icons.svg');
 await writeFile(target, sprite, 'utf8');
