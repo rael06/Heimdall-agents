@@ -174,6 +174,38 @@ test('a bare service offers only what it can actually do', async ({ page }) => {
   expect(problems).toEqual([]);
 });
 
+test('the page is served under a policy, and every answer refuses to leak its address', async ({
+  page,
+}) => {
+  const response = await page.goto(service.url);
+  const headers = response?.headers() ?? {};
+  expect(headers['content-security-policy']).toContain("default-src 'none'");
+  expect(headers['content-security-policy']).toContain("frame-ancestors 'none'");
+  // The token is in the address, so the address is a credential.
+  expect(headers['referrer-policy']).toBe('no-referrer');
+  expect(headers['x-content-type-options']).toBe('nosniff');
+
+  // Not only the document: an API answer carries the token in its address too.
+  const api = await page.request.get(service.url.replace('/?token=', '/api/state?token='));
+  expect(api.headers()['referrer-policy']).toBe('no-referrer');
+  expect(api.headers()['x-content-type-options']).toBe('nosniff');
+});
+
+test('the settings dialog still closes from its own button, under that policy', async ({ page }) => {
+  await open(page);
+  await page.locator('#open-settings').click();
+  await expect(page.locator('#settings')).toBeVisible();
+
+  // `form-action 'none'` must not reach a form whose only job is to close a
+  // dialog. Nothing else in the suite clicks this button, so the policy could
+  // have broken it without a single test noticing.
+  await page.locator('#settings button[value="cancel"]').click();
+  await expect(page.locator('#settings')).toBeHidden();
+  // A blocked policy shows up here, since `open` fails the test on any console
+  // error the page reports.
+  expect(problems).toEqual([]);
+});
+
 test('an inferred status justifies itself in its tooltip', async ({ page }) => {
   await open(page);
   const status = rows(page).first().locator('.status');

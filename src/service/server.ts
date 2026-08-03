@@ -16,6 +16,46 @@ export interface ServerOptions {
 /** Enough for a list of identifiers, and far short of anything worth buffering. */
 const MAX_BODY_BYTES = 64 * 1024;
 
+/**
+ * Sent with every answer, whatever it is.
+ *
+ * `no-referrer` is the one that earns its place. The page is opened with the
+ * token in its address, because that is what lets a reload work and a filtered
+ * view be kept as a favourite — so the address is a credential, and the browser
+ * must never hand it to anywhere else.
+ *
+ * `nosniff` costs a line and removes the question of what a browser decides a
+ * body is when it disagrees with the type we declared.
+ */
+const COMMON_HEADERS: Record<string, string> = {
+  'X-Content-Type-Options': 'nosniff',
+  'Referrer-Policy': 'no-referrer',
+};
+
+/**
+ * What the one document is allowed to do.
+ *
+ * The stylesheet and the script are inlined on purpose — a browser does not
+ * carry a query string over to a relative `app.css`, so keeping them separate
+ * would mean exempting them from the token. `'unsafe-inline'` is therefore not
+ * laxity but the shape of that decision, and everything around it is closed:
+ * nothing may be loaded, no form may be submitted anywhere, and the page may
+ * not be framed.
+ */
+const CONTENT_SECURITY_POLICY = [
+  "default-src 'none'",
+  "script-src 'unsafe-inline'",
+  "style-src 'unsafe-inline'",
+  // The interface talks to this service and to nothing else.
+  "connect-src 'self'",
+  // No image ships with the page; this only keeps the favicon a browser asks
+  // for on its own from being reported as a violation.
+  "img-src 'self' data:",
+  "base-uri 'none'",
+  "form-action 'none'",
+  "frame-ancestors 'none'",
+].join('; ');
+
 export function pathOf(url: string | undefined): string {
   const raw = url ?? '/';
   const query = raw.indexOf('?');
@@ -25,6 +65,7 @@ export function pathOf(url: string | undefined): string {
 function sendJson(response: ServerResponse, status: number, body: unknown): void {
   const payload = JSON.stringify(body);
   response.writeHead(status, {
+    ...COMMON_HEADERS,
     'Content-Type': 'application/json; charset=utf-8',
     'Content-Length': Buffer.byteLength(payload),
     // Nothing here should ever be stored by anything.
@@ -33,11 +74,14 @@ function sendJson(response: ServerResponse, status: number, body: unknown): void
   response.end(payload);
 }
 
-function sendText(response: ServerResponse, status: number, body: string, type: string): void {
-  response.writeHead(status, {
-    'Content-Type': type,
+/** The interface itself, which is the only response a policy applies to. */
+function sendPage(response: ServerResponse, body: string): void {
+  response.writeHead(200, {
+    ...COMMON_HEADERS,
+    'Content-Type': 'text/html; charset=utf-8',
     'Content-Length': Buffer.byteLength(body),
     'Cache-Control': 'no-store',
+    'Content-Security-Policy': CONTENT_SECURITY_POLICY,
   });
   response.end(body);
 }
@@ -96,7 +140,7 @@ export function createServiceServer(engine: ServiceEngine, options: ServerOption
 
     if (method === 'GET') {
       if (path === '/') {
-        sendText(response, 200, await assets.read(), 'text/html; charset=utf-8');
+        sendPage(response, await assets.read());
         return;
       }
       if (path === '/api/state') {
