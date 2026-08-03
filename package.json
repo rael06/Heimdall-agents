@@ -31,7 +31,8 @@
     "icon": "node scripts/make-icon.mjs",
     "app": "npm run build && electron .",
     "dist": "npm run build && electron-builder --publish never",
-    "contrast": "node scripts/check-contrast.mjs"
+    "contrast": "node scripts/check-contrast.mjs",
+    "check-release": "node scripts/check-release.mjs"
   },
   "devDependencies": {
     "@eslint/js": "^10.0.1",

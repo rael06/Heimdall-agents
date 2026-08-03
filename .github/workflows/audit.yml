@@ -1,0 +1,38 @@
+name: Audit
+
+# Kept off the pull-request path on purpose. An advisory is published by
+# somebody else, on their schedule, and blocking an unrelated change on it
+# teaches people to merge past a red mark. This runs on its own and fails
+# visibly instead.
+on:
+  schedule:
+    - cron: '0 6 * * 1'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  audit:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+
+      - run: npm ci
+
+      # There are no runtime dependencies, so everything reported here reaches
+      # a developer's machine rather than a user's. High and above is still
+      # worth a Monday morning.
+      - name: Known advisories
+        run: npm audit --audit-level=high
+
+      # Not a failure, just the number: it is what says whether the toolchain is
+      # drifting long before an upgrade becomes a project of its own.
+      - name: How far behind
+        if: always()
+        run: npm outdated || exit 0

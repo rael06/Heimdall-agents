@@ -1,0 +1,33 @@
+version: 2
+
+updates:
+  - package-ecosystem: npm
+    directory: /
+    schedule:
+      interval: weekly
+      day: monday
+    # This project has no runtime dependencies on purpose, so everything here is
+    # a development one. Splitting them by risk rather than by that label: a
+    # toolchain major is a piece of work, and a patch to a linter is not.
+    groups:
+      routine:
+        patterns: ['*']
+        update-types: [minor, patch]
+    # A major arrives as its own pull request, because TypeScript 7, Vitest 4
+    # and Electron each need reading rather than merging.
+    open-pull-requests-limit: 5
+    commit-message:
+      prefix: build
+    labels:
+      - ci-cd
+
+  # The workflow files pin actions by major tag, which is a moving target that
+  # still goes stale.
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: monthly
+    commit-message:
+      prefix: build
+    labels:
+      - ci-cd
