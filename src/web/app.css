@@ -564,8 +564,17 @@ td.ws .link {
 /*
  * The provider wears the same chip as the workspace, and its grey border goes
  * with it — two columns of names, drawn the same way, told apart by colour.
+ *
+ * `font-size` back to the row's, which is the part that was still different: the
+ * badge was drawn at .85em from when it was chrome around a word rather than a
+ * value like any other, and two chips of two sizes in neighbouring columns read
+ * as a difference in importance that is not there.
  */
-.badge.tag { border-color: light-dark(oklch(.55 .12 var(--hue)), oklch(.68 .12 var(--hue))); }
+.badge.tag {
+  border-color: light-dark(oklch(.55 .12 var(--hue)), oklch(.68 .12 var(--hue)));
+  font-size: inherit;
+  padding: 0 .45rem;
+}
 
 /*
  * The brush that opens the colour picker, before the value it paints.
@@ -588,24 +597,27 @@ td.ws .link {
 .brush:hover { color: var(--fg); border-color: var(--edge); }
 .brush[hidden] { display: none; }
 
-/* The picker itself: every colour shown on the name it would be given to. */
-.swatches {
-  display: grid;
-  grid-template-columns: repeat(4, 1fr);
-  gap: .35rem;
-  margin-bottom: .75rem;
+/*
+ * The picker: the whole range, and the chip it is being tried on beside it.
+ *
+ * A grid of sixteen swatches was here, and the range is not sixteen any more —
+ * the colour is chosen the way the frame colour already is, from everything.
+ * What the grid was doing well is kept: the colour is shown carrying the name,
+ * because a square of colour says nothing about how a word will read on it.
+ */
+.palette-row {
+  display: flex;
+  align-items: center;
+  gap: .6rem;
+  margin-bottom: .9rem;
 }
-.swatch-colour {
-  font: inherit;
+#palette-preview {
+  border: 1px solid transparent;
+  max-width: 16rem;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
-  padding: .15rem .45rem;
-  cursor: pointer;
 }
-/* The one in force, marked by more than its colour: on a grid of colours, a
-   coloured outline is the one signal that cannot be read. */
-.swatch-colour[aria-pressed="true"] { outline: 2px solid var(--fg); outline-offset: 1px; }
 
 .matched { color: var(--muted); font-size: .85em; margin-left: .4rem; }
 

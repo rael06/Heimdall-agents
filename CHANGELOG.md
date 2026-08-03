@@ -1,5 +1,40 @@
 # Changelog
 
+## 1.1.11
+
+**The colour picker offers every colour**, the way the frame colour already did,
+and the provider chip is drawn at the size of the workspace chip.
+
+### A free choice, and what had to change under it
+
+The picker was a grid of the sixteen. It is the same `<input type="color">` the
+frame colour uses now, so the choice is the whole range.
+
+That is not the same mechanism as an assigned colour, and it cannot be. An
+assigned colour is a **hue**, and the stylesheet turns it into a light chip in
+the light theme and a dark one in the dark theme. A chosen colour is a colour:
+it is what was asked for, in both themes, so it is written straight onto the
+chip. The two now live side by side, which is why a chip can be repainted
+without the palette losing its theme awareness.
+
+What is written on a chosen colour is black or white, whichever can be read on
+it. That is not a simplification but the only rule that holds for a colour
+nobody constrained: the worst possible background sits at relative luminance
+0.179, where black and white come out equal — and equal is 4.58:1, above the 4.5
+asked of text. Swept over the range rather than reasoned about.
+
+It also removes a rule that no longer had anything to be about. A chosen colour
+used to hold a slot in the sixteen so nothing could take it; there is no slot to
+hold now, so it takes none — and stops costing a project a colour it still
+needed.
+
+### The provider chip was smaller than the workspace chip
+
+`.badge` was drawn at `.85em`, from when the provider was chrome around a word
+rather than a value like any other. Two chips at two sizes in neighbouring
+columns read as a difference in importance between a provider and a workspace,
+and there is not one.
+
 ## 1.1.10
 
 **The provider is coloured too, and both colours can be reassigned by hand** —

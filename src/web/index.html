@@ -186,9 +186,17 @@
 <dialog id="palette">
   <form method="dialog">
     <h2 id="palette-heading"></h2>
-    <div id="palette-swatches" class="swatches" role="group"></div>
+    <!-- The colour on the name it is being given to, beside the picker, because
+         a swatch on its own says nothing about how it will read in the list. -->
+    <div class="palette-row">
+      <label class="swatch" data-i18n-title="palette.pick" title="Pick a colour">
+        <span class="sr-only" data-i18n="palette.pick">Pick a colour</span>
+        <input id="palette-colour" type="color">
+      </label>
+      <span id="palette-preview" class="tag"></span>
+    </div>
     <div class="bar">
-      <button id="palette-auto" type="button" data-i18n="palette.auto">Automatic</button>
+      <button id="palette-auto" type="button" data-i18n="palette.auto">Choose for me</button>
       <span class="grow"></span>
       <button value="cancel" type="submit" data-i18n="settings.close">Close</button>
     </div>

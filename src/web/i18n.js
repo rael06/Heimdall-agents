@@ -88,7 +88,7 @@ const TRANSLATIONS = {
 
     'row.recolour': 'Change the colour of {name}',
     'palette.heading': 'Colour for {name}',
-    'palette.swatch': 'Colour {number}',
+    'palette.pick': 'Pick a colour',
     'palette.auto': 'Choose for me',
 
     'row.openSession': 'Open this session in VS Code',
@@ -248,7 +248,7 @@ const TRANSLATIONS = {
 
     'row.recolour': 'Changer la couleur de {name}',
     'palette.heading': 'Couleur de {name}',
-    'palette.swatch': 'Couleur {number}',
+    'palette.pick': 'Choisir une couleur',
     'palette.auto': 'Choisir pour moi',
 
     'row.openSession': 'Ouvrir cette session dans VS Code',
