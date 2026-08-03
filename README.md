@@ -106,12 +106,19 @@ which is the one way a tool like this dies, since alerts you learn to distrust a
 reading. The guess is gone. An open turn stays running until the stale delay, then becomes
 *inconclusive*, which claims nothing.
 
-200 MB installed, ~700 MB unpacked. That is what an Electron application costs.
+A 100 MB installer, 348 MB unpacked. That is what an Electron application costs.
+
+It used to say 200 MB and ~700 MB, and that was measured rather than guessed — 1.0.1 really did
+install 696 MB. It was not what Electron costs, though. `dist/` was both the TypeScript output and
+where electron-builder left the installer, and the packaging rule was `dist/**/*`, so **every build
+packed the previous installer inside the next application**. Measured after separating the two
+directories: `app.asar` went from 364,535,336 bytes to 376,456 — a factor of 968 — and the
+installer from 209 MB to 100 MB. The application was carrying its own history.
 
 `npm run app` runs it without installing, from the build in `dist`.
 
-It costs what an Electron application costs — around **410–445 MB** against **54 MB** for the
-service on its own, on the same 319 sessions, with a 200 MB installer. That trade was made
+It costs what an Electron application costs — around **410–445 MB** of memory against **54 MB** for
+the service on its own, on the same 319 sessions, with a 100 MB installer. That trade was made
 deliberately: it buys the protocol, the identity, and the one-click notification below.
 
 Everything below still works exactly as it did: the application starts the same service and loads

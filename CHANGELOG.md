@@ -104,6 +104,23 @@ present with the manifest covering the installer.
 directory, which made `files: ["dist"]` describe a **209 MB** npm package with
 the installer inside it. It is 193 kB.
 
+### The application was carrying its own history
+
+Building 1.1.0 after separating those directories measured something the audit
+had only called a risk. `dist/` was the TypeScript output *and* electron-builder's
+output, and the packaging rule was `dist/**/*` — so every build packed the
+previous installer inside the next application.
+
+| | 1.0.1 | 1.1.0 |
+|---|---|---|
+| `app.asar` | 364,535,336 bytes | **376,456 bytes** |
+| installer | 209 MB | **100 MB** |
+| unpacked | 696 MB | **348 MB** |
+
+The README said "200 MB installed, ~700 MB unpacked — that is what an Electron
+application costs". The measurement was honest; the explanation was wrong. It
+is corrected there rather than quietly dropped.
+
 ### Tests
 
 412 from 335, and coverage measured for the first time: 63% from 49%, with a
