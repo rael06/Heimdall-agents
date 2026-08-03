@@ -1,5 +1,5 @@
 import { spawnSync } from 'node:child_process';
-import { promises as fs } from 'node:fs';
+import { promises as fs, realpathSync } from 'node:fs';
 import * as os from 'node:os';
 import * as path from 'node:path';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
@@ -49,17 +49,23 @@ describe('RootWatcher', () => {
       return;
     }
 
-    const watcher = new RootWatcher([short], () => undefined, 10, 50);
-    const report = watcher.start();
-    try {
-      expect(report.failed).toEqual([]);
-      // The short name is what went in; the long one is what is watched, because
-      // libuv compares every reported path against this string and *asserts* if
-      // it is not a prefix — which aborts the process rather than raising.
-      expect(report.watched[0]).not.toBe(short);
-      expect(report.watched[0].toLowerCase()).toBe(home.toLowerCase());
-    } finally {
-      watcher.stop();
+    // Whichever spelling goes in, the canonical one is what libuv is handed.
+    // Not compared against `home`: on a Windows CI runner TEMP is itself
+    // `C:\Users\RUNNER~1\...`, so `home` is already a short path and the
+    // canonical form of it is `runneradmin`. That is not a detail — it is
+    // exactly the situation that aborted the service.
+    const expected = realpathSync.native(home);
+    for (const given of [short, home]) {
+      const watcher = new RootWatcher([given], () => undefined, 10, 50);
+      const report = watcher.start();
+      try {
+        expect(report.failed).toEqual([]);
+        expect(report.watched[0]).toBe(expected);
+        // No 8.3 alias survives into what libuv compares its reports against.
+        expect(report.watched[0]).not.toMatch(/~\d(\\|$)/);
+      } finally {
+        watcher.stop();
+      }
     }
   });
 
