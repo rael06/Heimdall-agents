@@ -32,8 +32,19 @@ const require = createRequire(import.meta.url);
  * from, and a hand-built path would be one hoisting decision away from breaking.
  */
 const WANTED = [
+  // The two markers on every row, and the filters that narrow to them. Each is
+  // one drawing at two weights, which is what an off/on marker means.
   { id: 'star', from: '@phosphor-icons/core/assets/regular/star.svg' },
   { id: 'star-fill', from: '@phosphor-icons/core/assets/fill/star-fill.svg' },
+  { id: 'eye', from: '@phosphor-icons/core/assets/regular/eye.svg' },
+  { id: 'eye-fill', from: '@phosphor-icons/core/assets/fill/eye-fill.svg' },
+  // The notification switch, where off has to be unmistakable rather than merely
+  // lighter: a bell that is not ringing looks like a bell that is.
+  { id: 'bell', from: '@phosphor-icons/core/assets/regular/bell.svg' },
+  { id: 'bell-slash', from: '@phosphor-icons/core/assets/regular/bell-slash.svg' },
+  // The status column header. Three circles for distinct states, which echoes
+  // the four shapes in the column below it.
+  { id: 'circles-three', from: '@phosphor-icons/core/assets/regular/circles-three.svg' },
 ];
 
 /**

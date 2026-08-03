@@ -348,6 +348,74 @@ test('the starred marker is drawn from the sprite, in two weights', async ({ pag
   expect(problems).toEqual([]);
 });
 
+test('the watched marker is an eye, and the filter that narrows to it wears one', async ({
+  page,
+}) => {
+  await open(page);
+
+  // `○`/`◉` were a ring and a dot — a radio button, which is what they looked
+  // like and not what they meant.
+  const marker = rows(page).first().locator('.watched');
+  const before = await marker.getAttribute('aria-pressed');
+  await expect(marker.locator('svg use')).toHaveAttribute(
+    'href',
+    before === 'true' ? '#icon-eye-fill' : '#icon-eye',
+  );
+
+  await marker.click();
+  await expect(marker.locator('svg use')).toHaveAttribute(
+    'href',
+    before === 'true' ? '#icon-eye' : '#icon-eye-fill',
+  );
+  await marker.click();
+
+  // A filter that narrows to a marker should look like the marker it narrows to.
+  await expect(page.locator('#watched-only svg use')).toHaveAttribute('href', '#icon-eye');
+  await expect(page.locator('#favorites-only svg use')).toHaveAttribute('href', '#icon-star');
+  // And the word beside it still follows the language, which is the reason it
+  // lives in a span the icon is not inside.
+  await expect(page.locator('#watched-only .chip-label')).toHaveText(/\w/);
+  expect(problems).toEqual([]);
+});
+
+test('the notification switch says off by being struck through, not by being paler', async ({
+  page,
+}) => {
+  await open(page);
+  const notify = page.locator('#notify');
+
+  // The service under test starts with notifications off.
+  await expect(notify).toHaveAttribute('aria-pressed', 'false');
+  await expect(notify.locator('svg use')).toHaveAttribute('href', '#icon-bell-slash');
+
+  await notify.click();
+  await expect(notify).toHaveAttribute('aria-pressed', 'true');
+  await expect(notify.locator('svg use')).toHaveAttribute('href', '#icon-bell');
+
+  await notify.click();
+  await expect(notify.locator('svg use')).toHaveAttribute('href', '#icon-bell-slash');
+  expect(problems).toEqual([]);
+});
+
+test('the status column is as wide as its shapes, not as its name', async ({ page }) => {
+  await open(page);
+
+  const header = page.locator('th:has(button.sort[data-key="status"])');
+  // The word is still there for anything reading the page aloud, and for the
+  // accessible name of a column that can be sorted.
+  await expect(header.locator('.sr-only')).toHaveText(/\w/);
+  await expect(header.locator('svg use')).toHaveAttribute('href', '#icon-circles-three');
+
+  // 93px for a 21px glyph before this; the shapes set the width now. The bound
+  // is generous — this guards against the word coming back, not a pixel.
+  const width = (await header.boundingBox())?.width ?? 0;
+  expect(width).toBeLessThan(60);
+
+  // Still a sort control, and still says which way.
+  await page.locator('button.sort[data-key="status"]').click();
+  await expect(header).toHaveAttribute('aria-sort', /ascending|descending/);
+});
+
 test('settings stay reachable on a service with no menu of its own', async ({ page }) => {
   await open(page);
 

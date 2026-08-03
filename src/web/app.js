@@ -477,24 +477,17 @@ function updateRow(tr, session) {
   status.setAttribute('aria-label', unseen ? `${label}, ${t('row.unacknowledged')}` : label);
   status.title = `${label} — ${session.statusReason}` + (unseen ? `\n${t('row.acknowledge')}` : '');
 
-  // A hollow shape when unset and a filled one when set. Drawing both the same
-  // and colouring the difference makes every row look marked at a glance, and
-  // leaves nothing at all for anyone who does not see the colour.
+  // An outline when unset and a filled one when set. Drawing both the same and
+  // colouring the difference makes every row look marked at a glance, and leaves
+  // nothing at all for anyone who does not see the colour.
   //
-  // The star is drawn rather than typed: `☆` and `★` are two characters from a
-  // block the rest of the interface does not use, and they were the pair that
-  // looked foreign next to the geometric shapes. Phosphor's `star` and
-  // `star-fill` are the same drawing in two weights, which is exactly the
-  // off/on the marker means.
+  // Both markers are drawn rather than typed now. `○`/`◉` said nothing about
+  // watching — a ring and a dot are a radio button, which is what they looked
+  // like and not what they meant — and `☆`/`★` came from a block nothing else
+  // here uses. An eye and a star say what they are, and each is one drawing at
+  // two weights, which is exactly the off/on a marker means.
   const favorite = state.marks.favorites.includes(session.id);
-  const mark = (selector, on, offGlyph, onGlyph, onKey, offKey) => {
-    const button = tr.querySelector(selector);
-    button.textContent = on ? onGlyph : offGlyph;
-    button.setAttribute('aria-pressed', String(on));
-    button.setAttribute('aria-label', t(on ? onKey : offKey));
-    button.title = t(on ? onKey : offKey);
-  };
-  mark('.watched', watched, '○', '◉', 'row.watchedOn', 'row.watchedOff');
+  markWithIcon(tr.querySelector('.watched'), watched, 'eye', 'row.watchedOn', 'row.watchedOff');
   markWithIcon(tr.querySelector('.favorite'), favorite, 'star', 'row.starredOn', 'row.starredOff');
   // Set here rather than in the markup, so it follows the language like the rest.
   const transcript = tr.querySelector('.transcript');
@@ -862,6 +855,31 @@ function markWithIcon(button, on, name, onKey, offKey) {
   button.title = t(on ? onKey : offKey);
 }
 
+/**
+ * Puts an icon in front of a button that already has its label in a span.
+ *
+ * Once, at boot. The label lives in `.chip-label` precisely so `applyLanguage`
+ * can rewrite the words on every language change without taking the icon with
+ * them — setting `textContent` on the button would.
+ */
+function prependIcon(button, name) {
+  if (button.querySelector('svg')) {
+    return;
+  }
+  const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+  svg.setAttribute('class', 'icon');
+  svg.setAttribute('aria-hidden', 'true');
+  const use = document.createElementNS('http://www.w3.org/2000/svg', 'use');
+  use.setAttribute('href', `#icon-${name}`);
+  svg.append(use);
+  button.prepend(svg);
+}
+
+/** Swaps which symbol a button already carrying an icon points at. */
+function swapIcon(button, name) {
+  button.querySelector('svg use')?.setAttribute('href', `#icon-${name}`);
+}
+
 function decorate(button, status, label) {
   button.textContent = '';
   if (status) {
@@ -1146,6 +1164,9 @@ function renderService() {
   const service = state.service;
   const notifications = service?.notifications;
   const notify = el('notify');
+  // A bell that is not ringing looks like a bell that is, so off is struck
+  // through rather than merely paler.
+  swapIcon(notify, notifications?.enabled ? 'bell' : 'bell-slash');
   notify.setAttribute('aria-pressed', String(notifications?.enabled ?? false));
   // Through the dictionary like everything else. These two were written in
   // English in place, so switching to French left them behind — and the
@@ -1177,6 +1198,15 @@ async function boot() {
   // open the session a second time.
   const requested = new URLSearchParams(location.search).get('open');
   readUrl();
+  // Before the language pass: these buttons keep their words in a `.chip-label`
+  // span, and the icon sits outside it precisely so translating one does not
+  // remove the other.
+  prependIcon(el('watched-only'), 'eye');
+  prependIcon(el('favorites-only'), 'star');
+  prependIcon(el('notify'), 'bell');
+  // The status column header, whose word moved to `sr-only` so the column stops
+  // being five times wider than the shape it holds.
+  prependIcon(document.querySelector('button.sort[data-key="status"]'), 'circles-three');
   applyLanguage();
   syncControls();
   wireControls();
