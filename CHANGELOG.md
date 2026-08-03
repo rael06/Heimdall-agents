@@ -1,5 +1,54 @@
 # Changelog
 
+## 1.1.5
+
+**The starred marker is drawn rather than typed**, and the settings button steps
+aside where a menu already opens that room.
+
+### A star with two weights
+
+`☆` and `★` came from a Unicode block nothing else in the interface uses, and
+they were the pair that looked foreign beside the geometric shapes. Phosphor's
+`star` and `star-fill` are the same drawing at two weights, which is exactly what
+this marker means — and they arrive as `fill="currentColor"`, so the marker
+states colour them the way they colour the characters beside them.
+
+Nothing is downloaded at runtime and nothing was added to `dependencies`, which
+is still empty. The package is a development dependency; a sprite is generated
+from the two icons actually referenced — 1230 bytes, against the nine thousand it
+ships — and inlined into the page like the stylesheet, for the same reason a
+browser does not carry the token across to a relative asset.
+
+The four status shapes stay as characters. At the size of a line of 13px text,
+solid geometric primitives are more distinguishable by shape than any drawing
+scaled down to meet them, and shape is what carries the meaning here.
+
+### The settings button, only where it is the second door
+
+The desktop application keeps Settings under File on `Ctrl+,`, so the button in
+the bar was a second way into one room. It is hidden there now.
+
+It is *not* hidden in a browser. `asm serve` has no menu and had no shortcut, so
+removing the button outright would have made the panel unreachable — it was the
+only door. The page asks the host which it is talking to, and **`Ctrl+,` now
+works in the page as well**, so both hosts answer the same key.
+
+### The file lock loses no more writes
+
+Removing the lock's 500 ms deadline in 1.1.4 uncovered a second race beneath it.
+`isStale` answered *yes* when the lock had simply **gone**, and the caller then
+removed whatever lock was present — which by that point could be a fresh one
+another writer had just taken. Two writers inside at once, and one write lost.
+
+Measured as `expected 15 to be 16`, and as seven stars kept out of eight when
+several windows write together. A lock that has vanished is not a lock to remove:
+the answer now separates *gone* from *old*, and only *old* is deleted. Ten
+consecutive full runs clean, where the previous shape failed roughly one in
+three.
+
+That file holds your marks, and it is shared with the VS Code extension. It has
+now gained its first two real tests for concurrent writers.
+
 ## 1.1.4
 
 **The status filters show the shape they filter on.** The rows have carried a
