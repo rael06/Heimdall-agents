@@ -28,8 +28,6 @@
       <option value="watched" data-i18n="notifyScope.watched">watched sessions</option>
       <option value="unacknowledged" data-i18n="notifyScope.unacknowledged">anything unacknowledged</option>
     </select>
-    <button id="refresh" type="button" data-i18n="bar.refresh" data-i18n-title="bar.refreshTitle"
-            title="Re-scan the transcripts and redraw the list (r)">Refresh</button>
     <button id="pause" type="button" data-i18n="bar.pause">Pause</button>
   </div>
 
@@ -96,7 +94,13 @@
       <button id="reorder" type="button" class="hidden"></button>
     </span>
     <span class="grow"></span>
+    <!-- Both act on the list as it stands: one settles what is on screen, the
+         other re-reads it. They belong beside the counter that says whether
+         either did anything, rather than three toolbars apart among the
+         settings. -->
     <button id="ack-visible" type="button" data-i18n="bar.acknowledge">Acknowledge visible</button>
+    <button id="refresh" type="button" data-i18n="bar.refresh" data-i18n-title="bar.refreshTitle"
+            title="Re-scan the transcripts and redraw the list (r)">Refresh</button>
   </div>
 
   <div id="notices" role="status"></div>

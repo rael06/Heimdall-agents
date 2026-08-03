@@ -235,6 +235,27 @@ test('the toolbars wrap instead of pushing the page sideways', async ({ page }) 
   expect(problems).toEqual([]);
 });
 
+test('refresh sits beside acknowledge, on the bar that carries the counter', async ({ page }) => {
+  await open(page);
+  const bar = page.locator('header .bar').last();
+
+  // Both act on the list as it stands, so they are together rather than three
+  // toolbars apart — and refresh is no longer among the settings, where it was
+  // the only control that touched the rows instead of how they behave.
+  await expect(bar.locator('#counts')).toBeVisible();
+  await expect(bar.locator('#ack-visible')).toBeVisible();
+  await expect(bar.locator('#refresh')).toBeVisible();
+
+  const order = await bar.locator('button').evaluateAll((nodes) => nodes.map((node) => node.id));
+  expect(order.indexOf('ack-visible')).toBeGreaterThanOrEqual(0);
+  expect(order.indexOf('refresh')).toBeGreaterThan(order.indexOf('ack-visible'));
+
+  // Moving it changed nothing about what it does, keyboard included.
+  await page.locator('body').press('r');
+  await expect(rows(page)).toHaveCount(3);
+  expect(problems).toEqual([]);
+});
+
 test('an inferred status justifies itself in its tooltip', async ({ page }) => {
   await open(page);
   const status = rows(page).first().locator('.status');

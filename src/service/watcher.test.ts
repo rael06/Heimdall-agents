@@ -1,4 +1,4 @@
-import { spawnSync } from 'node:child_process';
+import * as fsSync from 'node:fs';
 import { promises as fs, realpathSync } from 'node:fs';
 import * as os from 'node:os';
 import * as path from 'node:path';
@@ -22,30 +22,39 @@ afterEach(async () => {
   await fs.rm(home, { recursive: true, force: true }).catch(() => undefined);
 });
 
-/** The 8.3 form Windows keeps for a directory, when it keeps one. */
-function shortPath(directory: string): string | undefined {
-  if (process.platform !== 'win32') {
+/**
+ * A second name for the same directory, made without launching anything.
+ *
+ * A junction is one of the three ways a path reaches libuv spelled differently
+ * from how the operating system reports it — the others being an 8.3 short name
+ * and the wrong casing — and it is the only one Node can produce on its own.
+ *
+ * Two earlier versions of this asked Windows for the 8.3 form instead. The
+ * first spawned PowerShell, which on a cold runner cost more than Vitest's
+ * entire five-second budget before doing anything: the test took 12.9 s, timed
+ * out, and said nothing whatever about the watcher. The second spawned `cmd`,
+ * which is fast but has `cmd /c` re-quoting a command that already contains
+ * quotes, and handed back `C:\"C:\Users\...\"`. Neither failure was about the
+ * code under test, which is the definition of a test worth deleting.
+ */
+function secondNameFor(directory: string): string | undefined {
+  const link = path.join(path.dirname(directory), `${path.basename(directory)}-link`);
+  try {
+    // `junction` on Windows needs no privilege; elsewhere this is a plain
+    // symlink, and the property being checked is the same either way.
+    fsSync.symlinkSync(directory, link, 'junction');
+    return link;
+  } catch {
+    // Some filesystems and some sandboxes refuse links outright.
     return undefined;
   }
-  const result = spawnSync(
-    'powershell.exe',
-    [
-      '-NoProfile',
-      '-NonInteractive',
-      '-Command',
-      `(New-Object -ComObject Scripting.FileSystemObject).GetFolder('${directory}').ShortPath`,
-    ],
-    { encoding: 'utf8' },
-  );
-  const value = result.stdout?.trim();
-  return value && value !== directory ? value : undefined;
 }
 
 describe('RootWatcher', () => {
   it('watches the path the operating system would name, not the one it was given', () => {
-    const short = shortPath(home);
-    if (!short) {
-      // No 8.3 alias on this volume, so there is nothing to canonicalise.
+    const second = secondNameFor(home);
+    if (!second) {
+      // Links refused here, so there is no second spelling to canonicalise.
       return;
     }
 
@@ -55,14 +64,15 @@ describe('RootWatcher', () => {
     // canonical form of it is `runneradmin`. That is not a detail — it is
     // exactly the situation that aborted the service.
     const expected = realpathSync.native(home);
-    for (const given of [short, home]) {
+    for (const given of [second, home]) {
       const watcher = new RootWatcher([given], () => undefined, 10, 50);
       const report = watcher.start();
       try {
         expect(report.failed).toEqual([]);
         expect(report.watched[0]).toBe(expected);
-        // No 8.3 alias survives into what libuv compares its reports against.
-        expect(report.watched[0]).not.toMatch(/~\d(\\|$)/);
+        // Nothing that is merely another name for it survives into what libuv
+        // compares its own reports against.
+        expect(report.watched[0]).not.toBe(second);
       } finally {
         watcher.stop();
       }
