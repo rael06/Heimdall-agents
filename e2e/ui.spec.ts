@@ -40,6 +40,33 @@ function ratio(a: string, b: string): number {
   return (high + 0.05) / (low + 0.05);
 }
 
+const parse = (colour: string): number[] =>
+  (colour.match(/\d+/g) ?? ['0', '0', '0']).slice(0, 3).map(Number);
+
+/**
+ * CIE76, the measure `npm run contrast` already uses on the status colours.
+ * Below about 15 two colours are hard to tell apart at a glance, which is the
+ * question contrast cannot answer: two chips can both be perfectly legible and
+ * still be the same colour as each other.
+ */
+function difference(a: string, b: string): number {
+  const lab = (colour: string): number[] => {
+    const [r, g, b2] = parse(colour).map((value) => {
+      const c = value / 255;
+      return c <= 0.03928 ? c / 12.92 : ((c + 0.055) / 1.055) ** 2.4;
+    });
+    let x = (0.4124 * r + 0.3576 * g + 0.1805 * b2) / 0.95047;
+    let y = 0.2126 * r + 0.7152 * g + 0.0722 * b2;
+    let z = (0.0193 * r + 0.1192 * g + 0.9505 * b2) / 1.08883;
+    const f = (t: number): number => (t > 0.008856 ? Math.cbrt(t) : 7.787 * t + 16 / 116);
+    [x, y, z] = [f(x), f(y), f(z)];
+    return [116 * y - 16, 500 * (x - y), 200 * (y - z)];
+  };
+  const [l1, a1, b1] = lab(a);
+  const [l2, a2, b2] = lab(b);
+  return Math.hypot(l1 - l2, a1 - a2, b1 - b2);
+}
+
 /**
  * Marks are shared state that outlives a page, so a test that cares about
  * ordering has to say what it expects rather than inherit what ran before it.
@@ -121,6 +148,111 @@ test('a random primary stays readable as text, whatever it is', async ({ page })
   await page.evaluate(() => localStorage.removeItem('primary'));
   await page.locator('#theme').click();
   await page.locator('#theme').click();
+});
+
+test('the workspace chip stays readable at every hue, in both themes', async ({ page }) => {
+  await open(page);
+
+  // Measured here rather than in `npm run contrast`, which reads the stylesheet
+  // and does the arithmetic itself. It could not answer this one: the chip's
+  // chromas are outside the sRGB gamut for most hues, and the engine maps them
+  // back to the most colourful thing it can display. Computing from what is
+  // written in the CSS would be measuring a colour that never reaches a screen,
+  // so this asks Chromium what it painted.
+  const measure = () =>
+    page.evaluate(() => {
+      // Through a canvas, and not for convenience. `getComputedStyle` hands back
+      // `oklch(0.93 0.08 30)` verbatim now — a colour function is no longer
+      // serialised as `rgb()` — so reading the numbers out of that string gives
+      // the lightness and the chroma where the red and green channels should be.
+      // The first run of this test measured 1.17:1 that way and the stylesheet
+      // was already correct. Filling a pixel and reading it back is the engine
+      // answering in the space the screen works in, gamut mapping included.
+      const canvas = document.createElement('canvas');
+      const context = canvas.getContext('2d')!;
+      const srgb = (value: string): string => {
+        context.clearRect(0, 0, 1, 1);
+        context.fillStyle = value;
+        context.fillRect(0, 0, 1, 1);
+        const [r, g, b] = context.getImageData(0, 0, 1, 1).data;
+        return `rgb(${r}, ${g}, ${b})`;
+      };
+
+      const probe = document.createElement('span');
+      probe.className = 'link ws-tag';
+      probe.style.cssText = 'position: absolute; visibility: hidden';
+      document.body.append(probe);
+      const rowProbe = document.createElement('span');
+      rowProbe.style.cssText =
+        'background: var(--selected); position: absolute; visibility: hidden';
+      document.body.append(rowProbe);
+
+      const painted = [];
+      for (let hue = 0; hue < 360; hue += 1) {
+        probe.style.setProperty('--hue', String(hue));
+        const style = getComputedStyle(probe);
+        painted.push({
+          hue,
+          colour: srgb(style.color),
+          background: srgb(style.backgroundColor),
+          border: srgb(style.borderTopColor),
+        });
+      }
+      const rows = {
+        plain: srgb(getComputedStyle(document.body).backgroundColor),
+        selected: srgb(getComputedStyle(rowProbe).backgroundColor),
+      };
+      probe.remove();
+      rowProbe.remove();
+      return { painted, rows };
+    });
+
+  for (const theme of ['light', 'dark']) {
+    await page.locator('#theme').click();
+    await expect(page.locator('html')).toHaveAttribute('data-theme', theme);
+    const { painted, rows } = await measure();
+
+    let worstText = { value: Infinity, hue: -1 };
+    let worstEdge = { value: Infinity, hue: -1 };
+    for (const { hue, colour, background, border } of painted) {
+      const text = ratio(colour, background);
+      if (text < worstText.value) worstText = { value: text, hue };
+      // Against both the plain and the selected row: a chip that clears the
+      // page and dissolves into the row you have selected has stopped being a
+      // chip at the moment you are looking at it.
+      const edge = Math.min(ratio(border, rows.plain), ratio(border, rows.selected));
+      if (edge < worstEdge.value) worstEdge = { value: edge, hue };
+    }
+
+    expect(
+      worstText.value,
+      `${theme}: text on the chip, worst at hue ${worstText.hue}`,
+    ).toBeGreaterThanOrEqual(4.5);
+    // The bar for a boundary that carries meaning rather than a word.
+    expect(
+      worstEdge.value,
+      `${theme}: chip edge against the row, worst at hue ${worstEdge.hue}`,
+    ).toBeGreaterThanOrEqual(3);
+
+    // The other question, and the one legibility never asks: ten chips can each
+    // be perfectly readable and still be the same colour as each other, which is
+    // the whole point of colouring them. Every pair, not just neighbours.
+    const ten = [0, 36, 72, 108, 144, 180, 216, 252, 288, 324];
+    let closest = { value: Infinity, pair: '' };
+    for (let i = 0; i < ten.length; i += 1) {
+      for (let j = i + 1; j < ten.length; j += 1) {
+        const value = difference(painted[ten[i]].background, painted[ten[j]].background);
+        if (value < closest.value) closest = { value, pair: `${ten[i]}/${ten[j]}` };
+      }
+    }
+    expect(
+      closest.value,
+      `${theme}: closest pair of workspace colours, hues ${closest.pair}`,
+    ).toBeGreaterThanOrEqual(15);
+  }
+
+  await page.locator('#theme').click(); // back to auto
+  expect(problems).toEqual([]);
 });
 
 test('the interface and the dates follow the chosen language', async ({ page }) => {
