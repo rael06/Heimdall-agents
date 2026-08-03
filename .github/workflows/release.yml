@@ -62,11 +62,11 @@ jobs:
           GH_TOKEN: ${{ github.token }}
         run: |
           $tag = "${{ inputs.tag || github.ref_name }}"
-          $installer = (Get-ChildItem dist -Filter '*Setup*.exe' | Select-Object -First 1).FullName
+          $installer = (Get-ChildItem release -Filter '*Setup*.exe' | Select-Object -First 1).FullName
           # latest.yml is not decoration: the update path reads the sha512 out
           # of it, and refuses to install when it does not cover the installer.
           gh release create $tag `
             "$installer" `
-            'dist/latest.yml' `
+            'release/latest.yml' `
             --title $tag `
             --generate-notes

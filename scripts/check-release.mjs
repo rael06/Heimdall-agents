@@ -36,29 +36,32 @@ if (!heading.test(changelog)) {
 }
 
 if (wantArtifacts) {
-  const built = readdirSync('dist');
+  // `release/`, not `dist/`: the compiled service and the installer used to
+  // share a directory, which made `files: ["dist"]` publish a 209 MB npm
+  // tarball with the installer inside it.
+  const built = readdirSync('release');
   const installer = built.filter((name) => /setup.*\.exe$/i.test(name));
   if (installer.length !== 1) {
     problems.push(
-      `Expected exactly one installer in dist/, found ${installer.length}: ${installer.join(', ') || 'none'}.`,
+      `Expected exactly one installer in release/, found ${installer.length}: ${installer.join(', ') || 'none'}.`,
     );
   }
   if (!built.includes('latest.yml')) {
     problems.push(
-      'dist/latest.yml is missing. It carries the sha512 the update path checks ' +
+      'release/latest.yml is missing. It carries the sha512 the update path checks ' +
         'before running an installer, and without it that check is skipped.',
     );
   }
   if (installer.length === 1 && built.includes('latest.yml')) {
     // Not merely present: the manifest has to cover the file being shipped. The
     // two are named differently often enough that this went wrong once already.
-    const manifest = readFileSync('dist/latest.yml', 'utf8');
+    const manifest = readFileSync('release/latest.yml', 'utf8');
     const plain = (value) => value.toLowerCase().replace(/[\s._-]+/g, '-');
     const covered = [...manifest.matchAll(/^\s*-?\s*url:\s*(.+?)\s*$/gm)].some(
       ([, url]) => plain(decodeURIComponent(url)) === plain(installer[0]),
     );
     if (!covered) {
-      problems.push(`dist/latest.yml does not carry an entry for ${installer[0]}.`);
+      problems.push(`release/latest.yml does not carry an entry for ${installer[0]}.`);
     }
   }
 }
