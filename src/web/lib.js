@@ -109,6 +109,52 @@ export function splitSort(sort) {
   return { key: sort.slice(0, at), ascending: sort.slice(at + 1) === 'asc' };
 }
 
+// ------------------------------------------------------------------ columns
+
+/**
+ * The narrowest and widest a column may be dragged, in pixels.
+ *
+ * The minimum is not cosmetic. A column dragged to nothing cannot be dragged
+ * back — there is no edge left to take hold of — so the floor is what keeps the
+ * gesture reversible. The ceiling is there for the stored file rather than for
+ * the pointer: a width read back from disk has been through a text editor and a
+ * synchronised profile since it was written.
+ */
+export const MIN_COLUMN_WIDTH = 40;
+export const MAX_COLUMN_WIDTH = 1200;
+
+export const clampColumnWidth = (value) =>
+  Math.round(Math.min(MAX_COLUMN_WIDTH, Math.max(MIN_COLUMN_WIDTH, value)));
+
+/**
+ * The column widths worth restoring out of whatever was stored.
+ *
+ * All of them or none, which is the part worth explaining. Once the table is
+ * laid out to fixed widths, a column without one no longer sizes to its
+ * contents — it takes an equal share of whatever is left over. So a set that
+ * has lost a key, because a column was renamed or added between versions,
+ * would not restore "most of" the layout: it would quietly squash the columns
+ * it could not name. Falling back to automatic is the honest answer, and the
+ * user's next drag writes a complete set again.
+ */
+export function readColumnWidths(stored, keys) {
+  let parsed;
+  try {
+    parsed = JSON.parse(stored ?? '');
+  } catch {
+    return {};
+  }
+  if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) return {};
+  const widths = {};
+  for (const key of keys) {
+    const value = parsed[key];
+    if (typeof value === 'number' && Number.isFinite(value)) {
+      widths[key] = clampColumnWidth(value);
+    }
+  }
+  return Object.keys(widths).length === keys.length ? widths : {};
+}
+
 // ------------------------------------------------------------------- values
 
 /** The day a timestamp falls on, as the date inputs write it. */

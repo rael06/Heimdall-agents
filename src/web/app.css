@@ -284,6 +284,89 @@ th {
    take the width of what it holds rather than of what it is called. */
 th.tight { width: 1px; }
 
+/*
+ * The widths, from the moment the reader takes them over.
+ *
+ * `table-layout: fixed` only from that moment, which is what `data-sized`
+ * switches on. It is needed at all because under the automatic layout a column
+ * cannot be dragged narrower than its widest cell — the content sets a floor no
+ * pointer can cross — so a resize handle without this would work in one
+ * direction and silently refuse the other, which is the direction people reach
+ * for. And switching to it from the start would give up what the automatic
+ * layout is good at: a column that widens on its own when a longer name turns
+ * up. So the table sizes itself until the first drag, and not after.
+ */
+#sessions[data-sized] {
+  table-layout: fixed;
+  /*
+   * And the table stops being stretched to the width of its box. A fixed layout
+   * hands any width the table has beyond the sum of its columns back to the
+   * columns, so with `min-width: 100%` still in force a column dragged narrower
+   * would give its pixels straight to its neighbours and the table would never
+   * get any narrower — the drag would appear to do nothing at all.
+   */
+  min-width: 0;
+}
+
+/* Cut rather than spill into the next column, whatever a cell turns out to
+   hold. Under the automatic layout no cell could ever be too wide for its
+   column, so nothing needed this before. */
+#sessions[data-sized] th,
+#sessions[data-sized] td {
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* These two caps exist to stop one long value setting the width of the whole
+   table. That is the reader's job now, and left as they are they would ignore a
+   column deliberately dragged wider than the cap. */
+#sessions[data-sized] td.title .link,
+#sessions[data-sized] td.ws .link { max-width: 100%; }
+
+/*
+ * The handle.
+ *
+ * `role="separator"` rather than a button, in the markup: what it carries is a
+ * value inside a range, which is what a width is, and the arrow keys move it. A
+ * button would announce itself as something to press and say nothing about what
+ * pressing it does. A resize that only answers to a pointer is a resize that
+ * half the readers of this table cannot reach at all.
+ *
+ * It sits exactly over the cell's right padding, so its 8px of grab area take
+ * nothing from the header beside it — the cells have no left padding, and an
+ * overhang of even a few pixels would land on the neighbouring sort button.
+ */
+.resizer {
+  position: absolute;
+  top: 0;
+  right: 0;
+  width: 8px;
+  height: 100%;
+  cursor: col-resize;
+  /* So a drag on a touch screen resizes rather than scrolling the table. */
+  touch-action: none;
+}
+/* Drawn only when it is being reached for: a line down every column boundary is
+   a grid, and this table deliberately has rows and no grid. */
+.resizer::before {
+  content: "";
+  position: absolute;
+  top: 15%;
+  bottom: 15%;
+  left: 3px;
+  width: 2px;
+  border-radius: 1px;
+  background: var(--edge);
+  opacity: 0;
+}
+th:hover .resizer::before,
+.resizer:focus-visible::before { opacity: 1; }
+.resizer:focus-visible { outline: 2px solid var(--accent); outline-offset: -2px; }
+
+/* While a drag is in progress the cursor belongs to the window, not to the 8px
+   the pointer happens to be over, and nothing should be selecting text. */
+body.resizing { user-select: none; cursor: col-resize; }
+
 /* A chip carrying both an icon and a word needs a gap the icon does not bring. */
 .chip .icon + .chip-label { margin-left: .3rem; }
 

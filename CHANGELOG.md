@@ -1,5 +1,75 @@
 # Changelog
 
+## 1.1.8
+
+**The columns can be resized**, and the workspace column carries a colour per
+project instead of setting its own width.
+
+### The widths are the reader's
+
+Drag the edge of any header, or focus it and use the arrow keys — eight pixels a
+press, thirty-two with Shift. `Home`, or a double-click, gives a column back to
+its contents. The handle is a `separator` rather than a button: what it carries
+is a value inside a range, which is what a width is, and a resize that answers
+only to a pointer is one that a keyboard cannot reach at all.
+
+Two things about it are worth writing down, because both are consequences rather
+than choices.
+
+The table sizes itself until the first drag and holds still afterwards. That
+switch is needed: under an automatic layout a column cannot be dragged narrower
+than its widest cell — the content sets a floor no pointer crosses — so a handle
+without it would widen a column and silently refuse to narrow one, which is the
+direction people reach for. Making the switch permanent instead would cost what
+the automatic layout is good at, a column that widens on its own when a longer
+name arrives.
+
+And the first drag records **every** column, not the one being dragged. A fixed
+layout hands a column with no width of its own an equal share of the leftover
+space rather than fitting it to its contents, so writing one width and leaving
+the other nine empty would rearrange the whole table on the first pixel. The
+same reasoning is why a stored set that has lost a key — a column renamed, or
+added by an upgrade — is dropped whole rather than restored in part.
+
+`min-width: 100%` had to go with it, in that mode only. A fixed table gives any
+width beyond the sum of its columns back to the columns, so a column dragged
+narrower would have handed its pixels straight to its neighbours and the drag
+would have appeared to do nothing.
+
+### A colour per workspace, and a column that no longer sets its own width
+
+The folder column was as wide as the longest folder name anyone happened to have
+open. It is cut at 14ch now, the way the title column already was, with the whole
+path still in the tooltip. The name also picks a colour, so a long list separates
+into projects before any of it is read.
+
+**Ten colours, not a hue per name.** Spreading names over all 360 hues put the
+two workspaces in the fixtures at 252° and 246°: one blue, shown twice. A near
+miss reads as a mistake where an exact repeat reads as a coincidence, and the
+name is written inside the chip either way. Ten rather than twelve because the
+chips are pale enough that the sRGB gamut caps their chroma — at twelve, adjacent
+colours fall to CIE76 14.1 in the dark theme, under the 15 this project already
+holds the statuses to. The first fill was paler still, at `oklch` lightness .93,
+where no hue can hold more than .028 of chroma and the ten came out as ten
+variations on off-white.
+
+The check for it lives in the interface tests rather than in `npm run contrast`,
+and not for convenience: the fills are written past the sRGB gamut on purpose so
+the browser maps each hue back to the most colourful thing it can show, and
+computing from the stylesheet would measure a colour that never reaches a screen.
+It asks Chromium what it painted, over all 360 hues in both themes, and holds the
+text to 4.5:1, the chip's edge to 3:1 against both the plain and the selected row
+— the fill itself lands within 1.00:1 of the selected row around hue 232 and
+dissolves — and the ten colours to CIE76 15 against each other, which contrast
+cannot ask: ten chips can each be perfectly legible and still be the same colour.
+
+That test read 1.17:1 against a stylesheet that was already correct, twice over.
+`getComputedStyle` no longer serialises a colour function as `rgb()`, so reading
+the numbers out of `oklch(0.93 0.08 30)` takes the lightness and the chroma for
+red and green; it fills a canvas pixel and reads that back now. And the rules sat
+above `.link`, which carries the same weight, so `.link { background: none }` won
+on source order and the chip had no background at all.
+
 ## 1.1.7
 
 **The statuses are drawn**, the marker columns are headed by their own marks and

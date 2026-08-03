@@ -1,6 +1,6 @@
 {
   "name": "heimdall-agents",
-  "version": "1.1.7",
+  "version": "1.1.8",
   "description": "Watches local Claude Code and Codex sessions, and tells you when a model stops working.",
   "license": "MIT",
   "author": "rael06",

@@ -1,8 +1,12 @@
 import { describe, expect, it } from 'vitest';
 import {
+  MAX_COLUMN_WIDTH,
+  MIN_COLUMN_WIDTH,
+  clampColumnWidth,
   contrast,
   day,
   folder,
+  readColumnWidths,
   minutesSince,
   normalizeSort,
   readable,
@@ -156,6 +160,72 @@ describe('workspaceHue', () => {
     // takes a fifth of the list, not that the hash is uniform.
     expect(Math.min(...used.values())).toBeGreaterThan(20);
     expect(Math.max(...used.values())).toBeLessThan(100);
+  });
+});
+
+describe('clampColumnWidth', () => {
+  it('keeps a width the pointer could have produced', () => {
+    expect(clampColumnWidth(240)).toBe(240);
+  });
+
+  it('refuses a column too narrow to take hold of again', () => {
+    // Dragged to nothing there is no edge left to drag back, so the floor is
+    // what keeps the gesture reversible rather than what looks tidy.
+    expect(clampColumnWidth(0)).toBe(MIN_COLUMN_WIDTH);
+    expect(clampColumnWidth(-500)).toBe(MIN_COLUMN_WIDTH);
+  });
+
+  it('refuses one no window could show', () => {
+    expect(clampColumnWidth(99_999)).toBe(MAX_COLUMN_WIDTH);
+  });
+
+  it('rounds, because it is a count of pixels', () => {
+    expect(clampColumnWidth(240.6)).toBe(241);
+  });
+});
+
+describe('readColumnWidths', () => {
+  const keys = ['status', 'title'];
+
+  it('reads back a complete set', () => {
+    expect(readColumnWidths('{"status":50,"title":300}', keys)).toEqual({
+      status: 50,
+      title: 300,
+    });
+  });
+
+  it('clamps on the way in, not only on the way out', () => {
+    // What was stored has been through a synchronised profile and possibly a
+    // text editor since it was written.
+    expect(readColumnWidths('{"status":1,"title":99999}', keys)).toEqual({
+      status: MIN_COLUMN_WIDTH,
+      title: MAX_COLUMN_WIDTH,
+    });
+  });
+
+  it('drops the whole set when a column is missing from it', () => {
+    // Not stubbornness. Under a fixed layout a column with no width takes an
+    // equal share of the leftover space instead of sizing to its contents, so
+    // restoring "most of" a layout would quietly squash whatever it could not
+    // name — after a rename, or an upgrade that added a column.
+    expect(readColumnWidths('{"status":50}', keys)).toEqual({});
+    expect(readColumnWidths('{"status":50,"title":"wide"}', keys)).toEqual({});
+    expect(readColumnWidths('{"status":50,"title":null}', keys)).toEqual({});
+  });
+
+  it('ignores a column it no longer has', () => {
+    // The opposite case: a column that was removed leaves a key behind, and the
+    // ones still on screen are all present, so the layout is restorable.
+    expect(readColumnWidths('{"status":50,"title":300,"gone":90}', keys)).toEqual({
+      status: 50,
+      title: 300,
+    });
+  });
+
+  it('survives anything at all in the stored value', () => {
+    for (const stored of [null, undefined, '', 'not json', '[]', '"text"', '7', '{}']) {
+      expect(readColumnWidths(stored, keys)).toEqual({});
+    }
   });
 });
 

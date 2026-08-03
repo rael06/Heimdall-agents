@@ -315,6 +315,7 @@ function applyLanguage() {
   for (const node of document.querySelectorAll('[data-i18n-aria-label]')) {
     node.setAttribute('aria-label', translate(lang, node.dataset.i18nAriaLabel));
   }
+  nameResizers(lang);
   // The two that name themselves rather than carrying a fixed key.
   const system = resolveLanguage('auto', navigator.languages);
   el('set-language').options[0].textContent = translate(lang, 'settings.languageAuto', {
@@ -976,6 +977,179 @@ function syncSortHeaders() {
   }
 }
 
+// ----------------------------------------------------------- column widths
+
+/**
+ * Kept beside the theme rather than in the address bar.
+ *
+ * The address bar carries the view — a search, a filter, a sort — because those
+ * are worth bookmarking and worth sending to someone else. A column dragged to
+ * suit one window on one screen is neither.
+ */
+const COLUMN_STORE = 'columns';
+let columnWidths = {};
+
+const headerCells = () => [...document.querySelectorAll('#sessions thead th[data-column]')];
+
+/**
+ * The widths the table would choose for itself, measured by letting it choose.
+ *
+ * There is no other way to ask. Under a fixed layout the width a column would
+ * have taken is not a value anything exposes, so the layout is handed back for
+ * the length of one measurement and taken again immediately. Nothing is painted
+ * in between: reading a rectangle forces the layout the lines above it asked
+ * for, and the frame ends with the table as it started.
+ */
+function naturalWidths() {
+  const table = el('sessions');
+  const sized = table.hasAttribute('data-sized');
+  table.removeAttribute('data-sized');
+  for (const col of table.querySelectorAll('col')) col.style.removeProperty('width');
+  const measured = {};
+  for (const th of headerCells()) measured[th.dataset.column] = th.getBoundingClientRect().width;
+  if (sized) table.setAttribute('data-sized', '');
+  applyColumnWidths();
+  return measured;
+}
+
+function applyColumnWidths() {
+  const table = el('sessions');
+  table.toggleAttribute('data-sized', Object.keys(columnWidths).length > 0);
+  for (const col of table.querySelectorAll('col')) {
+    const width = columnWidths[col.dataset.column];
+    if (width) col.style.width = `${width}px`;
+    else col.style.removeProperty('width');
+  }
+  for (const th of headerCells()) {
+    const handle = th.querySelector('.resizer');
+    if (!handle) continue;
+    const width = columnWidths[th.dataset.column] ?? th.getBoundingClientRect().width;
+    handle.setAttribute('aria-valuenow', String(Math.round(width)));
+  }
+}
+
+function storeColumnWidths() {
+  if (Object.keys(columnWidths).length) {
+    localStorage.setItem(COLUMN_STORE, JSON.stringify(columnWidths));
+  } else {
+    localStorage.removeItem(COLUMN_STORE);
+  }
+}
+
+/**
+ * Every column at once, on the first drag, and not only the one being dragged.
+ *
+ * A fixed layout hands a column with no width of its own an equal share of
+ * whatever is left over rather than sizing it to its contents. Writing one
+ * width and leaving the other nine empty would therefore rearrange the entire
+ * table on the first pixel of the first drag.
+ */
+function takeOverWidths() {
+  if (Object.keys(columnWidths).length) return;
+  const natural = naturalWidths();
+  for (const key of Object.keys(natural)) columnWidths[key] = clampColumnWidth(natural[key]);
+  applyColumnWidths();
+}
+
+/** Back to what the contents ask for: the double-click every table has. */
+function fitColumn(key) {
+  // Nothing to fit while the table is still sizing itself — every column is
+  // already exactly as wide as its contents.
+  if (!Object.keys(columnWidths).length) return;
+  columnWidths[key] = clampColumnWidth(naturalWidths()[key]);
+  applyColumnWidths();
+  storeColumnWidths();
+}
+
+function resizeColumn(key, width) {
+  takeOverWidths();
+  columnWidths[key] = clampColumnWidth(width);
+  applyColumnWidths();
+}
+
+function wireResizer(handle, key) {
+  handle.addEventListener('pointerdown', (event) => {
+    // Captured, so the drag survives leaving the eight pixels it started in —
+    // and the listeners come off with it rather than living on the document for
+    // the rest of the session. Deliberately without `preventDefault`, which
+    // would take the double-click with it: the text selection it would have
+    // stopped is stopped by `body.resizing` instead.
+    handle.setPointerCapture(event.pointerId);
+    document.body.classList.add('resizing');
+    takeOverWidths();
+    const startX = event.clientX;
+    const startWidth = columnWidths[key];
+    const move = (moving) => resizeColumn(key, startWidth + (moving.clientX - startX));
+    const stop = () => {
+      handle.removeEventListener('pointermove', move);
+      handle.removeEventListener('pointerup', stop);
+      handle.removeEventListener('pointercancel', stop);
+      document.body.classList.remove('resizing');
+      storeColumnWidths();
+    };
+    handle.addEventListener('pointermove', move);
+    handle.addEventListener('pointerup', stop);
+    handle.addEventListener('pointercancel', stop);
+  });
+
+  handle.addEventListener('dblclick', () => fitColumn(key));
+
+  handle.addEventListener('keydown', (event) => {
+    if (event.key === 'ArrowLeft' || event.key === 'ArrowRight') {
+      takeOverWidths();
+      const step = event.shiftKey ? 32 : 8;
+      resizeColumn(key, columnWidths[key] + (event.key === 'ArrowLeft' ? -step : step));
+    } else if (event.key === 'Home') {
+      fitColumn(key);
+    } else {
+      return;
+    }
+    // Only for the keys that were used: the rest still reach the table, and
+    // Tab above all still leaves.
+    event.preventDefault();
+    storeColumnWidths();
+  });
+}
+
+function buildColumns() {
+  const table = el('sessions');
+  const group = document.createElement('colgroup');
+  for (const th of headerCells()) {
+    const key = th.dataset.column;
+    const col = document.createElement('col');
+    col.dataset.column = key;
+    group.append(col);
+
+    const handle = document.createElement('div');
+    handle.className = 'resizer';
+    handle.dataset.column = key;
+    handle.setAttribute('role', 'separator');
+    handle.setAttribute('aria-orientation', 'vertical');
+    handle.setAttribute('aria-valuemin', String(MIN_COLUMN_WIDTH));
+    handle.setAttribute('aria-valuemax', String(MAX_COLUMN_WIDTH));
+    handle.tabIndex = 0;
+    wireResizer(handle, key);
+    th.append(handle);
+  }
+  // After the caption, which is the only place a colgroup is allowed to be.
+  table.querySelector('caption').after(group);
+
+  columnWidths = readColumnWidths(
+    localStorage.getItem(COLUMN_STORE),
+    headerCells().map((th) => th.dataset.column),
+  );
+  applyColumnWidths();
+}
+
+/** Named from the column they belong to, so they follow the language with it. */
+function nameResizers(lang) {
+  for (const handle of document.querySelectorAll('.resizer')) {
+    const name = translate(lang, `column.${handle.dataset.column}`);
+    handle.setAttribute('aria-label', translate(lang, 'column.resize', { name }));
+    handle.title = translate(lang, 'column.resizeHint', { name });
+  }
+}
+
 function syncControls() {
   el('query').value = filters.q;
   el('scope').value = filters.scope;
@@ -1253,6 +1427,8 @@ async function boot() {
   ]) {
     prependIcon(document.querySelector(`button.sort[data-key="${key}"]`), icon);
   }
+  // Before the language pass, which is what names the handles it builds.
+  buildColumns();
   applyLanguage();
   syncControls();
   wireControls();

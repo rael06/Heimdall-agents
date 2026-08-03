@@ -82,6 +82,9 @@ const TRANSLATIONS = {
     'column.starred': 'Starred',
     'column.transcript': 'Transcript',
     'column.minutes': 'Minutes in this status',
+    'column.resize': 'Resize the {name} column',
+    'column.resizeHint':
+      'Drag to resize {name}. Arrow keys adjust it, Home fits it to its contents, and so does a double-click.',
 
     'row.openSession': 'Open this session in VS Code',
     'row.openTranscript': 'Open the raw transcript',
@@ -234,6 +237,9 @@ const TRANSLATIONS = {
     'column.starred': 'Favorite',
     'column.transcript': 'Transcript',
     'column.minutes': 'Minutes dans ce statut',
+    'column.resize': 'Redimensionner la colonne {name}',
+    'column.resizeHint':
+      'Faites glisser pour redimensionner {name}. Les flèches ajustent, Origine ajuste au contenu, un double-clic aussi.',
 
     'row.openSession': 'Ouvrir cette session dans VS Code',
     'row.openTranscript': 'Ouvrir le transcript brut',
