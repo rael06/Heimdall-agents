@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from 'vitest';
 import { AgentSession } from '../model/types';
-import { Desktop, cleanEnvironment, createDesktop, openCommand } from './desktop';
+import { Desktop } from './desktop';
 import { handover } from './handover';
 
 function session(overrides: Partial<AgentSession> = {}): AgentSession {
@@ -32,65 +32,9 @@ function fakeDesktop(failOn?: (uri: string) => boolean): Desktop & { opened: str
 
 const noSleep = async (): Promise<void> => undefined;
 
-describe('openCommand', () => {
-  it('knows how to open a URI on each platform', () => {
-    expect(openCommand('win32', 'vscode://x')).toEqual({
-      command: 'cmd',
-      args: ['/c', 'start', '', 'vscode://x'],
-    });
-    expect(openCommand('darwin', 'vscode://x')).toEqual({ command: 'open', args: ['vscode://x'] });
-    expect(openCommand('linux', 'vscode://x')).toEqual({ command: 'xdg-open', args: ['vscode://x'] });
-  });
-
-  it('has nothing for a platform it does not know', () => {
-    expect(openCommand('aix', 'vscode://x')).toBeUndefined();
-  });
-});
-
-describe('cleanEnvironment', () => {
-  it('drops what VS Code puts in the environment', () => {
-    // Started from a VS Code terminal, this process inherits variables that
-    // turn Code.exe into a Node interpreter, so a handover reports success and
-    // opens nothing at all.
-    const cleaned = cleanEnvironment({
-      PATH: '/usr/bin',
-      ELECTRON_RUN_AS_NODE: '1',
-      ELECTRON_NO_ATTACH_CONSOLE: '1',
-      VSCODE_ESM_ENTRYPOINT: 'vs/workbench/api/node/extensionHostProcess',
-      VSCODE_IPC_HOOK: '\\\\.\\pipe\\whatever',
-    });
-    expect(cleaned).toEqual({ PATH: '/usr/bin' });
-  });
-
-  it('leaves everything else alone', () => {
-    expect(cleanEnvironment({ PATH: '/usr/bin', HOME: '/home/dev' })).toEqual({
-      PATH: '/usr/bin',
-      HOME: '/home/dev',
-    });
-  });
-});
-
-describe('createDesktop', () => {
-  it('runs the platform command for a URI it built', async () => {
-    const run = vi.fn().mockResolvedValue(undefined);
-    await createDesktop('win32', { run }).openExternal('vscode://file/C:/x');
-    expect(run).toHaveBeenCalledWith('cmd', ['/c', 'start', '', 'vscode://file/C:/x']);
-  });
-
-  it('refuses anything that is not a vscode URI it could have produced', async () => {
-    const run = vi.fn();
-    const desktop = createDesktop('win32', { run });
-    await expect(desktop.openExternal('https://evil.example')).rejects.toThrow();
-    await expect(desktop.openExternal('vscode://file/x" & calc')).rejects.toThrow();
-    expect(run).not.toHaveBeenCalled();
-  });
-
-  it('refuses on a platform with no implementation rather than pretending', async () => {
-    await expect(
-      createDesktop('aix', { run: vi.fn() }).openExternal('vscode://file/x'),
-    ).rejects.toThrow(/not implemented/);
-  });
-});
+// `openCommand`, `cleanEnvironment` and `createDesktop` are exercised beside the
+// module that owns them, in `desktop.test.ts`. They lived here, which is why a
+// bug in how a URI reaches Windows read as a gap in `desktop.ts`'s coverage.
 
 describe('handover', () => {
   it('focuses the window first, then asks it for the session', async () => {

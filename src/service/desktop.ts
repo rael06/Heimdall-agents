@@ -28,9 +28,18 @@ export function openCommand(
 ): { command: string; args: string[] } | undefined {
   switch (platform) {
     case 'win32':
-      // `start` is a cmd builtin, and its first quoted argument is the window
-      // title — hence the empty one, or a quoted URI would be taken for it.
-      return { command: 'cmd', args: ['/c', 'start', '', uri] };
+      // Not `cmd /c start`, which was here and was wrong. `cmd` reads `&` as a
+      // command separator, and `encodeURI` leaves it alone because it is legal
+      // in a URI path — so a workspace called `R&D` was delivered to the handler
+      // as `…/projects/R`, and `D` was run as a command. Measured through a
+      // protocol handler registered for the test, not reasoned about.
+      //
+      // `rundll32 url.dll,FileProtocolHandler` reaches the same ShellExecute
+      // with no interpreter in between, so an argument stays an argument. It was
+      // preferred over `explorer.exe`, which delivers the URI intact too but
+      // answers 1 whether or not it worked — and an exit code that means nothing
+      // is worse than none, because the caller below believes it.
+      return { command: 'rundll32.exe', args: ['url.dll,FileProtocolHandler', uri] };
     case 'darwin':
       return { command: 'open', args: [uri] };
     case 'linux':
