@@ -1,5 +1,39 @@
 # Changelog
 
+## 1.1.1
+
+The window comes back after an update, which the dialog had been promising for
+as long as it had existed.
+
+`runInstaller` launched the installer with `/S` and nothing else. That installs
+silently and exits, so updating from the interface closed the application and
+left the screen empty — correct on disk, and indistinguishable from a failure
+to anyone watching.
+
+The relaunch needs `--force-run` **beside** `/S`, and neither works alone. It is
+not a guess; it is in the NSIS template that builds this installer, on the
+assisted branch this project takes by setting `oneClick: false`:
+
+```nsis
+# for assisted installer run only if silent, because assisted installer has run after finish option
+${if} ${isForceRun}
+${andIf} ${Silent}
+  !insertmacro doStartApp
+${endIf}
+```
+
+Found by updating 1.0.1 to 1.1.0 through the interface on a real machine. The
+install was faultless — `1.1.0.0` on disk, `app.asar` down to 376,456 bytes —
+and nothing was running afterwards.
+
+The audit that produced 1.1.0 read `runInstaller`, noted the `detached` and the
+`unref`, and took the dialog's sentence at face value instead of checking it
+against the arguments being passed. Which is the whole argument for the test
+that comes with this: the launch is injected now, so what gets run can be asked
+about without running it, and the order — launch, then quit — is pinned as well.
+`update.ts` had been left as "the network and the process launch, which cannot
+be tested"; half of that was true.
+
 ## 1.1.0 — What an audit found
 
 A review of the whole repository against security, interface, accessibility,

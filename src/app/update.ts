@@ -173,13 +173,50 @@ export async function downloadInstaller(
 }
 
 /**
+ * What the installer is asked to do.
+ *
+ * `/S` is a silent install, which is deliberate: nobody clicking "Download and
+ * install" wants to answer the same questions again. `--force-run` is what
+ * brings the window back, and leaving it out is why the screen stayed empty.
+ *
+ * Both are required, and neither works alone. From the NSIS template that
+ * builds this installer, on the assisted branch this project takes by setting
+ * `oneClick: false`:
+ *
+ * ```nsis
+ * # for assisted installer run only if silent, because assisted installer has
+ * # run after finish option
+ * ${if} ${isForceRun}
+ * ${andIf} ${Silent}
+ *   !insertmacro doStartApp
+ * ${endIf}
+ * ```
+ *
+ * @see app-builder-lib/templates/nsis/installSection.nsh
+ */
+export const INSTALLER_ARGUMENTS: readonly string[] = ['/S', '--force-run'];
+
+/** Injected so what gets launched can be asked about without launching it. */
+export type LaunchInstaller = (installerPath: string, args: readonly string[]) => void;
+
+const spawnDetached: LaunchInstaller = (installerPath, args) => {
+  spawn(installerPath, [...args], { detached: true, stdio: 'ignore' }).unref();
+};
+
+/**
  * Hands the installer to Windows and gets out of the way.
  *
  * Detached and then quitting, in that order: an installer cannot replace files
  * this process still holds open, and waiting for something that outlives us
- * would only keep them held.
+ * would only keep them held. A launch that fails never reaches the quit, so the
+ * window stays up to carry the failure rather than vanishing on a user who is
+ * about to be told nothing was installed.
  */
-export function runInstaller(installerPath: string, quit: () => void): void {
-  spawn(installerPath, ['/S'], { detached: true, stdio: 'ignore' }).unref();
+export function runInstaller(
+  installerPath: string,
+  quit: () => void,
+  launch: LaunchInstaller = spawnDetached,
+): void {
+  launch(installerPath, INSTALLER_ARGUMENTS);
   quit();
 }
