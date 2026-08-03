@@ -330,6 +330,9 @@ test('every action is a target of its own, reachable by keyboard', async ({ page
   await expect(row.locator('td.ws .link')).toHaveAttribute('title', /Open /);
 });
 
+/** The column header cell, which is the only element `aria-sort` is valid on. */
+const header = (page: Page, key: string) => page.locator(`th:has(button.sort[data-key="${key}"])`);
+
 test('a column header sorts, and reverses when clicked again', async ({ page }) => {
   await open(page);
   const titles = () => rows(page).locator('.title .text').allInnerTexts();
@@ -337,18 +340,14 @@ test('a column header sorts, and reverses when clicked again', async ({ page }) 
   await clearMarks(page);
 
   await page.locator('button.sort[data-key="title"]').click();
-  await expect(page.locator('button.sort[data-key="title"]')).toHaveAttribute(
-    'aria-sort',
-    'ascending',
-  );
+  // On the `th`: `aria-sort` is only supported on a `columnheader`, so on the
+  // button it was there to be read by nothing.
+  await expect(header(page, 'title')).toHaveAttribute('aria-sort', 'ascending');
   const ascending = await titles();
   expect(ascending).toEqual([...ascending].sort());
 
   await page.locator('button.sort[data-key="title"]').click();
-  await expect(page.locator('button.sort[data-key="title"]')).toHaveAttribute(
-    'aria-sort',
-    'descending',
-  );
+  await expect(header(page, 'title')).toHaveAttribute('aria-sort', 'descending');
   expect(await titles()).toEqual([...ascending].reverse());
 
   // The select and the header are the same control, said twice.
@@ -359,8 +358,25 @@ test('only one column claims the ordering at a time', async ({ page }) => {
   await open(page);
   await page.locator('button.sort[data-key="title"]').click();
   await page.locator('button.sort[data-key="provider"]').click();
-  await expect(page.locator('button.sort[data-key="provider"]')).toHaveAttribute('aria-sort', /.+/);
-  await expect(page.locator('button.sort[data-key="title"]')).not.toHaveAttribute('aria-sort', /.+/);
+  await expect(header(page, 'provider')).toHaveAttribute('aria-sort', /.+/);
+  await expect(header(page, 'title')).not.toHaveAttribute('aria-sort', /.+/);
+});
+
+test('the list announces what changed, without announcing every scan', async ({ page }) => {
+  await open(page);
+  // The regions a screen reader is meant to hear.
+  await expect(page.locator('#notices')).toHaveAttribute('role', 'status');
+  await expect(page.locator('#empty')).toHaveAttribute('role', 'status');
+  await expect(page.locator('#announcer')).toHaveAttribute('role', 'status');
+  await expect(page.locator('.live[role="status"]')).toContainText(/visible/);
+
+  // And the one that is deliberately not a region: it restates the last scan
+  // time on a timer, and a region that speaks on a timer gets switched off.
+  await expect(page.locator('#service-state')).not.toHaveAttribute('role', 'status');
+
+  // The table and the landmark say what they hold.
+  await expect(page.locator('table#sessions caption')).toHaveText(/sessions/i);
+  await expect(page.locator('main')).toHaveAttribute('aria-label', /.+/);
 });
 
 test('filters narrow with all, and widen with any', async ({ page }) => {
@@ -437,8 +453,25 @@ test('the notification switch shows its state, and can be turned back on', async
   await notify.click();
   await expect(notify).toHaveAttribute('aria-pressed', 'true');
   await expect(notify).toHaveAttribute('title', /idle/);
+
+  // This tooltip was written in English in place, and this assertion is what
+  // kept that from being noticed: it passed precisely because the wording never
+  // followed the language. It has to change with it now.
+  await page.locator('#open-settings').click();
+  await page.locator('#set-language').selectOption('fr');
+  await page.keyboard.press('Escape');
+  await expect(notify).toHaveAttribute('title', /Notifie sur/);
+  await expect(notify).toHaveAttribute('title', /en attente/);
+
+  await page.locator('#open-settings').click();
+  await page.locator('#set-language').selectOption('auto');
+  await page.keyboard.press('Escape');
+  await expect(notify).toHaveAttribute('title', /Notifying on/);
+
   await notify.click();
   await expect(notify).toHaveAttribute('aria-pressed', 'false');
+  await expect(notify).toHaveAttribute('title', /off/);
+  await page.evaluate(() => localStorage.removeItem('language'));
 });
 
 test('the statuses that notify are chosen from the interface, and remembered', async ({ page }) => {

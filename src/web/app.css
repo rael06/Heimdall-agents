@@ -126,6 +126,11 @@ button:hover { border-color: var(--accent); }
   cursor: pointer;
 }
 
+/* A live region grouping the counter and the reorder offer: they change for the
+   same reason, so they are announced once rather than twice. It is a box only so
+   that wrapping them costs no layout. */
+.live { display: inline-flex; align-items: center; gap: .5rem; }
+
 .chips { display: flex; gap: .25rem; flex-wrap: wrap; }
 .chip[aria-pressed="true"] {
   border-color: var(--accent);
@@ -208,12 +213,13 @@ button.sort {
   font-weight: 600;
 }
 button.sort:hover { color: var(--fg); }
-button.sort[aria-sort]::after {
+/* Keyed off the `th`, because that is the only element `aria-sort` is valid on. */
+th[aria-sort] > button.sort::after {
   content: " ▲";
   font-size: .8em;
 }
-button.sort[aria-sort="descending"]::after { content: " ▼"; }
-button.sort[aria-sort] { color: var(--fg); }
+th[aria-sort="descending"] > button.sort::after { content: " ▼"; }
+th[aria-sort] > button.sort { color: var(--fg); }
 tbody tr { border-bottom: 1px solid var(--line); }
 /* Scanning a wide row is easier when the row you are on answers back. */
 tbody tr:hover { background: var(--hover); }
