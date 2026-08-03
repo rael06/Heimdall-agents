@@ -45,6 +45,7 @@ export default tseslint.config(
         splitSort: 'readonly',
         day: 'readonly',
         folder: 'readonly',
+        workspaceHue: 'readonly',
         minutesSince: 'readonly',
       },
     },

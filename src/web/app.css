@@ -406,6 +406,78 @@ td.num { min-width: 5ch; }
 }
 .link:hover { color: var(--accent); text-decoration: underline; }
 
+/*
+ * The workspace, cut like the title and for the same reason: the column was as
+ * wide as the longest folder name anyone happened to have open, and everything
+ * to its right paid for it. The whole path was already in the tooltip.
+ */
+td.ws .link {
+  display: inline-block;
+  max-width: 14ch;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  /* `overflow: hidden` moves an inline-block's baseline to its bottom edge, so
+     without this the chip rides up out of the line it shares. */
+  vertical-align: bottom;
+}
+
+/*
+ * A colour per project, so a long list separates into groups before it is read.
+ *
+ * The hue is the only thing JavaScript picks; the two colours it becomes are
+ * chosen here, which is what keeps the light and dark answers in one place
+ * instead of in a palette the page would have to recompute on every theme
+ * change.
+ *
+ * `oklch` rather than `hsl`: lightness in HSL is not perceptual, so a yellow and
+ * a blue written at the same L are nowhere near the same brightness, and a
+ * contrast that held for one hue would fail for another. In `oklch` the pair of
+ * lightnesses fixes the contrast for every hue — measured across all 360 in both
+ * themes by the interface test, which reads the colours Chromium actually paints
+ * rather than the ones written here. That matters: these chromas are past the
+ * sRGB gamut for many hues, and the engine maps them back down to the most
+ * colourful hue it can show. Arithmetic outside a browser would be measuring a
+ * colour nobody sees.
+ *
+ * Below `.link` and not beside `.badge`, where it was first written. The two
+ * carry the same weight, so source order decides, and up there every one of
+ * these lost to `.link { background: none }` — a chip with no background at all,
+ * which the interface test then read as 1.17:1 against a stylesheet that was
+ * otherwise right.
+ */
+.ws-tag {
+  --tag-fg: light-dark(oklch(.34 .13 var(--hue)), oklch(.88 .12 var(--hue)));
+  color: var(--tag-fg);
+  /*
+   * Not the paler fill this started with. At .93 the gamut leaves almost no
+   * chroma to spend — measured, the most any hue can hold there is .028 — so
+   * ten fills came out as ten variations on off-white, ΔE 8 apart. Dropping the
+   * light fill to .84 and lifting the dark one to .40 roughly doubles the
+   * separation and still leaves the text at 6.47:1 and 5.84:1.
+   */
+  background: light-dark(oklch(.84 .12 var(--hue)), oklch(.40 .12 var(--hue)));
+  /*
+   * The chip's own edge, and the reason it is not a lighter tint of the fill:
+   * a pale chip on a selected row lands within 1.00:1 of it and dissolves,
+   * which is a chip that stops being one exactly on the row being looked at.
+   * So the edge carries the 3:1 a boundary needs, and it is the edge rather
+   * than the fill that carries it, because the fill has a colour to say.
+   *
+   * The two branches are not near-neighbours by accident. Measured against the
+   * selected row rather than the page — that is the binding one in both themes,
+   * and it pushes the light edge down and the dark edge up, away from each
+   * fill. A first attempt at .78 here read 1.55:1 against white.
+   */
+  border-color: light-dark(oklch(.55 .12 var(--hue)), oklch(.68 .12 var(--hue)));
+  border-radius: 999px;
+  padding: 0 .45rem;
+}
+/* A plain link recolours to the accent on hover. On a chip that drops a blue
+   word onto a coloured field with no contrast guarantee, so the tag keeps its
+   own foreground and the underline carries the affordance. */
+.ws-tag:hover { color: var(--tag-fg); }
+
 .matched { color: var(--muted); font-size: .85em; margin-left: .4rem; }
 
 .empty {

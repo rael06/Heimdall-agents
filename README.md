@@ -213,8 +213,14 @@ Open that URL and you get the list, live.
   with *Acknowledge visible* — which settles what is on screen and never the rows a filter hides.
 - **Minutes in the current status**, on watched rows only, right-aligned over four characters with
   tabular digits.
-- **Absolute dates**, a shape per status, a tooltip saying why the status was inferred, the full
-  workspace path in a tooltip, and horizontal scrolling rather than truncated titles.
+- **Absolute dates**, a shape per status, a tooltip saying why the status was inferred, and the full
+  workspace path in a tooltip. The table scrolls sideways rather than squeezing its columns, and a
+  long title or folder name is cut with the whole of it in the tooltip — otherwise the widest row
+  anyone happens to have open sets the width of every column after it.
+- **A colour per workspace**, taken from the folder name, so a long list separates into projects
+  before a single name is read. Ten colours rather than a hue per name: pale chips leave little
+  chroma to spend, and two projects a few degrees apart read as a mistake where two sharing a colour
+  read as a coincidence. The name is written inside the chip, which is what actually identifies it.
 - **Filters, sort and search live in the URL**, so a view reloads and can be bookmarked.
 - **A click opens the session** in VS Code — the title opens the conversation, the workspace opens
   its window, and the icon on the left opens the raw transcript. Opening a session acknowledges it.
@@ -229,6 +235,9 @@ Open that URL and you get the list, live.
   has to be seen, the accent is read.
 - **The palette is measured, not judged.** `node scripts/check-contrast.mjs` reads it out of the
   stylesheet and holds every pair to WCAG: 4.5:1 for text, 3:1 for a shape that carries meaning.
+  The workspace colours are held to the same bars by the interface tests instead, because they are
+  the one part of the palette that cannot be computed from the stylesheet: they are written past the
+  sRGB gamut on purpose, and what reaches the screen is what the browser maps them back to.
 
 ### How it scans
 

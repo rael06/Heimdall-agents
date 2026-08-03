@@ -9,6 +9,7 @@ import {
   splitSort,
   toHex,
   toRgb,
+  workspaceHue,
 } from './lib.js';
 
 const WHITE = [255, 255, 255];
@@ -113,6 +114,48 @@ describe('folder', () => {
   it('has something to show for a session that recorded no folder', () => {
     expect(folder('')).toBe('-');
     expect(folder(undefined)).toBe('-');
+  });
+});
+
+describe('workspaceHue', () => {
+  const HUES = [0, 36, 72, 108, 144, 180, 216, 252, 288, 324];
+
+  it('answers one of the ten, for anything a path can end in', () => {
+    // Never a value between two of them: the ten are spaced so that any two are
+    // tellable apart, and a hue in the gap would be the near miss the spacing
+    // exists to avoid.
+    for (const name of ['webshop', 'a', '', 'PROJECT', 'projet-été', '日本語', '.hidden']) {
+      expect(HUES).toContain(workspaceHue(name));
+    }
+  });
+
+  it('gives the same name the same colour every time', () => {
+    // The point of a hash over a counter: a workspace keeps its colour across
+    // reloads, across machines, and whatever order the rows arrived in.
+    expect(workspaceHue('webshop')).toBe(workspaceHue('webshop'));
+  });
+
+  it('separates the names that differ by one character at the end', () => {
+    // The case a sum of character codes gets wrong, and the one that matters:
+    // sibling projects are named this way, and a sum puts them 1° apart.
+    expect(workspaceHue('api-v1')).not.toBe(workspaceHue('api-v2'));
+    expect(workspaceHue('service-a')).not.toBe(workspaceHue('service-b'));
+    // The pair that made the ten buckets necessary, and that flooring a hue
+    // into buckets would have left sharing one.
+    expect(workspaceHue('app')).not.toBe(workspaceHue('site'));
+  });
+
+  it('uses all ten rather than crowding a few', () => {
+    const used = new Map();
+    for (let index = 0; index < 500; index += 1) {
+      const hue = workspaceHue(`project-${index}`);
+      used.set(hue, (used.get(hue) ?? 0) + 1);
+    }
+    expect([...used.keys()].sort((a, b) => a - b)).toEqual(HUES);
+    // Even spread would be 50 each. This asserts none is nearly unused and none
+    // takes a fifth of the list, not that the hash is uniform.
+    expect(Math.min(...used.values())).toBeGreaterThan(20);
+    expect(Math.max(...used.values())).toBeLessThan(100);
   });
 });
 

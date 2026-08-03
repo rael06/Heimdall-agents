@@ -529,7 +529,19 @@ function updateRow(tr, session) {
   tr.querySelector('.updated').textContent = at(session.updatedAt);
   tr.querySelector('.badge').textContent = session.provider;
   const ws = tr.querySelector('.ws .link');
-  ws.textContent = folder(session.cwd);
+  const workspace = folder(session.cwd);
+  ws.textContent = workspace;
+  // A colour per project, so thirty rows separate into a handful of groups
+  // before a single name has been read. The hue is all JavaScript decides; which
+  // pair of colours it becomes is the stylesheet's, so the two themes stay one
+  // declaration rather than a palette this file would have to recompute every
+  // time the theme changed.
+  //
+  // Only where there is a workspace to name. A session without one shows a dash,
+  // and a dash wearing a project colour would read as a project.
+  ws.classList.toggle('ws-tag', Boolean(session.cwd));
+  if (session.cwd) ws.style.setProperty('--hue', String(workspaceHue(workspace)));
+  else ws.style.removeProperty('--hue');
   ws.title = session.cwd ? `${t('row.openWorkspace')} ${session.cwd}` : t('row.workspaceUnknown');
   const title = tr.querySelector('.title .link');
   title.textContent = session.title;
