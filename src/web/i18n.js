@@ -86,6 +86,11 @@ const TRANSLATIONS = {
     'column.resizeHint':
       'Drag to resize {name}. Arrow keys adjust it, Home fits it to its contents, and so does a double-click.',
 
+    'row.recolour': 'Change the colour of {name}',
+    'palette.heading': 'Colour for {name}',
+    'palette.swatch': 'Colour {number}',
+    'palette.auto': 'Choose for me',
+
     'row.openSession': 'Open this session in VS Code',
     'row.openTranscript': 'Open the raw transcript',
     'row.openWorkspace': 'Open',
@@ -240,6 +245,11 @@ const TRANSLATIONS = {
     'column.resize': 'Redimensionner la colonne {name}',
     'column.resizeHint':
       'Faites glisser pour redimensionner {name}. Les flèches ajustent, Origine ajuste au contenu, un double-clic aussi.',
+
+    'row.recolour': 'Changer la couleur de {name}',
+    'palette.heading': 'Couleur de {name}',
+    'palette.swatch': 'Couleur {number}',
+    'palette.auto': 'Choisir pour moi',
 
     'row.openSession': 'Ouvrir cette session dans VS Code',
     'row.openTranscript': 'Ouvrir le transcript brut',

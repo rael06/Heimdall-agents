@@ -130,6 +130,29 @@ export const clampColumnWidth = (value) =>
   Math.round(Math.min(MAX_COLUMN_WIDTH, Math.max(MIN_COLUMN_WIDTH, value)));
 
 /**
+ * Where a column starts when the reader first takes the widths over.
+ *
+ * Only the workspace is listed, and it earns its line. Its cells hold a chip
+ * with a name in it, so measuring what it "needs" measures whichever project
+ * happens to have the longest name today; 80px shows a normal one and cuts the
+ * outliers, which is the same trade the 14ch cap already makes.
+ */
+export const DEFAULT_COLUMN_WIDTHS = { workspace: 80 };
+
+/**
+ * The shape the widths are stored in.
+ *
+ * Raised to 2 to throw away everything written before it, which is a migration
+ * rather than tidiness. Until 1.1.9 a column could be dragged narrow, the width
+ * was stored, and the table drew something else entirely — so those files record
+ * a layout that was never on screen. Restoring one after the fix applied it for
+ * the first time, and a workspace column that had looked untouched came back at
+ * its floor. Dropping them hands the table back to automatic once, which is the
+ * only state that is certainly right.
+ */
+export const COLUMN_FORMAT = 2;
+
+/**
  * The column widths worth restoring out of whatever was stored.
  *
  * All of them or none, which is the part worth explaining. Once the table is
@@ -148,9 +171,10 @@ export function readColumnWidths(stored, keys) {
     return {};
   }
   if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) return {};
+  if (parsed.v !== COLUMN_FORMAT) return {};
   const widths = {};
   for (const key of keys) {
-    const value = parsed[key];
+    const value = parsed.widths?.[key];
     if (typeof value === 'number' && Number.isFinite(value)) {
       widths[key] = clampColumnWidth(value);
     }
@@ -246,48 +270,79 @@ export function hashSlot(name, count = WORKSPACE_HUES.length) {
  * A partial answer is useful here, unlike the column widths: a name whose slot
  * was lost is simply given the next free one, and every other project keeps the
  * colour it had. There is nothing to squash.
+ *
+ * `pinned` is the set the reader chose by hand. It is stored apart from the
+ * slots rather than as a flag on each, because the distinction is not "which
+ * colour" but "who decided": an automatic slot may be moved aside to make room,
+ * and a chosen one may not.
  */
-export function readWorkspaceSlots(stored, count = WORKSPACE_HUES.length) {
+export function readSlots(stored, count = WORKSPACE_HUES.length) {
   let parsed;
   try {
     parsed = JSON.parse(stored ?? '');
   } catch {
-    return {};
+    return { slots: {}, pinned: [] };
   }
-  if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) return {};
+  if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) {
+    return { slots: {}, pinned: [] };
+  }
   const slots = {};
-  for (const [name, slot] of Object.entries(parsed)) {
+  for (const [name, slot] of Object.entries(parsed.slots ?? {})) {
     if (Number.isInteger(slot) && slot >= 0 && slot < count) slots[name] = slot;
   }
-  return slots;
+  const pinned = (Array.isArray(parsed.pinned) ? parsed.pinned : []).filter(
+    (name) => typeof name === 'string' && slots[name] !== undefined,
+  );
+  return { slots, pinned };
 }
 
-export function assignWorkspaceSlots(names, stored, count = WORKSPACE_HUES.length) {
+/**
+ * @param names sorted, so a profile that has never seen any of them hands out
+ *   the same colours in the same order twice running.
+ * @param stored `{ slots, pinned }` as {@link readSlots} returns it.
+ * @param offset where in the list to start handing colours out. Two columns
+ *   drawing from one palette both open on its first colour otherwise, which had
+ *   `claude` and the first workspace wearing the same pink — a relationship the
+ *   reader can see and that does not exist. Half the list apart rather than
+ *   reversed: the list is a loop, and its last colour sits 32° from its first.
+ */
+export function assignSlots(names, stored, count = WORKSPACE_HUES.length, offset = 0) {
+  const previous = stored?.slots ?? {};
+  const pinned = new Set(stored?.pinned ?? []);
   const slots = {};
   const taken = new Set();
-  // What was already given out stays given out. A project changing colour
-  // because another one appeared is the thing this has to avoid.
+
+  const claim = (name, slot) => {
+    slots[name] = slot;
+    taken.add(slot);
+  };
+
+  // Chosen by hand first, and unconditionally. A colour the reader picked has to
+  // survive every project that turns up afterwards, including one that wants the
+  // same slot — two chips the same colour is a choice they are allowed to make,
+  // and silently moving it would be the application overruling them.
   for (const name of names) {
-    const slot = stored?.[name];
-    if (Number.isInteger(slot) && slot >= 0 && slot < count && !taken.has(slot)) {
-      slots[name] = slot;
-      taken.add(slot);
-    }
+    const slot = previous[name];
+    if (pinned.has(name) && Number.isInteger(slot) && slot >= 0 && slot < count) claim(name, slot);
   }
+  // Then what was given out before, where it is still free. A project changing
+  // colour because another one appeared is the thing this has to avoid.
+  for (const name of names) {
+    const slot = previous[name];
+    if (slots[name] !== undefined) continue;
+    if (Number.isInteger(slot) && slot >= 0 && slot < count && !taken.has(slot)) claim(name, slot);
+  }
+  const order = Array.from({ length: count }, (_, index) => (index + offset) % count);
   let next = 0;
   for (const name of names) {
     if (slots[name] !== undefined) continue;
-    while (next < count && taken.has(next)) next += 1;
-    if (next < count) {
-      slots[name] = next;
-      taken.add(next);
-    } else {
-      // More projects than colours. Two of them share, and the hash at least
-      // makes it stable and spread rather than "whichever loaded first".
-      slots[name] = hashSlot(name, count);
-    }
+    while (next < count && taken.has(order[next])) next += 1;
+    if (next < count) claim(name, order[next]);
+    // More projects than colours. Two of them share, and the hash at least
+    // makes it stable and spread rather than "whichever loaded first".
+    else slots[name] = hashSlot(name, count);
   }
-  return slots;
+  return { slots, pinned: [...pinned].filter((name) => slots[name] !== undefined) };
 }
 
 /** `now` is passed in rather than read, so this can be asked about a fixed one. */

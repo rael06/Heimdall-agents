@@ -224,13 +224,16 @@ Open that URL and you get the list, live.
   also why the first drag records every column at once: a fixed layout shares leftover space between
   the columns that have no width instead of fitting them to what they hold. Widths are kept per
   machine, beside the theme, rather than in the address bar that carries the view.
-- **A colour per workspace**, so a long list separates into projects before a single name is read.
-  The colours are handed out rather than computed from the name, and remembered: six projects drawn
-  from a palette of ten by a hash collide 85% of the time, which is the birthday problem and not a
-  weak hash — adding colours does not fix it, and there are nowhere near enough distinguishable ones
-  to make it rare. Giving them out means no two projects on screen share a colour while any are
-  left. There are sixteen, spaced by measurement rather than evenly, and the name stays written
-  inside the chip.
+- **A colour per workspace and per provider**, so a long list separates into projects before a
+  single name is read. The colours are handed out rather than computed from the name, and
+  remembered: six projects drawn from a palette of ten by a hash collide 85% of the time, which is
+  the birthday problem and not a weak hash — adding colours does not fix it, and there are nowhere
+  near enough distinguishable ones to make it rare. Giving them out means no two projects on screen
+  share a colour while any are left. There are sixteen, spaced by measurement rather than evenly,
+  and the two columns start half the list apart so they do not mirror each other.
+- **The brush beside each value reassigns its colour**, and a chosen one is then never moved to make
+  room — including when that means two things share a colour, which is a choice you are allowed to
+  make. *Choose for me* hands it back to the automatic assignment.
 - **Filters, sort and search live in the URL**, so a view reloads and can be bookmarked.
 - **A click opens the session** in VS Code — the title opens the conversation, the workspace opens
   its window, and the icon on the left opens the raw transcript. Opening a session acknowledges it.

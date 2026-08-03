@@ -179,7 +179,7 @@ test('the workspace chip stays readable at every hue, in both themes', async ({ 
       };
 
       const probe = document.createElement('span');
-      probe.className = 'link ws-tag';
+      probe.className = 'link tag';
       probe.style.cssText = 'position: absolute; visibility: hidden';
       document.body.append(probe);
       const rowProbe = document.createElement('span');
@@ -357,6 +357,63 @@ test('the handles answer the keyboard, and fit to the contents on Home', async (
   await expect(handle).toHaveAttribute('aria-label', /provider/);
   expect(Number(await handle.getAttribute('aria-valuenow'))).toBeGreaterThan(0);
   expect(problems).toEqual([]);
+});
+
+const hueOf = (page: Page, selector: string) =>
+  rows(page).first().locator(selector).evaluate((node) => node.style.getPropertyValue('--hue'));
+
+test('the provider is a coloured chip, like the workspace', async ({ page }) => {
+  await open(page);
+  const badge = rows(page).first().locator('.badge');
+  // Painted, not merely classed. A chip whose rule loses on source order still
+  // has the class and no colour at all, which is how the workspace chip shipped
+  // broken once and measured 1.17:1.
+  const painted = await badge.evaluate((node) => getComputedStyle(node).backgroundColor);
+  expect(painted).not.toBe('rgba(0, 0, 0, 0)');
+  expect(await hueOf(page, '.badge')).not.toBe('');
+});
+
+test('a colour can be chosen by hand, and stays chosen', async ({ page }) => {
+  await open(page);
+  const automatic = await hueOf(page, '.badge');
+
+  const brush = rows(page).first().locator('td.provider .brush');
+  await expect(brush).toHaveAttribute('aria-label', /claude|codex/);
+  await brush.click();
+  await expect(page.locator('#palette')).toBeVisible();
+
+  // The tenth colour, which is hue 168 — the list is not evenly spaced, so the
+  // position and the hue are deliberately unrelated numbers.
+  await page.locator('#palette-swatches button').nth(9).click();
+  await expect(page.locator('#palette')).not.toBeVisible();
+  expect(await hueOf(page, '.badge')).toBe('168');
+
+  await page.reload();
+  await expect(rows(page)).not.toHaveCount(0);
+  expect(await hueOf(page, '.badge')).toBe('168');
+
+  // And handing it back returns it to whatever the assignment would have said.
+  await rows(page).first().locator('td.provider .brush').click();
+  await page.locator('#palette-auto').click();
+  await expect(page.locator('#palette')).not.toBeVisible();
+  expect(await hueOf(page, '.badge')).toBe(automatic);
+  expect(problems).toEqual([]);
+});
+
+test('the workspace column starts at a readable width, not at its floor', async ({ page }) => {
+  await open(page);
+  // Any drag hands every column its width at once. The workspace takes a stated
+  // default rather than a measurement, because measuring it measures whichever
+  // project happens to have the longest name today.
+  await dragColumn(page, 'title', -10);
+  expect(await columnWidth(page, 'workspace')).toBe(80);
+
+  // A set written before the widths were drawn correctly is thrown away rather
+  // than applied for the first time by the fix that made them work.
+  await page.evaluate(() => localStorage.setItem('columns', '{"workspace":24,"title":300}'));
+  await page.reload();
+  await expect(rows(page)).not.toHaveCount(0);
+  await expect(page.locator('#sessions')).not.toHaveAttribute('data-sized', /.*/);
 });
 
 test('the interface and the dates follow the chosen language', async ({ page }) => {

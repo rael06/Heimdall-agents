@@ -470,8 +470,11 @@ function createRow(id) {
     '<td><button class="marker favorite" type="button" aria-pressed="false"></button></td>' +
     '<td><button class="marker transcript" type="button">▤</button></td>' +
     '<td class="num"></td><td class="at created"></td><td class="at updated"></td>' +
-    '<td><span class="badge"></span></td>' +
-    '<td class="ws"><button class="link" type="button"></button></td>' +
+    // The brush sits before the value it paints, in both columns that carry one.
+    '<td class="provider"><button class="brush" type="button"></button>' +
+    '<span class="badge tag"></span></td>' +
+    '<td class="ws"><button class="brush" type="button"></button>' +
+    '<button class="link tag" type="button"></button></td>' +
     '<td class="title"><button class="link text" type="button"></button>' +
     '<span class="matched"></span></td>';
   tr.querySelector('.status').addEventListener('click', () => acknowledge([id]));
@@ -481,6 +484,16 @@ function createRow(id) {
   // margin opens nothing.
   tr.querySelector('.transcript').addEventListener('click', () => open(id, 'transcript'));
   tr.querySelector('.ws .link').addEventListener('click', () => open(id, 'workspace'));
+  for (const [selector, kind] of [
+    ['.ws .brush', 'workspace'],
+    ['.provider .brush', 'provider'],
+  ]) {
+    tr.querySelector(selector).addEventListener('click', () => {
+      const session = state.sessions.get(id);
+      const name = kind === 'workspace' ? folder(session.cwd) : session.provider;
+      if (session.cwd || kind === 'provider') openPalette(kind, name);
+    });
+  }
   tr.querySelector('.title .link').addEventListener('click', () => open(id, 'session'));
   return tr;
 }
@@ -528,7 +541,9 @@ function updateRow(tr, session) {
     : '';
   tr.querySelector('.created').textContent = at(session.createdAt);
   tr.querySelector('.updated').textContent = at(session.updatedAt);
-  tr.querySelector('.badge').textContent = session.provider;
+  const badge = tr.querySelector('.badge');
+  badge.textContent = session.provider;
+  badge.style.setProperty('--hue', String(hueFor('provider', session.provider)));
   const ws = tr.querySelector('.ws .link');
   const workspace = folder(session.cwd);
   ws.textContent = workspace;
@@ -540,9 +555,23 @@ function updateRow(tr, session) {
   //
   // Only where there is a workspace to name. A session without one shows a dash,
   // and a dash wearing a project colour would read as a project.
-  ws.classList.toggle('ws-tag', Boolean(session.cwd));
-  if (session.cwd) ws.style.setProperty('--hue', String(hueFor(workspace)));
+  ws.classList.toggle('tag', Boolean(session.cwd));
+  if (session.cwd) ws.style.setProperty('--hue', String(hueFor('workspace', workspace)));
   else ws.style.removeProperty('--hue');
+  // A brush on a row with no workspace would open a picker for a dash.
+  const brush = tr.querySelector('.ws .brush');
+  brush.hidden = !session.cwd;
+  for (const [node, name] of [
+    [brush, workspace],
+    [tr.querySelector('.provider .brush'), session.provider],
+  ]) {
+    // Not `markWithIcon`, which is for the two markers: it writes `aria-pressed`,
+    // and a brush that opens a picker has no pressed state to report.
+    prependIcon(node, 'brush');
+    const label = t('row.recolour', { name });
+    node.setAttribute('aria-label', label);
+    node.title = label;
+  }
   ws.title = session.cwd ? `${t('row.openWorkspace')} ${session.cwd}` : t('row.workspaceUnknown');
   const title = tr.querySelector('.title .link');
   title.textContent = session.title;
@@ -603,7 +632,7 @@ function render(applyOrder = false) {
   // Before the rows are drawn, since it decides what colour they carry. It
   // returns early unless the set of projects actually changed, so this costs a
   // comparison on every render and a write on almost none.
-  syncWorkspaceColours();
+  syncColours();
   const target = targetOrder();
   const shown = syncRows(target, applyOrder);
 
@@ -981,32 +1010,115 @@ function syncSortHeaders() {
   }
 }
 
-// ------------------------------------------------------- workspace colours
+// ------------------------------------------------------------------ colours
 
 /**
- * Which colour each project wears, remembered so it does not move.
+ * Which colour each workspace and each provider wears, remembered so it stays.
  *
  * Taken from every session loaded rather than from the rows on screen: a filter
  * narrows what is visible, and a project changing colour because something else
  * was filtered out would make the colour worth less than no colour at all.
+ *
+ * The provider joins the workspace here rather than keeping a colour of its own
+ * per name. There are two providers today and the list is not this page's to
+ * fix — a third would arrive with no colour and no way to give it one.
  */
-const WORKSPACE_STORE = 'workspaceColours';
-let workspaceSlots = {};
+const PALETTES = {
+  workspace: { store: 'workspaceColours', offset: 0, state: { slots: {}, pinned: [] } },
+  // Half the list along, so the provider column and the workspace column do not
+  // both open on the same colour and imply a link between them that is not one.
+  provider: {
+    store: 'providerColours',
+    offset: WORKSPACE_HUES.length / 2,
+    state: { slots: {}, pinned: [] },
+  },
+};
 
-function syncWorkspaceColours() {
-  const names = [
+const namesOf = (kind) =>
+  [
     ...new Set(
-      [...state.sessions.values()].filter((session) => session.cwd).map((s) => folder(s.cwd)),
+      [...state.sessions.values()]
+        .map((session) => (kind === 'workspace' ? session.cwd && folder(session.cwd) : session.provider))
+        .filter(Boolean),
     ),
   ].sort();
-  const next = assignWorkspaceSlots(names, workspaceSlots);
-  if (JSON.stringify(next) === JSON.stringify(workspaceSlots)) return;
-  workspaceSlots = next;
-  localStorage.setItem(WORKSPACE_STORE, JSON.stringify(next));
+
+function syncColours() {
+  for (const [kind, palette] of Object.entries(PALETTES)) {
+    const next = assignSlots(namesOf(kind), palette.state, WORKSPACE_HUES.length, palette.offset);
+    if (JSON.stringify(next) === JSON.stringify(palette.state)) continue;
+    palette.state = next;
+    localStorage.setItem(palette.store, JSON.stringify(next));
+  }
 }
 
 /** The hash is the answer only for a name that arrived after the colours ran out. */
-const hueFor = (name) => WORKSPACE_HUES[workspaceSlots[name] ?? hashSlot(name)];
+const hueFor = (kind, name) =>
+  WORKSPACE_HUES[PALETTES[kind].state.slots[name] ?? hashSlot(name)];
+
+/** What the picker is currently pointed at. */
+let recolouring = null;
+
+function openPalette(kind, name) {
+  recolouring = { kind, name };
+  el('palette-heading').textContent = t('palette.heading', { name });
+  const swatches = el('palette-swatches');
+  swatches.setAttribute('aria-label', t('palette.heading', { name }));
+  const current = PALETTES[kind].state.slots[name];
+  const chosen = PALETTES[kind].state.pinned.includes(name);
+  swatches.textContent = '';
+  WORKSPACE_HUES.forEach((hue, slot) => {
+    const swatch = document.createElement('button');
+    swatch.type = 'button';
+    swatch.className = 'swatch-colour tag';
+    swatch.style.setProperty('--hue', String(hue));
+    swatch.dataset.slot = String(slot);
+    // The colour is the label, so the name it is being tried on is the text: a
+    // swatch reading "colour 7" says nothing anyone can act on.
+    swatch.textContent = name;
+    swatch.setAttribute('aria-pressed', String(slot === current));
+    swatch.setAttribute('aria-label', t('palette.swatch', { number: slot + 1 }));
+    swatch.addEventListener('click', () => {
+      chooseColour(kind, name, slot);
+      el('palette').close();
+    });
+    swatches.append(swatch);
+  });
+  // Nothing to take back when the colour was never chosen by hand.
+  el('palette-auto').disabled = !chosen;
+  el('palette').showModal();
+}
+
+/**
+ * A colour chosen by hand, or the choice taken back.
+ *
+ * Pinning writes the slot and the name; unpinning drops the name from the
+ * pinned list and lets the next assignment decide, which is what "automatic"
+ * has to mean if it is offered at all.
+ */
+function chooseColour(kind, name, slot) {
+  const palette = PALETTES[kind];
+  const pinned = new Set(palette.state.pinned);
+  const slots = { ...palette.state.slots };
+  if (slot === null) {
+    pinned.delete(name);
+    delete slots[name];
+  } else {
+    pinned.add(name);
+    slots[name] = slot;
+  }
+  palette.state = assignSlots(
+    namesOf(kind),
+    { slots, pinned: [...pinned] },
+    WORKSPACE_HUES.length,
+    palette.offset,
+  );
+  localStorage.setItem(palette.store, JSON.stringify(palette.state));
+  for (const tr of rowsBody.children) {
+    const session = state.sessions.get(tr.dataset.id);
+    if (session) updateRow(tr, session);
+  }
+}
 
 // ----------------------------------------------------------- column widths
 
@@ -1076,7 +1188,7 @@ function applyColumnWidths() {
 
 function storeColumnWidths() {
   if (Object.keys(columnWidths).length) {
-    localStorage.setItem(COLUMN_STORE, JSON.stringify(columnWidths));
+    localStorage.setItem(COLUMN_STORE, JSON.stringify({ v: COLUMN_FORMAT, widths: columnWidths }));
   } else {
     localStorage.removeItem(COLUMN_STORE);
   }
@@ -1093,7 +1205,9 @@ function storeColumnWidths() {
 function takeOverWidths() {
   if (Object.keys(columnWidths).length) return;
   const natural = naturalWidths();
-  for (const key of Object.keys(natural)) columnWidths[key] = clampColumnWidth(natural[key]);
+  for (const key of Object.keys(natural)) {
+    columnWidths[key] = clampColumnWidth(DEFAULT_COLUMN_WIDTHS[key] ?? natural[key]);
+  }
   applyColumnWidths();
 }
 
@@ -1102,7 +1216,7 @@ function fitColumn(key) {
   // Nothing to fit while the table is still sizing itself — every column is
   // already exactly as wide as its contents.
   if (!Object.keys(columnWidths).length) return;
-  columnWidths[key] = clampColumnWidth(naturalWidths()[key]);
+  columnWidths[key] = clampColumnWidth(DEFAULT_COLUMN_WIDTHS[key] ?? naturalWidths()[key]);
   applyColumnWidths();
   storeColumnWidths();
 }
@@ -1261,6 +1375,10 @@ function wireControls() {
     filters.favoritesOnly = !filters.favoritesOnly;
     syncControls();
     applyFilters();
+  });
+  el('palette-auto').addEventListener('click', () => {
+    if (recolouring) chooseColour(recolouring.kind, recolouring.name, null);
+    el('palette').close();
   });
   el('open-settings').addEventListener('click', () => void openSettings());
   // Named on `window` so the native menu can reach it: the page and the menu
@@ -1475,7 +1593,9 @@ async function boot() {
   }
   // Before the language pass, which is what names the handles it builds.
   buildColumns();
-  workspaceSlots = readWorkspaceSlots(localStorage.getItem(WORKSPACE_STORE));
+  for (const palette of Object.values(PALETTES)) {
+    palette.state = readSlots(localStorage.getItem(palette.store));
+  }
   applyLanguage();
   syncControls();
   wireControls();

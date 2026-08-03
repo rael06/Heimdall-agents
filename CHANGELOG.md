@@ -1,5 +1,47 @@
 # Changelog
 
+## 1.1.10
+
+**The provider is coloured too, and both colours can be reassigned by hand** —
+with a fix for a workspace column that came back at its floor after updating.
+
+### The column that arrived narrow
+
+Updating to 1.1.9 left the workspace column at its minimum, and it is worth
+saying why rather than only that it is fixed. Until 1.1.9 a column could be
+dragged narrow, the width was stored, and the table drew something else — so
+those stored files describe a layout that was never on screen. Restoring one
+after the fix applied it for the first time, and a column that had looked
+untouched came back at 24px.
+
+Stored widths now carry a format stamp, and everything written before this is
+thrown away once: the table goes back to sizing itself, which is the only state
+that is certainly right. The workspace column also has a stated default of 80px
+rather than a measured one — measuring what it "needs" measures whichever
+project happens to have the longest name today.
+
+### The provider wears the same chip
+
+`claude` and `codex` are drawn like the workspaces, from the same sixteen
+colours but starting half the list along. Both columns opening on the first
+colour had `claude` and the first workspace wearing the same pink, which is a
+relationship anyone can see and which does not exist. Reversing the list was
+tried first and was not enough — it is a loop, and its last colour sits 32° from
+its first.
+
+### The brush
+
+Every workspace and provider value carries a small brush that opens a picker of
+the sixteen, each swatch drawn on the name it would be given to, since a swatch
+labelled "colour 7" says nothing anyone can act on. A colour chosen by hand is
+then never moved to make room for a project that turns up later — including when
+that leaves two things sharing one, which is a choice the reader is allowed to
+make and not one to be quietly overruled. *Choose for me* hands it back.
+
+The automatic assignment is unchanged and is still what runs first: it is the
+part that guarantees no two projects on screen share a colour while any are
+left, and the brush is for the cases it cannot know about.
+
 ## 1.1.9
 
 Both of these were reported from a real list of 327 sessions after 1.1.8, and

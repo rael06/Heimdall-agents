@@ -67,6 +67,9 @@ const WANTED = [
   // Reset turns back, refresh turns forward.
   { id: 'reset', from: '@phosphor-icons/core/assets/regular/arrow-counter-clockwise.svg' },
   { id: 'refresh', from: '@phosphor-icons/core/assets/regular/arrow-clockwise.svg' },
+  // Changing the colour a workspace or a provider is drawn in. A brush says
+  // "this paints" without needing a word, in a cell that has no room for one.
+  { id: 'brush', from: '@phosphor-icons/core/assets/regular/paint-brush.svg' },
 ];
 
 /**
