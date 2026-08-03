@@ -206,6 +206,32 @@ test('the settings dialog still closes from its own button, under that policy', 
   expect(problems).toEqual([]);
 });
 
+test('the toolbars wrap instead of pushing the page sideways', async ({ page }) => {
+  await open(page);
+
+  // The frame is a fixed overlay: it cannot follow a document that scrolls
+  // sideways, so the document must never do it. The first toolbar carries
+  // eleven controls and used to have no wrap at all.
+  for (const width of [1280, 1024, 800, 640, 480]) {
+    await page.setViewportSize({ width, height: 820 });
+    const overflow = await page.evaluate(() => ({
+      scroll: document.documentElement.scrollWidth,
+      client: document.documentElement.clientWidth,
+    }));
+    expect(
+      overflow.scroll,
+      `the document scrolls sideways at ${width}px`,
+    ).toBeLessThanOrEqual(overflow.client);
+  }
+
+  // The table is the one thing allowed to be wider than the window, and it
+  // scrolls inside its own box rather than moving the page.
+  await expect(page.locator('.scroller')).toHaveCSS('overflow-x', 'auto');
+
+  await page.setViewportSize({ width: 1280, height: 820 });
+  expect(problems).toEqual([]);
+});
+
 test('an inferred status justifies itself in its tooltip', async ({ page }) => {
   await open(page);
   const status = rows(page).first().locator('.status');

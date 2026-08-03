@@ -60,7 +60,16 @@ body {
   padding: 3mm;
   background: var(--bg);
   color: var(--fg);
-  font: 13px/1.45 ui-sans-serif, system-ui, sans-serif;
+  /*
+   * .8125rem is 13px at a default root, and every other size here is already in
+   * rem. Written as `13px` it was the one value that ignored a reader who had
+   * raised their default font size: the headings and the control padding grew
+   * around it while the text they framed stayed put.
+   */
+  font: .8125rem/1.45 ui-sans-serif, system-ui, sans-serif;
+  /* The toolbars wrap rather than push the page sideways; the table scrolls
+     inside its own box. Neither should ever move the document. */
+  overflow-x: hidden;
 }
 
 /*
@@ -89,21 +98,32 @@ header {
 
 h1 { font-size: .95rem; margin: 0; font-weight: 650; }
 
+/*
+ * Every toolbar wraps, not only the one that was asked to.
+ *
+ * The first bar carries eleven controls and had no wrap at all, so narrowing the
+ * window compressed them to min-content and then pushed the page sideways under
+ * a frame that is fixed and does not move with it. `wrap` was a class on one bar
+ * out of four; there is no bar for which it is wrong.
+ */
 .bar {
   display: flex;
+  flex-wrap: wrap;
   align-items: center;
   gap: .5rem;
   margin-bottom: .4rem;
 }
 .bar:last-child { margin-bottom: 0; }
-.bar.wrap { flex-wrap: wrap; }
-.grow { flex: 1; }
+/* A spacer only earns its line when there is room for one. */
+.grow { flex: 1 1 0; min-width: 0; }
 .muted { color: var(--muted); }
 .hidden { display: none !important; }
 
 label { display: inline-flex; align-items: center; gap: .3rem; color: var(--muted); }
-.search { flex: 1; max-width: 26rem; }
-input[type="search"] { width: 100%; }
+/* It may shrink as well as grow: `flex: 1` alone leaves a min-content floor that
+   the search box is wide enough to hit. */
+.search { flex: 1 1 12rem; min-width: 0; max-width: 26rem; }
+input[type="search"] { width: 100%; min-width: 0; }
 
 input, select, button {
   font: inherit;
@@ -156,6 +176,9 @@ button:hover { border-color: var(--accent); }
   max-height: 16rem;
   overflow-y: auto;
   min-width: 22rem;
+  /* A workspace list wider than the window would push the page sideways, which
+     is the one thing the frame cannot follow. */
+  max-width: calc(100vw - 12mm);
   background: var(--bg);
   border: 1px solid var(--edge);
   border-radius: 6px;
