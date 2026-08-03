@@ -21,8 +21,11 @@
     </label>
     <button id="primary-random" type="button" data-i18n="bar.random"
             data-i18n-title="bar.randomTitle" title="Pick a primary colour at random">Random</button>
-    <button id="notify" class="chip" type="button" aria-pressed="true"
-            data-i18n="bar.notifications">Notifications</button>
+    <!-- The label sits in a span of its own so the icon prepended at boot is not
+         wiped when `applyLanguage` rewrites the text. -->
+    <button id="notify" class="chip" type="button" aria-pressed="true">
+      <span class="chip-label" data-i18n="bar.notifications">Notifications</span>
+    </button>
     <div id="notify-on" class="chips" role="group" aria-label="Statuses that raise a notification"></div>
     <label class="sr-only" for="notify-scope">Notify about</label>
     <select id="notify-scope">
@@ -80,10 +83,14 @@
     <label><span data-i18n="bar.from">from</span> <input id="from" type="date"></label>
     <label><span data-i18n="bar.to">to</span> <input id="to" type="date"></label>
     <div class="chips" role="group" aria-label="Filter by marker">
-      <button id="watched-only" class="chip" type="button" aria-pressed="false"
-              data-i18n="bar.watched">Watched</button>
-      <button id="favorites-only" class="chip" type="button" aria-pressed="false"
-              data-i18n="bar.starred">Starred</button>
+      <!-- The same eye and star the rows carry: a filter that narrows to a
+           marker should look like the marker it narrows to. -->
+      <button id="watched-only" class="chip" type="button" aria-pressed="false">
+        <span class="chip-label" data-i18n="bar.watched">Watched</span>
+      </button>
+      <button id="favorites-only" class="chip" type="button" aria-pressed="false">
+        <span class="chip-label" data-i18n="bar.starred">Starred</span>
+      </button>
     </div>
   </div>
 
@@ -122,7 +129,15 @@
       <caption class="sr-only" data-i18n="table.caption">Claude and Codex sessions</caption>
       <thead>
         <tr>
-          <th scope="col"><button class="sort" type="button" data-key="status" data-i18n="column.status">status</button></th>
+          <!-- The word "status" is five times wider than the shape underneath
+               it, and it set the column: 93px for a 21px glyph. It moves to
+               `sr-only` and an icon takes its place, so the column still says
+               what it is and still says it can be sorted. -->
+          <th scope="col" class="tight">
+            <button class="sort" type="button" data-key="status">
+              <span class="sr-only" data-i18n="column.status">status</span>
+            </button>
+          </th>
           <th scope="col"><span class="sr-only" data-i18n="column.watched">Watched</span></th>
           <th scope="col"><span class="sr-only" data-i18n="column.starred">Starred</span></th>
           <th scope="col"><span class="sr-only" data-i18n="column.transcript">Transcript</span></th>

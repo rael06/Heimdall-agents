@@ -280,6 +280,13 @@ th {
   border-bottom: 1px solid var(--line);
 }
 
+/* A column whose header says what it is with an icon, not a word: it should
+   take the width of what it holds rather than of what it is called. */
+th.tight { width: 1px; }
+
+/* A chip carrying both an icon and a word needs a gap the icon does not bring. */
+.chip .icon + .chip-label { margin-left: .3rem; }
+
 /* A column header is a control, not a label: it sorts, and says which way. */
 button.sort {
   background: none;

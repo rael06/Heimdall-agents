@@ -50,6 +50,42 @@ async function lockAge(lockPath: string, now: number): Promise<number | undefine
   }
 }
 
+/**
+ * Whether a failure to create the lock means somebody else has it.
+ *
+ * `EEXIST` is the honest answer and the only one this used to accept. Windows
+ * has another: a file whose last handle has just been closed with a delete
+ * pending cannot be opened at all, and the attempt comes back `EPERM` — or
+ * `EBUSY`, or `EACCES`, depending on where in that window it lands. The lock is
+ * held, or was held a microsecond ago; it is contention either way.
+ *
+ * Measured, and it is not theoretical. Treating those as fatal made `acquire`
+ * rethrow, and `withFileLock` answers a throw by running the change *with no
+ * lock at all* — the one thing this file exists to prevent. Under a loaded test
+ * run it cost between one and twelve of sixteen concurrent writes, at roughly
+ * one run in six.
+ *
+ * The distinction that matters is not the code but whether a lock is there: if
+ * the path exists, somebody holds it and waiting is right. If it does not and we
+ * still cannot create it, the directory is not writable, which is the case the
+ * caller's fallback was written for.
+ */
+async function isContended(error: unknown, lockPath: string): Promise<boolean> {
+  const code = (error as NodeJS.ErrnoException).code;
+  if (code === 'EEXIST') {
+    return true;
+  }
+  if (code !== 'EPERM' && code !== 'EBUSY' && code !== 'EACCES') {
+    return false;
+  }
+  try {
+    await fs.stat(lockPath);
+    return true;
+  } catch {
+    return false;
+  }
+}
+
 async function acquire(lockPath: string): Promise<void> {
   for (;;) {
     try {
@@ -58,7 +94,7 @@ async function acquire(lockPath: string): Promise<void> {
       await handle.close();
       return;
     } catch (error) {
-      if ((error as NodeJS.ErrnoException).code !== 'EEXIST') {
+      if (!(await isContended(error, lockPath))) {
         throw error;
       }
     }
@@ -124,6 +160,10 @@ export async function withFileLock<T>(filePath: string, mutate: () => Promise<T>
   } catch {
     // A lock that cannot even be created, on a read-only directory for instance,
     // must not cost the user their change: proceed as before, unprotected.
+    //
+    // This is now reached only when the directory itself refuses us — contention
+    // is recognised as contention by `isContended`, whatever code the platform
+    // reports it under.
     return mutate();
   }
   try {
