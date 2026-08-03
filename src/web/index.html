@@ -141,7 +141,11 @@
                it, and it set the column: 93px for a 21px glyph. It moves to
                `sr-only` and an icon takes its place, so the column still says
                what it is and still says it can be sorted. -->
-          <th scope="col" class="tight">
+          <!-- `data-column` names the column for the width the reader can drag,
+               and it is the only list of them: the `col` elements the widths are
+               written to are built from this row, so a column cannot be added
+               here and forgotten there. -->
+          <th scope="col" class="tight" data-column="status">
             <button class="sort" type="button" data-key="status">
               <span class="sr-only" data-i18n="column.status">status</span>
             </button>
@@ -149,23 +153,23 @@
           <!-- Sortable like the columns that carry words, and wearing the same
                mark they hold, so the header says what the column is without
                taking the width of a label. -->
-          <th scope="col" class="tight">
+          <th scope="col" class="tight" data-column="watched">
             <button class="sort" type="button" data-key="watched">
               <span class="sr-only" data-i18n="column.watched">Watched</span>
             </button>
           </th>
-          <th scope="col" class="tight">
+          <th scope="col" class="tight" data-column="starred">
             <button class="sort" type="button" data-key="starred">
               <span class="sr-only" data-i18n="column.starred">Starred</span>
             </button>
           </th>
-          <th scope="col"><span class="sr-only" data-i18n="column.transcript">Transcript</span></th>
-          <th scope="col" class="num"><span class="sr-only" data-i18n="column.minutes">Minutes in this status</span></th>
-          <th scope="col"><button class="sort" type="button" data-key="created" data-i18n="column.created">created</button></th>
-          <th scope="col"><button class="sort" type="button" data-key="updated" data-i18n="column.updated">last activity</button></th>
-          <th scope="col"><button class="sort" type="button" data-key="provider" data-i18n="column.provider">provider</button></th>
-          <th scope="col"><button class="sort" type="button" data-key="workspace" data-i18n="column.workspace">workspace</button></th>
-          <th scope="col"><button class="sort" type="button" data-key="title" data-i18n="column.title">title</button></th>
+          <th scope="col" data-column="transcript"><span class="sr-only" data-i18n="column.transcript">Transcript</span></th>
+          <th scope="col" class="num" data-column="minutes"><span class="sr-only" data-i18n="column.minutes">Minutes in this status</span></th>
+          <th scope="col" data-column="created"><button class="sort" type="button" data-key="created" data-i18n="column.created">created</button></th>
+          <th scope="col" data-column="updated"><button class="sort" type="button" data-key="updated" data-i18n="column.updated">last activity</button></th>
+          <th scope="col" data-column="provider"><button class="sort" type="button" data-key="provider" data-i18n="column.provider">provider</button></th>
+          <th scope="col" data-column="workspace"><button class="sort" type="button" data-key="workspace" data-i18n="column.workspace">workspace</button></th>
+          <th scope="col" data-column="title"><button class="sort" type="button" data-key="title" data-i18n="column.title">title</button></th>
         </tr>
       </thead>
       <tbody id="rows"></tbody>

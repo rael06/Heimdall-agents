@@ -255,6 +255,86 @@ test('the workspace chip stays readable at every hue, in both themes', async ({ 
   expect(problems).toEqual([]);
 });
 
+const columnWidth = async (page: Page, key: string): Promise<number> => {
+  const box = await page.locator(`th[data-column="${key}"]`).boundingBox();
+  return box!.width;
+};
+
+/** Drags a column's handle by `by` pixels, the way a pointer would. */
+async function dragColumn(page: Page, key: string, by: number): Promise<void> {
+  const handle = page.locator(`th[data-column="${key}"] .resizer`);
+  const box = (await handle.boundingBox())!;
+  const y = box.y + box.height / 2;
+  await page.mouse.move(box.x + box.width / 2, y);
+  await page.mouse.down();
+  await page.mouse.move(box.x + box.width / 2 + by, y, { steps: 8 });
+  await page.mouse.up();
+}
+
+test('a column can be dragged narrower than its own contents', async ({ page }) => {
+  await open(page);
+  // The direction that matters. Until the widths are taken over the table sizes
+  // itself, and a column cannot be narrower than its widest cell however hard it
+  // is dragged — so a resize that only ever widens is the failure to watch for.
+  const before = await columnWidth(page, 'title');
+  await dragColumn(page, 'title', -120);
+  const after = await columnWidth(page, 'title');
+  expect(after).toBeLessThan(before - 90);
+
+  // And the value in the cell is cut rather than spilling into what is beside
+  // it — there is no column to the right of the title, but the row must not
+  // reach past the table either.
+  const table = (await page.locator('#sessions').boundingBox())!;
+  const cell = (await page.locator('tbody tr').first().locator('td.title').boundingBox())!;
+  expect(cell.x + cell.width).toBeLessThanOrEqual(table.x + table.width + 1);
+  expect(problems).toEqual([]);
+});
+
+test('a width the reader chose survives a reload, and a fresh one does not', async ({ page }) => {
+  await open(page);
+  await dragColumn(page, 'provider', 60);
+  const chosen = await columnWidth(page, 'provider');
+
+  await page.reload();
+  await expect(page.locator('tbody tr')).not.toHaveCount(0);
+  expect(Math.abs((await columnWidth(page, 'provider')) - chosen)).toBeLessThan(2);
+
+  // Nothing is stored until a column is actually dragged: a reader who never
+  // touches the handles keeps the table that sizes itself.
+  await page.evaluate(() => localStorage.removeItem('columns'));
+  await page.reload();
+  await expect(page.locator('tbody tr')).not.toHaveCount(0);
+  await expect(page.locator('#sessions')).not.toHaveAttribute('data-sized', /.*/);
+});
+
+test('the handles answer the keyboard, and fit to the contents on Home', async ({ page }) => {
+  await open(page);
+  const handle = page.locator('th[data-column="provider"] .resizer');
+  await handle.focus();
+  const before = await columnWidth(page, 'provider');
+
+  // Eight pixels a press, thirty-two with Shift: a column is not usefully
+  // resized one pixel at a time, and neither is it in leaps.
+  await handle.press('ArrowRight');
+  expect(await columnWidth(page, 'provider')).toBeCloseTo(before + 8, 0);
+  await handle.press('Shift+ArrowRight');
+  expect(await columnWidth(page, 'provider')).toBeCloseTo(before + 40, 0);
+  await handle.press('ArrowLeft');
+  expect(await columnWidth(page, 'provider')).toBeCloseTo(before + 32, 0);
+
+  // Home gives the column back to its contents, which is what the double-click
+  // does — measured against the width the table had chosen for itself.
+  await handle.press('Home');
+  expect(Math.abs((await columnWidth(page, 'provider')) - before)).toBeLessThan(2);
+
+  // The separator says what it is and what it is worth, since none of the above
+  // is reachable by anyone who cannot be told the width they are changing.
+  await expect(handle).toHaveAttribute('role', 'separator');
+  await expect(handle).toHaveAttribute('aria-label', /provider/);
+  expect(Number(await handle.getAttribute('aria-valuenow'))).toBeGreaterThan(0);
+  expect(problems).toEqual([]);
+});
+
 test('the interface and the dates follow the chosen language', async ({ page }) => {
   await open(page);
   await expect(page.locator('#reset')).toHaveText('Reset');

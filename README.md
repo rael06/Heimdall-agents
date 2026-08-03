@@ -217,6 +217,13 @@ Open that URL and you get the list, live.
   workspace path in a tooltip. The table scrolls sideways rather than squeezing its columns, and a
   long title or folder name is cut with the whole of it in the tooltip — otherwise the widest row
   anyone happens to have open sets the width of every column after it.
+- **The columns are yours to size.** Drag the edge of any header, or focus it and use the arrow keys
+  — the handle is a separator that says which column it belongs to and how wide it currently is, so
+  the widths are reachable without a pointer. `Home`, or a double-click, gives a column back to its
+  contents. The table keeps sizing itself until the first drag and only then holds still, which is
+  also why the first drag records every column at once: a fixed layout shares leftover space between
+  the columns that have no width instead of fitting them to what they hold. Widths are kept per
+  machine, beside the theme, rather than in the address bar that carries the view.
 - **A colour per workspace**, taken from the folder name, so a long list separates into projects
   before a single name is read. Ten colours rather than a hue per name: pale chips leave little
   chroma to spend, and two projects a few degrees apart read as a mistake where two sharing a colour
