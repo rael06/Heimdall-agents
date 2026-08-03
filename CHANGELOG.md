@@ -1,5 +1,62 @@
 # Changelog
 
+## 1.1.9
+
+Both of these were reported from a real list of 327 sessions after 1.1.8, and
+neither showed up on a fixture with two workspaces called `app` and `site`.
+
+### A column holding something long had a floor under it
+
+The workspace column could be widened and not narrowed. The width was being
+stored and written correctly — 40px asked for, 40px on the `col` element — and
+118.9px was drawn.
+
+A table with `table-layout: fixed` still takes **its own** width from
+`width: max-content`, and max-content is measured from the contents rather than
+from the widths asked for. Everything the table has beyond the sum of its
+columns is then handed back to the columns. So the columns holding long values
+were the ones that could not be made small, which is exactly why it looked like
+a rule about the workspace column. The table is now told what its columns add
+up to, and a column goes to the floor and stops there.
+
+The floor moved from 40px to 24px in the same pass. The first drag records every
+column at the width it already has, and the three marker columns sit at 32 —
+a floor above them widened three columns as the price of touching a fourth.
+
+### Two projects wore the same colour
+
+`tva` and `Heimdall-agents` came out identical, and that was not bad luck. Six
+workspaces drawn from ten colours by a hash collide **85% of the time**. It is
+the birthday problem, not a weak hash, and it does not go away by adding
+colours: six from sixteen still collide two times in three, and there are
+nowhere near enough distinguishable colours to make it rare.
+
+So the colours are handed out rather than computed, lowest free one first, and
+remembered — which buys the property the feature exists for: no two projects on
+screen share a colour while any are left. The cost, stated plainly: the colour
+is no longer a function of the name alone, so the same project can come out
+differently on another machine. For a view aid stored beside the theme that is
+a fair price, and the assignment is taken from every session loaded rather than
+from the rows on screen, so a filter never recolours anything.
+
+There are sixteen now, not ten, and they are not evenly spaced. These are what a
+search returned when asked, at each step, for the hue furthest from every hue
+already taken, judged on the worse of the two themes in CIE76 on the colours
+Chromium actually paints. Sixteen evenly spaced hues leave a worst pair at ΔE
+9.9 in the dark theme; these sixteen hold 12.7 in both, and eighteen would drop
+to 10.6.
+
+The bar is 12 here rather than the 15 the statuses are held to, deliberately: a
+status is a 13px glyph whose colour is one of only two things saying what it is,
+while a workspace chip is a wide patch of colour with the name written inside
+it.
+
+### The test that let the first one through
+
+It asserted that a dragged column ended up narrower than it started. It did —
+just never as narrow as it was told to be. It now drags to the floor and
+requires the floor, on a column deliberately filled with a long value.
+
 ## 1.1.8
 
 **The columns can be resized**, and the workspace column carries a colour per
