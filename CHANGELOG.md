@@ -1,5 +1,37 @@
 # Changelog
 
+## 1.1.2
+
+**Refresh sits next to Acknowledge visible**, on the bar that carries the
+counter, instead of among the notification controls three toolbars up. The two
+do the same kind of thing — one re-reads the list, the other settles what is on
+screen — and both are reached for after looking at the rows rather than before.
+Where it used to sit is a row of settings, and it was the only button there
+doing something to the list rather than to how the list behaves.
+
+Markup only: the handler is wired by identifier, and `r` is unchanged.
+
+### A test that was failing for the wrong reason
+
+The watcher test written for 1.1.0 timed out on node 20 in CI — 12.9 s against a
+five-second budget — on a branch that changed one line of markup. Nothing about
+the watcher was wrong. It spawned PowerShell to ask Windows for an 8.3 short
+name, and starting PowerShell on a cold runner costs more than the whole budget
+before doing anything.
+
+Moving it to `cmd` made it fast and wrong instead: `cmd /c` re-quotes a command
+that already contains quotes, and the answer came back as `C:\"C:\Users\...\"`.
+
+It asks nothing of a subprocess now. A junction is a second name for the same
+directory, `fs.symlinkSync(dir, link, 'junction')` needs no privilege, and it
+exercises exactly what the fix is for: a path reaching libuv spelled differently
+from how the operating system reports it. Deterministic, and 0.6 s across three
+consecutive runs.
+
+The test was introduced in the very commit that credited CI with finding a real
+bug, and it was unreliable from birth — it passed on one machine, which is the
+failure mode that commit had just described.
+
 ## 1.1.1
 
 The window comes back after an update, which the dialog had been promising for
