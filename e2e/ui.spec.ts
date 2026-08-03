@@ -111,8 +111,11 @@ test('a random primary stays readable as text, whatever it is', async ({ page })
       return { accent: accentColour, background: getComputedStyle(document.body).backgroundColor };
     });
     // The frame only has to be seen; the accent is read, so it is walked until
-    // it clears the same 4.5:1 the palette is held to.
-    expect(ratio(accent, background)).toBeGreaterThanOrEqual(4.4);
+    // it clears the same 4.5:1 the palette is held to. The bar was 4.4 here,
+    // and that tenth of tolerance was hiding a real miss: `readable` judged the
+    // fractional colour it was walking rather than the rounded one it returns,
+    // and came back with 4.4967:1.
+    expect(ratio(accent, background)).toBeGreaterThanOrEqual(4.5);
   }
 
   await page.evaluate(() => localStorage.removeItem('primary'));

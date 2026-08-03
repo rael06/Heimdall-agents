@@ -99,7 +99,15 @@ export async function checkForUpdate(currentVersion: string): Promise<UpdateChec
  * when the release carries one. Without a code-signing certificate that is the
  * whole of what can be verified, and it is stated rather than implied.
  */
-export async function downloadInstaller(release: Release): Promise<string> {
+export async function downloadInstaller(
+  release: Release,
+  /**
+   * Called as bytes arrive, with a fraction when the release declared a length
+   * and `undefined` when it did not. A 200 MB download behind a modal that does
+   * not move reads as a hang rather than as work.
+   */
+  onProgress?: (fraction: number | undefined, received: number) => void,
+): Promise<string> {
   const installer = release.installer;
   if (!installer) {
     throw new Error('That release carries no Windows installer.');
@@ -141,6 +149,7 @@ export async function downloadInstaller(release: Release): Promise<string> {
         for await (const chunk of source) {
           received += chunk.length;
           digest.update(chunk);
+          onProgress?.(installer.size ? received / installer.size : undefined, received);
           yield chunk;
         }
       },

@@ -171,28 +171,9 @@ async function detectProviders() {
 
 const THEMES = ['auto', 'light', 'dark'];
 
-function channel(value) {
-  const c = value / 255;
-  return c <= 0.03928 ? c / 12.92 : ((c + 0.055) / 1.055) ** 2.4;
-}
-
-function luminance([r, g, b]) {
-  return 0.2126 * channel(r) + 0.7152 * channel(g) + 0.0722 * channel(b);
-}
-
-function contrast(a, b) {
-  const [high, low] = [luminance(a), luminance(b)].sort((x, y) => y - x);
-  return (high + 0.05) / (low + 0.05);
-}
-
-const toRgb = (hex) => {
-  const n = parseInt(hex.slice(1), 16);
-  return [(n >> 16) & 255, (n >> 8) & 255, n & 255];
-};
-const toHex = ([r, g, b]) =>
-  '#' + [r, g, b].map((v) => Math.round(v).toString(16).padStart(2, '0')).join('');
-
-const parseRgb = (value) => (value.match(/\d+/g) ?? ['255', '255', '255']).slice(0, 3).map(Number);
+// The colour arithmetic — channel, luminance, contrast, readable and the hex
+// conversions — is in `lib.js`, which Vitest can import and a browser cannot
+// reach on a route of its own. What stays here is what needs a document.
 
 /** The background actually painted, which resolves whatever light-dark() chose. */
 function backgroundRgb() {
@@ -210,23 +191,6 @@ function paintedAccent() {
   const painted = parseRgb(getComputedStyle(probe).color);
   probe.remove();
   return toHex(painted);
-}
-
-/**
- * A readable version of the chosen colour.
- *
- * The frame only has to be seen, so it wears the colour as picked. The accent is
- * read as text — a link, a pressed chip — and a colour chosen at random is
- * about as likely to be illegible as not. So it is walked towards white or
- * black, whichever the background is not, until it clears 4.5:1.
- */
-function readable(hex, background) {
-  const target = luminance(background) > 0.5 ? [0, 0, 0] : [255, 255, 255];
-  let colour = toRgb(hex);
-  for (let step = 0; step < 40 && contrast(colour, background) < 4.5; step += 1) {
-    colour = colour.map((value, index) => value + (target[index] - value) * 0.08);
-  }
-  return toHex(colour);
 }
 
 function applyAppearance() {
@@ -341,49 +305,12 @@ function applyLanguage() {
   el('set-date-locale').options[1].textContent = translate(lang, 'settings.dateIso');
 }
 
-function day(iso) {
-  const date = new Date(iso);
-  if (Number.isNaN(date.getTime())) {
-    return '';
-  }
-  const pad = (value) => String(value).padStart(2, '0');
-  return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}`;
-}
-
-const folder = (cwd) => (cwd ? cwd.split(/[\\/]/).filter(Boolean).pop() : '-');
-
-function minutesSince(iso) {
-  const started = Date.parse(iso);
-  if (Number.isNaN(started)) {
-    return 0;
-  }
-  return Math.max(0, Math.floor((Date.now() - started) / 60000));
-}
-
 // ------------------------------------------------------------- URL as state
 
-const SORT_KEYS = ['status', 'created', 'updated', 'provider', 'workspace', 'title'];
-/** The direction a column takes on its first click, which is the useful one. */
-const FIRST_DIRECTION = {
-  status: 'asc',
-  created: 'desc',
-  updated: 'desc',
-  provider: 'asc',
-  workspace: 'asc',
-  title: 'asc',
-};
-
-/** Accepts the names earlier versions wrote, so an old bookmark still sorts. */
-function normalizeSort(value) {
-  if (!value) return 'created-desc';
-  if (value === 'status' || value === 'title') return `${value}-asc`;
-  const at = value.lastIndexOf('-');
-  const key = value.slice(0, at);
-  const direction = value.slice(at + 1);
-  return SORT_KEYS.includes(key) && (direction === 'asc' || direction === 'desc')
-    ? value
-    : 'created-desc';
-}
+// `day`, `folder`, `minutesSince`, `normalizeSort`, `splitSort`, `SORT_KEYS`
+// and `FIRST_DIRECTION` are in `lib.js` for the same reason as the colour
+// arithmetic: none of them needs a document, and all of them are worth asking
+// directly rather than through a browser.
 
 function readUrl() {
   const query = new URLSearchParams(location.search);
@@ -471,11 +398,6 @@ const ASCENDING = {
   workspace: (a, b) => (a.cwd ?? '').localeCompare(b.cwd ?? ''),
   title: byTitle,
 };
-
-function splitSort(sort) {
-  const at = sort.lastIndexOf('-');
-  return { key: sort.slice(0, at), ascending: sort.slice(at + 1) === 'asc' };
-}
 
 /**
  * Watched sessions come first, then starred ones, then the rest — the chosen

@@ -286,17 +286,32 @@ async function checkForUpdates(): Promise<void> {
   }
 
   try {
-    const installer = await downloadInstaller(release);
+    // On the taskbar button, which is where Windows already shows the progress
+    // of a download and needs no window of our own. A modal that cannot be
+    // updated is why this used to look like a hang for the length of a 200 MB
+    // transfer.
+    const installer = await downloadInstaller(release, (fraction) => {
+      // -1 clears it; 2 is the indeterminate barber's pole, for a release that
+      // declared no length.
+      window?.setProgressBar(fraction ?? 2);
+    });
+    window?.setProgressBar(-1);
     runInstaller(installer, () => {
       quitting = true;
       app.quit();
     });
   } catch (error) {
+    window?.setProgressBar(-1);
     await dialog.showMessageBox({
       type: 'error',
       title: 'Update failed',
       message: 'Nothing was installed.',
-      detail: String(error instanceof Error ? error.message : error),
+      detail:
+        `${String(error instanceof Error ? error.message : error)}\n\n` +
+        `You are still on ${app.getVersion()} and nothing was replaced. Every ` +
+        `release stays on the releases page, so an installer can be fetched by ` +
+        `hand — and going back to an earlier version is the same thing: install ` +
+        `it over this one.`,
     });
   }
 }
