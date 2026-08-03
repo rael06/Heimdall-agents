@@ -10,11 +10,31 @@ updates:
     # a development one. Splitting them by risk rather than by that label: a
     # toolchain major is a piece of work, and a patch to a linter is not.
     groups:
+      # Packages that cannot move alone, whatever the size of the step.
+      #
+      # The first version of this file grouped only minor and patch updates and
+      # let every major arrive by itself, on the reasoning that a major needs
+      # reading rather than merging. That is true and it is not enough: some
+      # majors cannot be read on their own either.
+      #
+      # Measured on the first run. Dependabot opened one pull request for
+      # `vitest` 4 and another for `@vitest/coverage-v8` 4, and both died at
+      # `npm ci` with `peer vitest@` — each is a peer of the other, so neither
+      # can pass without its twin. Left like this, Dependabot would reopen the
+      # same two impossible pull requests every week for ever.
+      vitest:
+        patterns: ['vitest', '@vitest/*']
+        update-types: [major, minor, patch]
+      # `typescript-eslint` pins the TypeScript versions it supports, so
+      # TypeScript 7 arriving alone failed `npm ci` the same way. Together they
+      # move when the toolchain is actually ready for it, and not before.
+      typescript:
+        patterns: ['typescript', 'typescript-eslint', '@typescript-eslint/*']
+        update-types: [major, minor, patch]
+      # Everything else: small steps together, majors on their own.
       routine:
         patterns: ['*']
         update-types: [minor, patch]
-    # A major arrives as its own pull request, because TypeScript 7, Vitest 4
-    # and Electron each need reading rather than merging.
     open-pull-requests-limit: 5
     commit-message:
       prefix: build
