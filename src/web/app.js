@@ -34,9 +34,23 @@ function announce(text) {
 const STATUSES = ['running', 'failed', 'idle', 'unknown'];
 const PROVIDERS = ['claude', 'codex'];
 /** A shape per status, so colour is never the only carrier. */
+/*
+ * Circle, cross, triangle, diamond: four shapes nobody has to compare against
+ * each other to tell apart, which is the whole point of not leaving the meaning
+ * to colour.
+ *
+ * `failed` was a filled square and is now a cross. A square says nothing on its
+ * own — it was only ever "the red one" — while a cross reads as a failure with
+ * the colour taken away, which is exactly the condition this set exists for.
+ *
+ * The other three are unchanged, and `idle` deliberately so: the triangle is the
+ * application's own icon, drawn by `scripts/make-icon.mjs` as "the one shape in
+ * the interface that means this one has stopped and is waiting for you". Picking
+ * a prettier glyph here would quietly desynchronise the taskbar from the list.
+ */
 const GLYPH = {
   running: '●',
-  failed: '■',
+  failed: '✕',
   idle: '▲',
   unknown: '◇',
 };
@@ -810,14 +824,41 @@ function statusLabel(status) {
   return t(`status.${status}`);
 }
 
-function buildChips(container, values, selected, onToggle, label = (value) => value) {
+/**
+ * Puts the status shape inside the chip that filters on it.
+ *
+ * Marked `aria-hidden`: the word is right beside it, and a screen reader
+ * announcing "black circle running" is worse than one announcing "running".
+ * It is decoration for the eye and duplication for anything else.
+ */
+function decorate(button, status, label) {
+  button.textContent = '';
+  if (status) {
+    const glyph = document.createElement('span');
+    glyph.className = 'chip-glyph';
+    glyph.dataset.status = status;
+    glyph.textContent = GLYPH[status] ?? '?';
+    glyph.setAttribute('aria-hidden', 'true');
+    button.append(glyph);
+  }
+  // The word in a span of its own rather than loose in the button: with a glyph
+  // beside it, `button.textContent` is "●running", and everything that wants the
+  // label — a test, a future truncation — would have to know to strip a shape
+  // off the front.
+  const text = document.createElement('span');
+  text.className = 'chip-label';
+  text.textContent = label;
+  button.append(text);
+}
+
+function buildChips(container, values, selected, onToggle, label = (value) => value, glyphed = false) {
   container.textContent = '';
   for (const value of values) {
     const button = document.createElement('button');
     button.type = 'button';
     button.className = 'chip';
     button.dataset.value = value;
-    button.textContent = label(value);
+    decorate(button, glyphed ? value : undefined, label(value));
     button.setAttribute('aria-pressed', String(selected.has(value)));
     button.addEventListener('click', () => {
       if (selected.has(value)) selected.delete(value);
@@ -860,7 +901,8 @@ function syncControls() {
   el('to').value = filters.to;
   el('watched-only').setAttribute('aria-pressed', String(filters.watchedOnly));
   el('favorites-only').setAttribute('aria-pressed', String(filters.favoritesOnly));
-  buildChips(el('status-filters'), STATUSES, filters.statuses, () => applyFilters(), statusLabel);
+  // The statuses carry their shape; `claude` and `codex` are names and have none.
+  buildChips(el('status-filters'), STATUSES, filters.statuses, () => applyFilters(), statusLabel, true);
   buildChips(el('provider-filters'), PROVIDERS, filters.providers, () => applyFilters());
 }
 
@@ -1032,8 +1074,9 @@ function renderNotifyOn(notifications) {
   }
   for (const button of container.children) {
     // Written on every pass rather than once at creation, so the language can
-    // change without the chips being rebuilt.
-    button.textContent = statusLabel(button.dataset.status);
+    // change without the chips being rebuilt. Shape included: the same status
+    // must not be a shape in one bar and a bare word in the other.
+    decorate(button, button.dataset.status, statusLabel(button.dataset.status));
     // Each says what it actually means to be told about it: two of the four are
     // the model stopping work, and the other two are not.
     button.title =

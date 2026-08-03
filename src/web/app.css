@@ -31,12 +31,41 @@
   --hover: light-dark(#f6f7f9, #1b1d23);
   --accent: light-dark(#1f5fd8, #83a9ff);
   --selected: light-dark(#dce8ff, #24314c);
-  --running: light-dark(#0d6b42, #4fd39e);
+  /*
+   * The dark green moved to teal, and only in the dark theme, where it was free.
+   *
+   * Measured: the four status colours were checked against each other rather
+   * than only against the background, under normal, deuteranopic and protanopic
+   * vision. In the dark theme `running` and `failed` sat at ΔE 10.0 for a
+   * protanope — a green and a salmon that converge. Teal moves it to 20.6 and
+   * still reads as "go".
+   *
+   * The light theme is knowingly left alone; see the note on `--idle`.
+   */
+  --running: light-dark(#0d6b42, #3fd6c8);
   --failed: light-dark(#ad1f17, #ff8f84);
   /*
    * The one that means the next move is yours, so it carries the colour that
    * used to mark a session needing action rather than the grey of a turn simply
    * being over. It is what the eye should find on a full list.
+   */
+  /*
+   * Left where it is, and the reason is worth writing down rather than
+   * rediscovering.
+   *
+   * In the light theme `failed` and `idle` measure ΔE 4.1 for a deuteranope:
+   * effectively the same colour. Every attempt to separate them costs something
+   * real. On white, both must be dark to clear 3:1, and two dark warm colours
+   * converge under that vision whatever their hue — a search that maximised
+   * separation returned a near-black brown for `failed`, which stops reading as
+   * an error at all. Moving `idle` off orange instead desynchronises the
+   * application icon, which *is* this colour.
+   *
+   * So the colour is not carrying it, and was never meant to: every status has a
+   * shape, the shapes are in the filter chips as well as the rows now, and the
+   * tooltip says the word. `npm run contrast` reports this pair rather than
+   * failing on it, so the trade stays visible instead of looking like an
+   * oversight.
    */
   --idle: light-dark(#a8460f, #f0a05c);
   --unknown: light-dark(#6b4b9e, #c4a9ff);
@@ -156,6 +185,32 @@ button:hover { border-color: var(--accent); }
   border-color: var(--accent);
   background: var(--selected);
 }
+
+/*
+ * The status shape, inside the chip that filters on it.
+ *
+ * The chips used to carry the word alone, so the same four statuses were a
+ * shape and a colour in the rows and plain text in the filters — the reader had
+ * to learn the mapping twice. `inline-block` with a fixed width keeps the labels
+ * aligned whatever the glyph's natural advance, and the four differ enough that
+ * a cross and a triangle would otherwise sit at different left edges.
+ */
+.chip-glyph {
+  display: inline-block;
+  width: 1em;
+  margin-right: .3rem;
+  text-align: center;
+  /* Cross and diamond draw larger than circle and triangle in most system
+     fonts; this evens out what is otherwise a wobbling column of shapes. */
+  font-size: .92em;
+  line-height: 1;
+}
+.chip-glyph[data-status="running"] { color: var(--running); }
+.chip-glyph[data-status="failed"] { color: var(--failed); }
+.chip-glyph[data-status="idle"] { color: var(--idle); }
+.chip-glyph[data-status="unknown"] { color: var(--unknown); }
+/* A chip that is off should still show which status it is about. */
+.chip:disabled .chip-glyph { opacity: .55; }
 
 .picker { position: relative; }
 .picker > summary {
