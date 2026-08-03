@@ -321,6 +321,18 @@ A service on `127.0.0.1` is reachable from every page your browser has open, so:
 The token lives in a file no website can read and no one can guess. It is the reason the URL is
 printed rather than just the port.
 
+Every answer also carries `Referrer-Policy: no-referrer` — the token rides in the address, so the
+address is a credential and the browser must not hand it on — and `X-Content-Type-Options:
+nosniff`. The page itself is served under a content security policy that allows the inlined
+stylesheet and scripts and nothing else: no loading, no form submission, no framing.
+
+The handover asks Windows to open a URI through `rundll32 url.dll,FileProtocolHandler` rather than
+through `cmd`, so nothing between here and `ShellExecute` reparses the URI. That is not
+hypothetical tidiness: `cmd` reads `&` as a command separator, and a workspace named `R&D` used to
+be delivered truncated with the rest run as a command.
+
+Reporting a problem privately: see [SECURITY.md](SECURITY.md).
+
 ## Statuses
 
 Four, and there are four because that is the **intersection** of what every provider states in its
@@ -398,11 +410,19 @@ cannot lose what you marked.
 ## Development
 
 ```sh
+npm ci
 npx tsc --noEmit
 npx eslint src
-npx vitest run --minWorkers=1 --maxWorkers=8
+npm run test:coverage
 npm run build && npx playwright test
+npm run contrast
 ```
+
+CI runs exactly those, on Windows, on node 20 and node 24 — Windows because the end-to-end suite
+drives the compiled service, the notification path is PowerShell, and the handover asks Windows to
+open a URI, so a green run elsewhere is a green run of something else. Coverage carries a floor
+rather than a target: the uncovered half is `main.ts`, `serve.ts` and the command entry points,
+which are wiring and are covered end to end instead.
 
 The end-to-end tests build their own transcripts in a temporary directory, start a service of their
 own on a free port with its own `--shared-dir`, and drive a real browser. They never read or write

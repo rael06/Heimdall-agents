@@ -1,5 +1,119 @@
 # Changelog
 
+## 1.1.0 — What an audit found
+
+A review of the whole repository against security, interface, accessibility,
+architecture, CI and release practice. Twenty-five findings, all of them fixed
+here. Three were bugs rather than gaps, and each was found by writing the test
+that should already have existed.
+
+### A folder name could run a command
+
+`folderUri` builds a handover URI with `encodeURI`, which leaves `&` alone
+because an ampersand is legal in a URI path. That URI was handed to
+`cmd /c start`, where `&` separates two commands. Measured through a protocol
+handler registered for the test: a workspace called `R&D` reached the handler as
+`…/projects/R`, and `D` was run as a command of its own. `cwd` is read out of a
+transcript this program neither writes nor controls.
+
+It goes through `rundll32 url.dll,FileProtocolHandler` now, which reaches the
+same `ShellExecute` with nothing in between that reparses anything. `explorer.exe`
+delivers the URI whole too and was rejected for answering `1` whether or not it
+worked — an exit code that means nothing is worse than none, because the caller
+believes it.
+
+The existing test that looked like it covered this opened
+`vscode://file/x" & calc` and expected a refusal. It passed on the quote. The
+same check admits `vscode://file/C:/projects/R&D` without complaint.
+
+### The accent could be a shade too pale to read
+
+`readable` walks a colour towards white or black until it clears 4.5:1, then
+rounds it to eight bits on the way out — and it was judging the fractional
+colour rather than the rounded one it returns. A hue picked at random came back
+at 4.4967:1 having been checked at more. The interface test asserted 4.4 rather
+than 4.5, and that tenth of tolerance is exactly the width of the bug.
+
+Found by moving the arithmetic into `src/web/lib.js`, where it can be asked
+directly instead of through a browser.
+
+### A newer release was announced as "up to date"
+
+A release carrying no Windows installer was reported under that title, with the
+reader's own older version printed underneath.
+
+### Said plainly rather than implied
+
+The update dialog claimed the installer is "checked against the length and
+checksum published with the release", without a condition. The checksum was only
+computed when the release carried `latest.yml`; without one the comparison was
+skipped and a declared byte length was all that stood between a download and
+running it. **A release with no manifest is no longer installed from**, and the
+dialog says so before you choose rather than failing after.
+
+### Accessibility
+
+- `aria-sort` was set on the sort button. It is supported on a `columnheader`
+  and nothing else, so it was read by nobody — which column orders the list, and
+  which way, reached only people who could see the arrow, and the arrow is drawn
+  in CSS. It is on the `th` now.
+- The notices, the counter, the reorder offer and the empty message are live
+  regions. That could not simply be switched on: each was rewritten on every
+  state event, which is every scan, so a region would have announced the same
+  sentence every thirty seconds until the channel was switched off. They are now
+  written only when their content differs.
+- `service-state` is deliberately **not** a region: it restates the last scan
+  time, so it changes on that timer. What matters in it is exceptional — the
+  stream dropping, a handover that led nowhere — and that goes to a hidden
+  announcer instead.
+- The table and the `main` landmark say what they hold.
+
+### Interface
+
+- **The toolbars wrap.** There was no media query anywhere, and `wrap` was a
+  class on one bar out of four; the one with eleven controls was not it, so
+  narrowing the window pushed the document sideways under a frame that is fixed
+  and cannot follow. The suite now measures sideways scroll at five widths.
+- **The body font size follows the reader.** It was the last value written in
+  `px` while everything around it was in `rem`.
+- **Two notification tooltips were English in place.** The interface test
+  asserted that English wording, so the suite was holding the gap open.
+
+### Security
+
+- A content security policy, `Referrer-Policy: no-referrer` and `nosniff` on
+  every answer. The token rides in the address — which is what lets a reload work
+  and a filtered view be kept as a favourite — so the address is a credential.
+  Moving it into a cookie was considered and dropped: a favourite that no longer
+  authenticates is worse than the problem.
+- Scan settings are bounded by the service rather than only by the form.
+- The installer is written as it downloads instead of being held whole in
+  memory, and a half-verified one is deleted rather than left in a temporary
+  directory.
+
+### Everything that runs the checks
+
+There was no CI. Every gate in `CLAUDE.md` ran because somebody remembered, on
+one machine — and a fresh checkout could not run any of them until `npm ci`.
+Now: checks on push and pull request, on Windows, on node 20 and 24; a weekly
+audit; Dependabot; and a release workflow that publishes from a tag and refuses
+unless the tag, `package.json` and this file agree and both artefacts are
+present with the manifest covering the installer.
+
+`npm run dist` writes to `release/` rather than `dist/`. They shared a
+directory, which made `files: ["dist"]` describe a **209 MB** npm package with
+the installer inside it. It is 193 kB.
+
+### Tests
+
+412 from 335, and coverage measured for the first time: 63% from 49%, with a
+floor so it can only go up. The Codex provider had 414 lines of source against
+sixteen lines of test while the Claude provider next to it had 269 — it is at
+87% now. `server.ts` carried every route and all request validation with no test
+of its own; it is driven over a real socket, including the `Host` check, which
+needed raw `node:http` because `fetch` drops a `Host` override silently and a
+`fetch` version of that test would have passed against no check at all.
+
 ## 1.0.1
 
 The checksum the update dialog promises was never being checked.
