@@ -89,9 +89,8 @@ const TRANSLATIONS = {
     'row.recolour': 'Change the colour of {name}',
     'palette.heading': 'Colour for {name}',
     'palette.pick': 'Pick a colour',
-    'palette.ink': 'Text',
-    'palette.inkDark': 'Black',
-    'palette.inkLight': 'White',
+    'palette.text': 'Text colour',
+    'palette.contrast': 'Contrast it',
     'palette.auto': 'Choose for me',
 
     'row.openSession': 'Open this session in VS Code',
@@ -252,9 +251,8 @@ const TRANSLATIONS = {
     'row.recolour': 'Changer la couleur de {name}',
     'palette.heading': 'Couleur de {name}',
     'palette.pick': 'Choisir une couleur',
-    'palette.ink': 'Texte',
-    'palette.inkDark': 'Noir',
-    'palette.inkLight': 'Blanc',
+    'palette.text': 'Couleur du texte',
+    'palette.contrast': 'Contraster',
     'palette.auto': 'Choisir pour moi',
 
     'row.openSession': 'Ouvrir cette session dans VS Code',

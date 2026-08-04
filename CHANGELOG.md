@@ -1,5 +1,37 @@
 # Changelog
 
+## 1.1.14
+
+**An assigned chip is no longer written in its own colour**, and the text is
+picked as freely as the background.
+
+### It measured fine and still read as one colour
+
+The text on an assigned chip carried that chip's hue at full strength —
+`oklch(.34 .13)` on `oklch(.84 .12)`. That is 6.47:1 in the light theme and
+5.84:1 in the dark one, so no check ever objected, and `npm run contrast` had
+nothing to say because these are not palette variables. It was a perceptual
+failure rather than a contrast one: a word in the same hue as the field behind
+it reads as one colour whatever the ratio says, and it showed worst in the dark
+theme, where the ratio was lowest.
+
+The ink keeps a trace of the hue and loses the rest — `oklch(.22 .06)` and
+`oklch(.97 .04)`. Measured across all 360 hues: **9.71:1** and **7.45:1**. The
+interface test holds them to 7, well above the 4.5 that was never the problem.
+
+### Two pickers, and a button that works out the answer
+
+The black-or-white radio pair is gone. The text has a colour picker of its own,
+offering what the background's offers, and *Contrast it* sets it to what can be
+read on the background in force — which is also what a chip starts with, so the
+button is how a colour that turned out badly is taken back.
+
+One thing had to be got right for that to behave. Choosing a background on an
+assigned chip used to carry the chip's existing text colour across as though it
+had been chosen deliberately, which put a near-black green word on a red field
+at **1.23:1**. The text is only ever pinned once the reader has actually picked
+one; until then the background's own contrast answer applies.
+
 ## 1.1.13
 
 **The text on a chosen colour can be set to black or white**, and dragging the

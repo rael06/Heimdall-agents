@@ -1167,19 +1167,32 @@ function paintedTag(kind, name) {
 /** Keeps the dialog's own controls in step with what the chip now wears. */
 function syncPalette() {
   const { kind, name } = recolouring;
-  const { colours, inks } = PALETTES[kind].state;
-  const chosen = colours[name];
+  const preview = el('palette-preview');
+  paintTag(preview, kind, name);
   el('palette-colour').value = paintedTag(kind, name);
-  paintTag(el('palette-preview'), kind, name);
-  // Nothing to take back, and nothing to write text on, until a colour has been
-  // chosen: an assigned chip takes its text from the stylesheet with its
-  // background, and there is no black-or-white answer to preselect.
-  el('palette-auto').disabled = chosen === undefined;
-  const tone = chosen === undefined ? null : (inks[name] ?? ink(chosen));
-  for (const radio of document.querySelectorAll('#palette-ink input')) {
-    radio.disabled = chosen === undefined;
-    radio.checked = radio.value === tone;
-  }
+  // Read off the preview rather than worked out again: an assigned chip takes
+  // its text from the stylesheet, so the only place the answer exists is on an
+  // element that has applied it.
+  el('palette-ink').value = paintedHex(getComputedStyle(preview).color);
+  // Nothing to take back while the chip is still wearing what it was given.
+  el('palette-auto').disabled = PALETTES[kind].state.colours[name] === undefined;
+}
+
+/**
+ * What the chip is wearing, so that changing one half does not discard the
+ * other. Touching either colour makes the chip a chosen one, starting from
+ * exactly what was on screen — nothing jumps at the first click.
+ *
+ * `tone` stays undefined until the reader has actually picked one, and that is
+ * the whole of it. Reading the text off the chip instead looks equivalent and
+ * is not: an assigned chip is written in a near-black tint of its own hue, so
+ * choosing a background carried that tint onto it as though it had been chosen
+ * — a dark green word on a red field, measured at 1.23:1. Left undefined, the
+ * fill's own contrast answer applies.
+ */
+function currentColours(kind, name) {
+  const { colours, inks } = PALETTES[kind].state;
+  return { fill: colours[name] ?? paintedTag(kind, name), tone: inks[name] };
 }
 
 function openPalette(kind, name) {
@@ -1491,21 +1504,34 @@ function wireControls() {
   // down, because a drag crosses several hundred colours nobody chose.
   el('palette-colour').addEventListener('input', (event) => {
     if (!recolouring) return;
-    chooseColour(recolouring.kind, recolouring.name, event.target.value);
+    const { kind, name } = recolouring;
+    const { tone } = currentColours(kind, name);
+    chooseColour(kind, name, event.target.value, tone);
     syncPalette();
   });
-  el('palette-colour').addEventListener('change', () => {
-    if (recolouring) storeColours(recolouring.kind);
+  el('palette-ink').addEventListener('input', (event) => {
+    if (!recolouring) return;
+    const { kind, name } = recolouring;
+    const { fill } = currentColours(kind, name);
+    chooseColour(kind, name, fill, event.target.value);
+    syncPalette();
   });
-  for (const radio of document.querySelectorAll('#palette-ink input')) {
-    radio.addEventListener('change', () => {
-      if (!recolouring || !radio.checked) return;
-      const { kind, name } = recolouring;
-      chooseColour(kind, name, PALETTES[kind].state.colours[name], radio.value);
-      storeColours(kind);
-      syncPalette();
+  for (const id of ['palette-colour', 'palette-ink']) {
+    el(id).addEventListener('change', () => {
+      if (recolouring) storeColours(recolouring.kind);
     });
   }
+  // The measured answer, on demand rather than as a rule. It is what a chip
+  // starts out with, and this is how it is taken back after a colour that
+  // turned out not to be readable.
+  el('palette-contrast').addEventListener('click', () => {
+    if (!recolouring) return;
+    const { kind, name } = recolouring;
+    const { fill } = currentColours(kind, name);
+    chooseColour(kind, name, fill, ink(fill));
+    storeColours(kind);
+    syncPalette();
+  });
   el('palette-auto').addEventListener('click', () => {
     if (!recolouring) return;
     chooseColour(recolouring.kind, recolouring.name, null);

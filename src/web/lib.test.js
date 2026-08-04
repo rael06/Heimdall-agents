@@ -298,8 +298,13 @@ describe('readSlots', () => {
     expect(readSlots(stored).colours).toEqual({ d: '#abcdef' });
   });
 
-  it('refuses a text colour that is neither of the two', () => {
+  it('takes any text colour, since the picker offers any', () => {
     const stored = '{"colours":{"a":"#abcdef"},"inks":{"a":"#123456"}}';
+    expect(readSlots(stored).inks).toEqual({ a: '#123456' });
+  });
+
+  it('still refuses a text colour it could not paint', () => {
+    const stored = '{"colours":{"a":"#abcdef"},"inks":{"a":"darkish"}}';
     expect(readSlots(stored).inks).toEqual({});
   });
 

@@ -195,16 +195,16 @@
       </label>
       <span id="palette-preview" class="tag"></span>
     </div>
-    <!-- Which of the two the name is written in. Offered rather than only
-         measured: once both are legible the choice is a matter of taste, and
-         only one of them usually is — so the readable one is preselected. -->
-    <fieldset id="palette-ink">
-      <legend data-i18n="palette.ink">Text</legend>
-      <label class="check"><input type="radio" name="ink" value="#000000">
-        <span data-i18n="palette.inkDark">Black</span></label>
-      <label class="check"><input type="radio" name="ink" value="#ffffff">
-        <span data-i18n="palette.inkLight">White</span></label>
-    </fieldset>
+    <!-- The text, chosen the same way and from the same range as the fill. The
+         button beside it works out what can be read on the fill in force, which
+         is what a chip starts with and what it can always be taken back to. -->
+    <div class="palette-row">
+      <label class="swatch" data-i18n-title="palette.text" title="Text colour">
+        <span class="sr-only" data-i18n="palette.text">Text colour</span>
+        <input id="palette-ink" type="color">
+      </label>
+      <button id="palette-contrast" type="button" data-i18n="palette.contrast">Contrast it</button>
+    </div>
     <div class="bar">
       <button id="palette-auto" type="button" data-i18n="palette.auto">Choose for me</button>
       <span class="grow"></span>
