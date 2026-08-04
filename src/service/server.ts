@@ -3,6 +3,7 @@ import { STATUS_ORDER, SessionStatus } from '../model/types';
 import { AssetReader } from './assets';
 import { ServiceEngine } from './engine';
 import { guardRequest } from './guard';
+import { MAX_NOTIFY_DELAY_SECONDS, MIN_NOTIFY_DELAY_SECONDS } from './preferences';
 import { SettingsApi } from './settingsApi';
 import { SseHub } from './sse';
 
@@ -240,6 +241,15 @@ export function createServiceServer(engine: ServiceEngine, options: ServerOption
         if (Array.isArray(body.on)) {
           next.on = body.on.filter((status): status is SessionStatus =>
             (STATUS_ORDER as string[]).includes(status as string),
+          );
+        }
+        // Bounded here as well as on the way to disk: the input's own min and
+        // max are a hint to a form and nothing at all to a request typed by
+        // hand.
+        if (typeof body.delaySeconds === 'number' && Number.isFinite(body.delaySeconds)) {
+          next.delaySeconds = Math.min(
+            MAX_NOTIFY_DELAY_SECONDS,
+            Math.max(MIN_NOTIFY_DELAY_SECONDS, Math.round(body.delaySeconds)),
           );
         }
         sendJson(response, 200, await engine.setNotifications(next));

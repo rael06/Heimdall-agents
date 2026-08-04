@@ -80,7 +80,12 @@ export interface EngineState {
   truncated: number;
   sessions: number;
   scannedAt: string;
-  notifications: { enabled: boolean; on: SessionStatus[]; scope: NotifyScope };
+  notifications: {
+    enabled: boolean;
+    on: SessionStatus[];
+    scope: NotifyScope;
+    delaySeconds: number;
+  };
 }
 
 export interface DeltaEvent extends SessionDelta {
@@ -126,6 +131,7 @@ export class ServiceEngine {
       enabled: options.notificationsEnabled,
       on: options.notifyOn,
       scope: options.notifyScope,
+      delaySeconds: Math.round(options.notifyDelayMs / 1000),
     };
     this.queue = new NotificationQueue(options.notifyDelayMs, (id) => this.deliver(id));
     this.watcher = new RootWatcher(
@@ -150,6 +156,7 @@ export class ServiceEngine {
         enabled: this.notifications.enabled,
         on: this.notifications.on,
         scope: this.notifications.scope,
+        delaySeconds: this.notifications.delaySeconds,
       },
     };
   }
@@ -157,6 +164,10 @@ export class ServiceEngine {
   /** Visible in the interface, not buried, and written down so it survives. */
   async setNotifications(next: Partial<NotificationPreferences>): Promise<EngineState> {
     this.notifications = { ...this.notifications, ...next };
+    // Straight onto the queue, so the choice holds from here rather than from
+    // the next start. The delay was built into it once and could not be changed
+    // afterwards, which is why it was a command-line flag and nothing else.
+    this.queue.delay = this.notifications.delaySeconds * 1000;
     try {
       await this.preferences.write(this.notifications);
     } catch {
@@ -169,6 +180,7 @@ export class ServiceEngine {
   /** Applies what was stored, without writing it back. */
   applyStoredNotifications(stored: NotificationPreferences): void {
     this.notifications = stored;
+    this.queue.delay = stored.delaySeconds * 1000;
   }
 
   get sessions(): SessionView[] {

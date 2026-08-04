@@ -11,7 +11,7 @@ function view(overrides: Partial<SettingsView> = {}): SettingsView {
   return {
     providers: { claudeHome: '', codexHome: '' },
     scan: DEFAULT_SCAN,
-    notifications: { enabled: true, on: ['idle'], scope: 'watched' },
+    notifications: { enabled: true, on: ['idle'], scope: 'watched', delaySeconds: 5 },
     effective,
     ...overrides,
   };

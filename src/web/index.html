@@ -285,6 +285,12 @@
       <legend data-i18n="settings.behaviourLegend">Behaviour</legend>
       <label class="check"><input id="set-autowatch" type="checkbox">
         <span data-i18n="settings.autowatch"></span></label>
+      <!-- Saved through the notifications route rather than with the rest of
+           this dialog, because the queue can take it without a restart. -->
+      <label class="field"><span data-i18n="settings.notifyDelay">Wait before notifying, in seconds</span>
+        <input id="set-notify-delay" type="number" min="0" max="600">
+      </label>
+      <p class="muted" data-i18n="settings.notifyDelayHelp"></p>
       <label class="field"><span data-i18n="settings.handoff">Window handover delay, in seconds</span>
         <input id="set-handoff" type="number" min="0" max="30">
       </label>

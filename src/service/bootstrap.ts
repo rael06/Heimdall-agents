@@ -101,6 +101,7 @@ export async function startService(options: BootstrapOptions): Promise<StartedSe
     enabled: options.notificationsEnabled,
     on: options.notifyOn,
     scope: options.notifyScope,
+    delaySeconds: Math.round(options.notifyDelayMs / 1000),
   });
   engine.applyStoredNotifications(stored.notifications);
 

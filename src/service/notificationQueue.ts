@@ -15,12 +15,25 @@ export class NotificationQueue {
   private readonly timers = new Map<string, ReturnType<typeof setTimeout>>();
 
   constructor(
-    private readonly delayMs: number,
+    private delayMs: number,
     private readonly send: (id: string) => void,
   ) {}
 
   get pending(): string[] {
     return [...this.timers.keys()];
+  }
+
+  /**
+   * Changes what the next wait will be, and leaves the waits already running.
+   *
+   * The same rule `schedule` states below, for the same reason: what is being
+   * measured is a quiet period since the session stopped, and rewriting a timer
+   * that is already counting would restart that period from a moment which has
+   * nothing to do with the session. A setting changed mid-wait applies to the
+   * next one.
+   */
+  set delay(ms: number) {
+    this.delayMs = ms;
   }
 
   /**

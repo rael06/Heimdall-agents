@@ -31,6 +31,16 @@ export interface NotificationPreferences {
   enabled: boolean;
   on: SessionStatus[];
   scope: NotifyScope;
+  /**
+   * The quiet period a stopped session must hold before it is reported.
+   *
+   * Seconds rather than the milliseconds the service works in, because this is
+   * the number somebody types. Zero is allowed and is a real choice: it means
+   * telling me the moment the transcript says so, and accepting the turns that
+   * end and resume within the second — which is the thing the wait exists to
+   * absorb, not a mistake to be protected from.
+   */
+  delaySeconds: number;
 }
 
 /**
@@ -235,14 +245,48 @@ export function sanitizePreferences(value: unknown, fallback: NotificationPrefer
       scope: NOTIFY_SCOPES.includes(notifications.scope as NotifyScope)
         ? (notifications.scope as NotifyScope)
         : fallback.scope,
+      delaySeconds: whole(
+        notifications.delaySeconds,
+        fallback.delaySeconds,
+        MIN_NOTIFY_DELAY_SECONDS,
+        MAX_NOTIFY_DELAY_SECONDS,
+      ),
     },
   };
 }
+
+/**
+ * A whole number inside its bounds, or what was there before.
+ *
+ * Clamped rather than rejected, on the same grounds as the scan numbers just
+ * above: a value out of range is a dial turned too far and the nearest legal
+ * one is what was meant. Anything that is not a number at all is a different
+ * matter — there is no nearest legal value for `"soon"` — so that falls back.
+ */
+function whole(value: unknown, fallback: number, min: number, max: number): number {
+  if (typeof value !== 'number' || !Number.isFinite(value)) {
+    return fallback;
+  }
+  return Math.min(max, Math.max(min, Math.round(value)));
+}
+
+/**
+ * Zero is a choice; ten minutes is where a delay stops being one.
+ *
+ * The ceiling is for the file rather than for the form: a number typed into the
+ * interface is bounded by the input, and a number read back off disk has been
+ * through a text editor and a synchronised profile since it was written.
+ */
+export const MIN_NOTIFY_DELAY_SECONDS = 0;
+export const MAX_NOTIFY_DELAY_SECONDS = 600;
+
+export const DEFAULT_NOTIFY_DELAY_SECONDS = 5;
 
 export const DEFAULT_NOTIFICATIONS: NotificationPreferences = {
   enabled: true,
   on: DEFAULT_NOTIFY_ON,
   scope: DEFAULT_NOTIFY_SCOPE,
+  delaySeconds: DEFAULT_NOTIFY_DELAY_SECONDS,
 };
 
 export class PreferencesStore {

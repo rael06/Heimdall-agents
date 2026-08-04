@@ -680,6 +680,39 @@ test('the interface and the dates follow the chosen language', async ({ page }) 
   });
 });
 
+test('the wait before notifying is a setting, and the service takes it', async ({ page }) => {
+  await open(page);
+  await page.locator('#open-settings').click();
+  const field = page.locator('#set-notify-delay');
+  await expect(field).toBeVisible();
+
+  await field.fill('19');
+  await page.locator('#save-settings').click();
+  await expect(page.locator('#settings-note')).not.toHaveText('');
+
+  // Read back from the service rather than from the field that was just typed
+  // into: this setting travels by a different route from the rest of the dialog
+  // — the queue takes it without a restart — and the failure worth catching is
+  // it never leaving the page.
+  const stored = await page.evaluate(async () => {
+    const response = await fetch(`/api/settings?token=${new URLSearchParams(location.search).get('token')}`);
+    return (await response.json()).notifications.delaySeconds;
+  });
+  expect(stored).toBe(19);
+
+  await page.keyboard.press('Escape');
+  await page.reload();
+  await expect(rows(page)).not.toHaveCount(0);
+  await page.locator('#open-settings').click();
+  await expect(page.locator('#set-notify-delay')).toHaveValue('19');
+
+  // Back to the default, since the service outlives this test.
+  await page.locator('#set-notify-delay').fill('5');
+  await page.locator('#save-settings').click();
+  await page.keyboard.press('Escape');
+  expect(problems).toEqual([]);
+});
+
 test('a bare service offers only what it can actually do', async ({ page }) => {
   await open(page);
   await page.locator('#open-settings').click();
