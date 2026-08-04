@@ -1,5 +1,24 @@
 # Changelog
 
+## 1.1.18
+
+**Arriving in a hex field takes the whole value**, hash included, so typing over
+it replaces rather than appends. A second click puts a caret where it was aimed,
+or the field could never be edited at all.
+
+It selects on focus, which covers arriving by Tab and arriving from the other
+field. That alone was not enough, and the test is what said so: `showModal`
+gives the focus to the first control in the form, so by the time the reader
+clicks that field it already has the focus, no focus event fires, and the click
+placed a caret at character four.
+
+There is no arranging that away — measured, `autofocus` on the dialog and
+`tabindex="-1"` on the dialog both leave the focus exactly where it was — so the
+click is handled on its own terms as well: the first one after the dialog opens
+is stopped before it can place a caret. Typing counts as having arrived too,
+since somebody who used the focus they were handed and then reaches for the
+mouse is editing rather than starting again.
+
 ## 1.1.17
 
 **The hex comes first in the colour picker**, as a field of its own.
