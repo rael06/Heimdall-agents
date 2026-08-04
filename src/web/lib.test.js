@@ -11,6 +11,7 @@ import {
   folder,
   hashSlot,
   ink,
+  normalizeHex,
   readColumnWidths,
   readableInk,
   readSlots,
@@ -173,6 +174,34 @@ describe('ink', () => {
       }
     }
     expect(worst).toBeGreaterThanOrEqual(4.5);
+  });
+});
+
+describe('normalizeHex', () => {
+  it('takes what a person types, in the shapes they type it', () => {
+    expect(normalizeHex('#AABBCC')).toBe('#aabbcc');
+    expect(normalizeHex('aabbcc')).toBe('#aabbcc');
+    expect(normalizeHex('  #AaBbCc  ')).toBe('#aabbcc');
+  });
+
+  it('answers nothing to a value halfway through being typed', () => {
+    // The caller paints with the answer, so `#ff` has to come back as nothing:
+    // read as a colour it would flash the chip through two or three on the way
+    // to the one being asked for.
+    expect(normalizeHex('#ff')).toBeNull();
+    expect(normalizeHex('#')).toBeNull();
+    expect(normalizeHex('')).toBeNull();
+  });
+
+  it('refuses the near misses rather than guessing at them', () => {
+    // Three-digit hex is valid CSS and is deliberately not accepted: `#fff`
+    // typed on the way to `#fff000` would paint white for a keystroke.
+    expect(normalizeHex('#fff')).toBeNull();
+    expect(normalizeHex('#gggggg')).toBeNull();
+    expect(normalizeHex('#aabbccdd')).toBeNull();
+    expect(normalizeHex('red')).toBeNull();
+    expect(normalizeHex(null)).toBeNull();
+    expect(normalizeHex(undefined)).toBeNull();
   });
 });
 

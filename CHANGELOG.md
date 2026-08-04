@@ -1,5 +1,27 @@
 # Changelog
 
+## 1.1.17
+
+**The hex comes first in the colour picker**, as a field of its own.
+
+The native panel behind the swatch opens on whichever of hex, rgb and hsl the
+browser last remembered, and it remembers rgb once rgb has been used. That
+selector is the browser's own chrome: an `input type="color"` exposes nothing
+about it — checked, and `showPicker` is the only thing on it that concerns the
+panel at all. The page cannot put hex first there.
+
+So hex is first here instead, in a text field before the swatch, and typing in
+it needs the panel not at all. Both halves have one — the chip and the text on
+it — and the swatch follows what is typed, so the two are one control rather
+than two.
+
+A value is applied only once it is a whole colour. `#ff` on the way to `#ff8800`
+answers nothing rather than painting red for a keystroke, and three-digit hex is
+refused for the same reason even though CSS accepts it: `#fff` typed on the way
+to `#fff000` would flash white. What is left half-typed goes back to what the
+chip actually wears as soon as the field is committed, so it never sits there
+claiming a colour nothing is painted in.
+
 ## 1.1.16
 
 **The application looks for a new release when it starts**, and the chip text

@@ -231,9 +231,13 @@ Open that URL and you get the list, live.
   near enough distinguishable ones to make it rare. Giving them out means no two projects on screen
   share a colour while any are left. There are sixteen, spaced by measurement rather than evenly,
   and the two columns start half the list apart so they do not mirror each other.
-- **The brush beside each value opens two free colour pickers**, the same one the frame colour uses
-  — one for the chip, one for the text on it, neither a list to choose from. What you pick is used
-  exactly as picked, in both themes. *Contrast it* works out what can be read on the chip in force,
+- **The brush beside each value opens a hex field and a colour picker**, for the chip and for the
+  text on it. The hex is first because the native panel opens on whichever of hex, rgb and hsl the
+  browser last remembered, and that selector is its own chrome — typing the hex needs the panel not
+  at all. Neither is a list to choose from — the picker is the one the frame colour uses, and what
+  you pick is used exactly as picked, in both themes. A hex applies once it is a whole colour, so a
+  value halfway through being typed paints nothing rather than flashing a colour nobody asked for.
+  *Contrast it* works out what can be read on the chip in force,
   and gives the same kind of answer an assigned chip gets: a near-white or near-black carrying a
   trace of the chip's own hue, walked towards the flat extreme only where that trace costs too much
   to keep. It is also what a chip starts with, so the button is how a colour that turned out badly
