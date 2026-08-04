@@ -283,15 +283,6 @@ export function ink(hex) {
 const HEX = /^#[0-9a-f]{6}$/i;
 
 /**
- * The two a chip may be written in, and there is no third.
- *
- * Not a shortened list of a longer one. A colour picked freely has no shade
- * this could safely derive a readable text from, and these two are the pair
- * that always contains a readable answer — see {@link ink}.
- */
-export const INKS = ['#000000', '#ffffff'];
-
-/**
  * What was stored, kept wherever it is still a colour.
  *
  * A partial answer is useful here, unlike the column widths: a name whose slot
@@ -322,11 +313,15 @@ export function readSlots(stored, count = WORKSPACE_HUES.length) {
   for (const [name, value] of Object.entries(parsed.colours ?? {})) {
     if (typeof value === 'string' && HEX.test(value)) colours[name] = value.toLowerCase();
   }
-  // Only the two, and only where there is a chosen colour to write them on: an
-  // assigned chip takes its text from the stylesheet along with its background.
+  // Any colour, like the background it is written on — the picker offers the
+  // whole range for both. Only where there is a chosen background to write it
+  // on, though: an assigned chip takes its text from the stylesheet along with
+  // its fill, so an ink for one would be a setting with nothing to apply to.
   const inks = {};
   for (const [name, value] of Object.entries(parsed.inks ?? {})) {
-    if (INKS.includes(value) && colours[name] !== undefined) inks[name] = value;
+    if (typeof value === 'string' && HEX.test(value) && colours[name] !== undefined) {
+      inks[name] = value.toLowerCase();
+    }
   }
   return { slots, colours, inks };
 }

@@ -530,7 +530,17 @@ td.ws .link {
  * otherwise right.
  */
 .tag {
-  --tag-fg: light-dark(oklch(.34 .13 var(--hue)), oklch(.88 .12 var(--hue)));
+  /*
+   * Nearly black or nearly white, with a trace of the chip's own hue left in it.
+   *
+   * It used to carry the hue at full strength — `.34 .13` and `.88 .12` — which
+   * measured 6.47:1 and 5.84:1 and was therefore never a contrast failure. It
+   * was a perceptual one: a word in the same hue as the field behind it reads
+   * as one colour whatever the ratio says, and in the dark theme, where the
+   * ratio was lowest, that is exactly how it looked. Dropping the chroma and
+   * pushing the lightness out takes the same pairs to 9.71:1 and 7.45:1.
+   */
+  --tag-fg: light-dark(oklch(.22 .06 var(--hue)), oklch(.97 .04 var(--hue)));
   color: var(--tag-fg);
   /*
    * Not the paler fill this started with. At .93 the gamut leaves almost no
@@ -619,14 +629,6 @@ td.ws .link {
   white-space: nowrap;
 }
 
-/* Two choices on one line: a fieldset a column tall for a pair of words reads
-   as a section of a form rather than as the small choice it is. */
-#palette-ink { display: flex; align-items: center; gap: 1rem; }
-#palette-ink .check { margin-bottom: 0; }
-/* Grey when there is no chosen colour to write on, and saying so by more than
-   being unclickable. */
-#palette-ink:has(input:disabled) legend,
-#palette-ink:has(input:disabled) .check { color: var(--faint); }
 
 .matched { color: var(--muted); font-size: .85em; margin-left: .4rem; }
 

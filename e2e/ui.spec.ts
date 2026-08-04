@@ -457,36 +457,70 @@ test('what is written on a chosen colour stays readable on it', async ({ page })
   await page.locator('#palette').getByText('Close').click();
 });
 
-test('the text on a chosen colour can be set to black or white by hand', async ({ page }) => {
+test('the text colour is picked as freely as the background, and can be contrasted back', async ({
+  page,
+}) => {
   await open(page);
   const badge = rows(page).first().locator('.badge');
   const ink = () => badge.evaluate((node) => getComputedStyle(node).color);
   await rows(page).first().locator('td.provider .brush').click();
 
-  // Nothing to write on until a colour has been chosen: an assigned chip takes
-  // its text from the stylesheet along with its background.
-  await expect(page.locator('#palette-ink input').first()).toBeDisabled();
-
   await page.locator('#palette-colour').fill('#fa1f19');
-  // Preselected on the measured answer — black on this red, which is at
-  // luminance 0.213 where black gives 5.26:1 and white 3.99:1.
-  await expect(page.locator('#palette-ink input[value="#000000"]')).toBeChecked();
+  // The measured answer is what a chip starts with: black on this red, which is
+  // at luminance 0.213 where black gives 5.26:1 and white only 3.99:1.
   expect(await ink()).toBe('rgb(0, 0, 0)');
 
-  // And overruled, because once both are legible it is a matter of taste.
-  await page.locator('#palette-ink input[value="#ffffff"]').check();
-  expect(await ink()).toBe('rgb(255, 255, 255)');
+  // Any colour at all, including one nobody should choose — the picker does not
+  // second-guess, and the button below is how it is taken back.
+  await page.locator('#palette-ink').fill('#e01a14');
+  expect(await ink()).toBe('rgb(224, 26, 20)');
+  // And the background it was chosen against is still there, not reset by it.
+  expect(await badge.evaluate((node) => getComputedStyle(node).backgroundColor)).toBe(
+    'rgb(250, 31, 25)',
+  );
 
   await page.reload();
   await expect(rows(page)).not.toHaveCount(0);
-  expect(await ink()).toBe('rgb(255, 255, 255)');
+  expect(await ink()).toBe('rgb(224, 26, 20)');
 
   await rows(page).first().locator('td.provider .brush').click();
-  await expect(page.locator('#palette-ink input[value="#ffffff"]')).toBeChecked();
+  await page.locator('#palette-contrast').click();
+  expect(await ink()).toBe('rgb(0, 0, 0)');
   await page.locator('#palette-auto').click();
-  await expect(page.locator('#palette-ink input').first()).toBeDisabled();
   await page.locator('#palette').getByText('Close').click();
   expect(problems).toEqual([]);
+});
+
+test('an assigned chip is written in something well clear of its own colour', async ({ page }) => {
+  await open(page);
+  // The complaint this answers was not a contrast failure — the pair measured
+  // 5.84:1 in the dark theme — but a perceptual one: the text carried the chip's
+  // own hue at full strength and read as one colour with it. The bar here is
+  // well above 4.5 for that reason.
+  for (const theme of ['light', 'dark']) {
+    await page.locator('#theme').click();
+    await expect(page.locator('html')).toHaveAttribute('data-theme', theme);
+    const seen = await rows(page)
+      .first()
+      .locator('td.ws .link')
+      .evaluate((node) => {
+        // Through a painted pixel, because an assigned chip's computed colours
+        // are `oklch(...)` strings and reading the numbers out of one takes the
+        // lightness where red belongs.
+        const context = document.createElement('canvas').getContext('2d')!;
+        const srgb = (value: string): string => {
+          context.clearRect(0, 0, 1, 1);
+          context.fillStyle = value;
+          context.fillRect(0, 0, 1, 1);
+          const [r, g, b] = context.getImageData(0, 0, 1, 1).data;
+          return `rgb(${r}, ${g}, ${b})`;
+        };
+        const style = getComputedStyle(node);
+        return { colour: srgb(style.color), background: srgb(style.backgroundColor) };
+      });
+    expect(ratio(seen.colour, seen.background), `${theme}: assigned chip`).toBeGreaterThanOrEqual(7);
+  }
+  await page.locator('#theme').click(); // back to auto
 });
 
 test('the provider chip is drawn at the size of the workspace chip', async ({ page }) => {
