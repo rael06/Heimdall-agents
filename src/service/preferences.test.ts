@@ -85,6 +85,28 @@ describe('sanitizePreferences', () => {
   });
 });
 
+describe('sanitizePreferences, on the application', () => {
+  const appOf = (application: unknown) =>
+    sanitizePreferences({ app: application }, DEFAULT_NOTIFICATIONS).app;
+
+  it('reads back both halves', () => {
+    expect(appOf({ showTray: false, skippedVersion: '1.2.0' })).toEqual({
+      showTray: false,
+      skippedVersion: '1.2.0',
+    });
+  });
+
+  it('fills in the half that is missing rather than dropping the other', () => {
+    // A file written before the launch check existed has no skipped version,
+    // and the tray choice in it is still a choice.
+    expect(appOf({ showTray: false })).toEqual({ showTray: false, skippedVersion: '' });
+  });
+
+  it('refuses a version that is not one', () => {
+    expect(appOf({ skippedVersion: 7 }).skippedVersion).toBe('');
+  });
+});
+
 describe('sanitizePreferences, on the numbers', () => {
   const scanOf = (scan: unknown) =>
     sanitizePreferences({ scan }, DEFAULT_NOTIFICATIONS).scan;

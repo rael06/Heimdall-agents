@@ -505,8 +505,11 @@ test('an assigned chip is written in something well clear of its own colour', as
   await open(page);
   // The complaint this answers was not a contrast failure — the pair measured
   // 5.84:1 in the dark theme — but a perceptual one: the text carried the chip's
-  // own hue at full strength and read as one colour with it. The bar here is
-  // well above 4.5 for that reason.
+  // own hue at full strength and read as one colour with it. The bar is above
+  // 4.5 for that reason, and 6 rather than the 7 it briefly was: the first
+  // correction went past the problem into plain black and white, and the bar
+  // moved with it. What this has to catch is a slide back towards 5.84, not the
+  // colour in the word.
   for (const theme of ['light', 'dark']) {
     await page.locator('#theme').click();
     await expect(page.locator('html')).toHaveAttribute('data-theme', theme);
@@ -528,7 +531,7 @@ test('an assigned chip is written in something well clear of its own colour', as
         const style = getComputedStyle(node);
         return { colour: srgb(style.color), background: srgb(style.backgroundColor) };
       });
-    expect(ratio(seen.colour, seen.background), `${theme}: assigned chip`).toBeGreaterThanOrEqual(7);
+    expect(ratio(seen.colour, seen.background), `${theme}: assigned chip`).toBeGreaterThanOrEqual(6);
   }
   await page.locator('#theme').click(); // back to auto
 });

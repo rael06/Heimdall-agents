@@ -13,7 +13,8 @@ import { createDesktop } from '../service/desktop';
 import { ElectronNotifier } from './notifier';
 import { AppRequest, PROTOCOL, openUri, requestFromArgv, showUri } from './protocol';
 import { isInstallable } from './release';
-import { checkForUpdate, downloadInstaller, runInstaller } from './update';
+import { checkForUpdate, downloadInstaller, runInstaller, worthAnnouncing } from './update';
+import type { Release } from './release';
 
 /**
  * The desktop application: the same service, the same interface, in a window
@@ -193,9 +194,12 @@ function createWindow(url: string): BrowserWindow {
 /**
  * Offers the latest release, and installs it when told to.
  *
- * Only ever from the menu: an application that reaches out on its own, and
- * speaks about it, is one more thing interrupting you — and this one exists to
- * interrupt you about exactly one thing.
+ * This used to say "only ever from the menu: an application that reaches out on
+ * its own, and speaks about it, is one more thing interrupting you". That is
+ * reversed, deliberately, because a release nobody hears about is a release
+ * nobody installs — and the reason behind the old rule is kept rather than
+ * discarded. A check at launch says nothing at all unless there is something to
+ * act on, and what it offers can be turned down for good.
  */
 async function checkForUpdates(): Promise<void> {
   const found = await checkForUpdate(app.getVersion());
@@ -266,11 +270,30 @@ async function checkForUpdates(): Promise<void> {
     return;
   }
 
+  await offerUpdate(release, false);
+}
+
+/**
+ * The offer itself, and the install behind it.
+ *
+ * `skippable` is the whole difference between the two ways in. Asked from the
+ * menu, "Not now" means not now; there is no reason to offer never, because
+ * nothing will ask again unless the reader does. Raised at launch, the same
+ * answer would be given again at the next launch and every one after it, so
+ * that route carries a third button — and it is a button rather than an
+ * inference from "Not now", which would be the application deciding what an
+ * answer meant.
+ */
+async function offerUpdate(release: Release, skippable: boolean): Promise<void> {
+  const buttons = skippable
+    ? ['Skip this version', 'Not now', 'Download and install']
+    : ['Not now', 'Download and install'];
+  const install = buttons.length - 1;
   const { response } = await dialog.showMessageBox({
     type: 'question',
-    buttons: ['Not now', 'Download and install'],
-    defaultId: 1,
-    cancelId: 0,
+    buttons,
+    defaultId: install,
+    cancelId: skippable ? 1 : 0,
     title: 'Update available',
     message: `Version ${release.version} is available. You have ${app.getVersion()}.`,
     detail:
@@ -281,7 +304,11 @@ async function checkForUpdates(): Promise<void> {
       `It is not code-signed, so Windows may warn about it — the only thing ` +
       `vouching for it is that it came from GitHub over TLS.`,
   });
-  if (response !== 1) {
+  if (skippable && response === 0) {
+    await preferences().writeApp({ skippedVersion: release.version });
+    return;
+  }
+  if (response !== install) {
     return;
   }
 
@@ -313,6 +340,39 @@ async function checkForUpdates(): Promise<void> {
         `hand — and going back to an earlier version is the same thing: install ` +
         `it over this one.`,
     });
+  }
+}
+
+/**
+ * How long the launch check waits before reaching out.
+ *
+ * Startup already has work to do — a service to bring up, two transcript trees
+ * to scan — and a network round trip competing with the first paint would be
+ * paid for by the thing the reader is actually waiting for. Ten seconds is also
+ * long enough that a dialog never lands on a window that is not yet on screen.
+ */
+const LAUNCH_CHECK_DELAY_MS = 10_000;
+
+/**
+ * The check nobody asked for, which is why it mostly says nothing.
+ *
+ * Every failure is swallowed on purpose: launching offline, behind a captive
+ * portal, or with GitHub having a bad morning are not things to be told about
+ * by an application that was opened to look at something else. The menu item is
+ * where those answers live, because there somebody asked.
+ */
+async function checkForUpdatesAtLaunch(): Promise<void> {
+  try {
+    const [found, stored] = await Promise.all([
+      checkForUpdate(app.getVersion()),
+      preferences().read(),
+    ]);
+    if (!worthAnnouncing(found, stored.app.skippedVersion) || !found.release) {
+      return;
+    }
+    await offerUpdate(found.release, true);
+  } catch {
+    // Deliberately nothing. See above.
   }
 }
 
@@ -513,6 +573,11 @@ if (!app.requestSingleInstanceLock()) {
       tray = createTray();
     }
     handle(requestFromArgv(process.argv));
+
+    // Behind a timer rather than awaited: the window is up and the reader is
+    // already using it while this happens, and it must never be a thing the
+    // start waits on. Unreferenced so it cannot hold a quit open either.
+    setTimeout(() => void checkForUpdatesAtLaunch(), LAUNCH_CHECK_DELAY_MS).unref();
   });
 
   app.on('before-quit', () => {

@@ -6,7 +6,15 @@ import * as os from 'node:os';
 import * as path from 'node:path';
 import { pipeline } from 'node:stream/promises';
 import { IncomingMessage } from 'node:http';
-import { Release, isNewer, isTrustedHost, parseRelease, releaseUrl, sha512For } from './release';
+import {
+  Release,
+  isInstallable,
+  isNewer,
+  isTrustedHost,
+  parseRelease,
+  releaseUrl,
+  sha512For,
+} from './release';
 
 /**
  * Fetching a release and replacing the application with it.
@@ -90,6 +98,29 @@ export async function checkForUpdate(currentVersion: string): Promise<UpdateChec
     const message = error instanceof Error ? error.message : String(error);
     return message.includes('404') ? { kind: 'none' } : { kind: 'error', message };
   }
+}
+
+/**
+ * Whether a check nobody asked for has something worth interrupting about.
+ *
+ * The menu answers every outcome, because somebody asked a question and is owed
+ * an answer — including "you are up to date" and "GitHub could not be reached".
+ * A check at launch asked nothing, so it earns a word only when there is
+ * something to act on, and stays silent otherwise. Being offline at startup is
+ * not news.
+ *
+ * That covers the three ways a newer version can still be nothing to do about:
+ * no installer, no checksum manifest to verify it against, and a version
+ * already turned down. Each of those has a dialog behind the menu item, where
+ * it belongs.
+ */
+export function worthAnnouncing(found: UpdateCheck, skippedVersion: string): boolean {
+  return (
+    found.kind === 'update' &&
+    found.release !== undefined &&
+    isInstallable(found.release) &&
+    found.release.version !== skippedVersion
+  );
 }
 
 /**

@@ -531,16 +531,23 @@ td.ws .link {
  */
 .tag {
   /*
-   * Nearly black or nearly white, with a trace of the chip's own hue left in it.
+   * Dark or light, and still visibly the chip's own colour.
    *
-   * It used to carry the hue at full strength — `.34 .13` and `.88 .12` — which
-   * measured 6.47:1 and 5.84:1 and was therefore never a contrast failure. It
-   * was a perceptual one: a word in the same hue as the field behind it reads
-   * as one colour whatever the ratio says, and in the dark theme, where the
-   * ratio was lowest, that is exactly how it looked. Dropping the chroma and
-   * pushing the lightness out takes the same pairs to 9.71:1 and 7.45:1.
+   * This has been wrong in both directions and the numbers are worth keeping.
+   * It carried the hue at full strength — `.34 .13` and `.88 .12` — measuring
+   * 6.47:1 and 5.84:1, so never a contrast failure but a perceptual one: a word
+   * in the same hue as the field behind it reads as one colour whatever the
+   * ratio says. The correction, `.22 .06` and `.97 .04`, went far past the
+   * problem: measured against a grey of the same lightness it left 21 and 17
+   * points of colour in the word where the original had 50 and 57, and read as
+   * plain black and white.
+   *
+   * These are the middle, and chosen from that measurement rather than by eye:
+   * 43 and 49 points of colour kept — seven eighths of the original — with the
+   * contrast still up at 7.65:1 and 6.37:1. The complaint was that the word did
+   * not separate from its chip, not that it should stop being coloured.
    */
-  --tag-fg: light-dark(oklch(.22 .06 var(--hue)), oklch(.97 .04 var(--hue)));
+  --tag-fg: light-dark(oklch(.30 .12 var(--hue)), oklch(.91 .11 var(--hue)));
   color: var(--tag-fg);
   /*
    * Not the paler fill this started with. At .93 the gamut leaves almost no

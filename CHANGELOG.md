@@ -1,5 +1,50 @@
 # Changelog
 
+## 1.1.16
+
+**The application looks for a new release when it starts**, and the chip text
+carries its own colour again.
+
+### The ink was corrected twice, and the numbers say by how much
+
+It carried its chip's hue at full strength — `.34 .13` and `.88 .12` — which
+measured 6.47:1 and 5.84:1 and read as one colour with the field behind it. The
+correction went far past the problem: `.22 .06` and `.97 .04` left, measured
+against a grey of the same lightness, **21 and 17** points of colour in the word
+where the original had **50 and 57**. That is plain black and white, and it was
+reported as such.
+
+These are the middle, and taken from the measurement rather than from another
+look: `.30 .12` and `.91 .11` keep **43 and 49** points — seven eighths of the
+original — with contrast still up at 7.65:1 and 6.37:1. The interface test's bar
+moves from 7 back to 6 with it, because what it has to catch is a slide towards
+the 5.84:1 that was reported, not the colour in the word.
+
+*Contrast it* was measured on the way past and is not implicated: on an assigned
+chip it returns `47,12,27` where the chip was already wearing `48,12,25`.
+
+### A check at launch
+
+Ten seconds after the window opens, in the background, and it says nothing
+unless there is something to act on. Up to date, offline, behind a captive
+portal, a release with no installer or no checksum manifest: all silent. The
+menu item still answers every one of those, because there somebody asked.
+
+What it offers can be turned down for good — the dialog raised this way carries
+*Skip this version*, and that version is then never raised again on its own. It
+is a button rather than an inference from *Not now*, which would be the
+application deciding what an answer meant.
+
+This reverses a decision recorded in the code: *"only ever from the menu: an
+application that reaches out on its own, and speaks about it, is one more thing
+interrupting you"*. A release nobody hears about is a release nobody installs,
+so it is reversed — and the reason behind it is kept in the silence and in the
+skip rather than discarded with the rule.
+
+`writeApp` was replacing the whole block where it now merges. That was harmless
+with one field in it and would have dropped the tray setting the moment a second
+arrived, which is exactly what arrived.
+
 ## 1.1.15
 
 **Contrast it gives the same answer the chip started with**, rather than a
