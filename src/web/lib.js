@@ -283,6 +283,15 @@ export function ink(hex) {
 const HEX = /^#[0-9a-f]{6}$/i;
 
 /**
+ * The two a chip may be written in, and there is no third.
+ *
+ * Not a shortened list of a longer one. A colour picked freely has no shade
+ * this could safely derive a readable text from, and these two are the pair
+ * that always contains a readable answer — see {@link ink}.
+ */
+export const INKS = ['#000000', '#ffffff'];
+
+/**
  * What was stored, kept wherever it is still a colour.
  *
  * A partial answer is useful here, unlike the column widths: a name whose slot
@@ -300,10 +309,10 @@ export function readSlots(stored, count = WORKSPACE_HUES.length) {
   try {
     parsed = JSON.parse(stored ?? '');
   } catch {
-    return { slots: {}, colours: {} };
+    return { slots: {}, colours: {}, inks: {} };
   }
   if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) {
-    return { slots: {}, colours: {} };
+    return { slots: {}, colours: {}, inks: {} };
   }
   const slots = {};
   for (const [name, slot] of Object.entries(parsed.slots ?? {})) {
@@ -313,7 +322,13 @@ export function readSlots(stored, count = WORKSPACE_HUES.length) {
   for (const [name, value] of Object.entries(parsed.colours ?? {})) {
     if (typeof value === 'string' && HEX.test(value)) colours[name] = value.toLowerCase();
   }
-  return { slots, colours };
+  // Only the two, and only where there is a chosen colour to write them on: an
+  // assigned chip takes its text from the stylesheet along with its background.
+  const inks = {};
+  for (const [name, value] of Object.entries(parsed.inks ?? {})) {
+    if (INKS.includes(value) && colours[name] !== undefined) inks[name] = value;
+  }
+  return { slots, colours, inks };
 }
 
 /**
@@ -358,8 +373,14 @@ export function assignSlots(names, stored, count = WORKSPACE_HUES.length, offset
     else slots[name] = hashSlot(name, count);
   }
   const kept = {};
-  for (const name of names) if (colours[name] !== undefined) kept[name] = colours[name];
-  return { slots, colours: kept };
+  const keptInks = {};
+  const inks = stored?.inks ?? {};
+  for (const name of names) {
+    if (colours[name] === undefined) continue;
+    kept[name] = colours[name];
+    if (inks[name] !== undefined) keptInks[name] = inks[name];
+  }
+  return { slots, colours: kept, inks: keptInks };
 }
 
 /** `now` is passed in rather than read, so this can be asked about a fixed one. */
