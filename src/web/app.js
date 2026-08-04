@@ -1193,6 +1193,44 @@ function paintedTag(kind, name) {
   return painted;
 }
 
+/**
+ * The whole value on the way in, and an ordinary caret once you are in.
+ *
+ * A field holding one seven-character value is replaced far more often than it
+ * is edited, and the hash is part of what gets replaced — so arriving in it
+ * with everything selected saves the same three keystrokes every time.
+ *
+ * Selecting on `focus` alone does not survive the click that caused it: the
+ * caret is placed as part of the same gesture, afterwards, and collapses the
+ * selection. So the click that would place it is stopped, once.
+ *
+ * Once per opening of the dialog, and not "once per focus", which is what this
+ * tried first and what the test caught. `showModal` gives the focus to the
+ * first control in the form, so by the time the reader clicks the field already
+ * has it — a rule written around gaining focus never fired at all, and the
+ * click placed a caret at character four. Measured before settling for it:
+ * `autofocus` on the dialog and `tabindex="-1"` on the dialog both leave the
+ * focus exactly where it was, on the first field, so there is no arranging this
+ * away and the click has to be handled on its own terms.
+ *
+ * Typing counts as having entered too: someone who used the focus the dialog
+ * handed them and then reaches for the mouse is editing, not starting again.
+ */
+function selectOnEntry(input) {
+  const entered = () => {
+    input.dataset.entered = 'true';
+  };
+  input.addEventListener('focus', () => input.select());
+  input.addEventListener('input', entered);
+  input.addEventListener('mousedown', (event) => {
+    if (input.dataset.entered === 'true') return;
+    entered();
+    event.preventDefault();
+    input.focus();
+    input.select();
+  });
+}
+
 /** Keeps the dialog's own controls in step with what the chip now wears. */
 function syncPalette(settled = false) {
   const { kind, name } = recolouring;
@@ -1242,6 +1280,8 @@ function openPalette(kind, name) {
   recolouring = { kind, name };
   el('palette-heading').textContent = t('palette.heading', { name });
   el('palette-preview').textContent = name;
+  // "The first time" is once per opening, so every opening starts fresh.
+  for (const id of ['palette-colour-hex', 'palette-ink-hex']) delete el(id).dataset.entered;
   syncPalette();
   el('palette').showModal();
 }
@@ -1566,6 +1606,7 @@ function wireControls() {
     ['palette-colour-hex', 'fill'],
     ['palette-ink-hex', 'tone'],
   ]) {
+    selectOnEntry(el(id));
     el(id).addEventListener('input', (event) => {
       const typed = normalizeHex(event.target.value);
       if (!recolouring || !typed) return;

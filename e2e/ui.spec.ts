@@ -572,6 +572,39 @@ test('a colour can be typed as hex without opening the native panel', async ({ p
   expect(problems).toEqual([]);
 });
 
+test('clicking into a hex field takes the whole value, hash and all', async ({ page }) => {
+  await open(page);
+  await rows(page).first().locator('td.provider .brush').click();
+  const field = page.locator('#palette-colour-hex');
+  const selection = () =>
+    field.evaluate((node: HTMLInputElement) => ({
+      from: node.selectionStart,
+      to: node.selectionEnd,
+      length: node.value.length,
+      taken: node.value.slice(node.selectionStart ?? 0, node.selectionEnd ?? 0),
+    }));
+
+  // The value is replaced far more often than it is edited, and the hash is part
+  // of what gets replaced.
+  await field.click();
+  const first = await selection();
+  expect(first.from).toBe(0);
+  expect(first.to).toBe(first.length);
+  expect(first.taken.startsWith('#')).toBe(true);
+
+  // Typing over it therefore replaces rather than appends — the check that the
+  // selection is real and not just reported.
+  await page.keyboard.type('#123456');
+  expect(await field.inputValue()).toBe('#123456');
+
+  // And a second click puts a caret where it was aimed, or the field could
+  // never be edited at all.
+  await field.click({ position: { x: 30, y: 8 } });
+  const second = await selection();
+  expect(second.from).toBe(second.to);
+  expect(problems).toEqual([]);
+});
+
 test('the provider chip is drawn at the size of the workspace chip', async ({ page }) => {
   await open(page);
   const row = rows(page).first();
