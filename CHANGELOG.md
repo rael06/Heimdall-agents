@@ -1,5 +1,47 @@
 # Changelog
 
+## 1.1.13
+
+**The text on a chosen colour can be set to black or white**, and dragging the
+picker no longer stutters.
+
+### It was not the contrast arithmetic
+
+The stutter was reported with a guess attached — that the contrast calculation
+was to blame — so it was measured rather than accepted. One move of the picker,
+with 327 rows on screen:
+
+| | |
+|---|---|
+| the contrast arithmetic | **1.5 ms** |
+| `new Intl.DateTimeFormat`, rebuilt per cell | **30.6 ms** |
+| the same formatter reused | 0.5 ms |
+| every `localStorage` read | 0.3 ms |
+
+One frame is 16.7 ms. The date formatter alone was costing nearly two, because
+`at()` built a fresh one for every date in every row — and the picker rewrote
+every row on every pointer move. The contrast arithmetic, the thing suspected,
+was two per cent of it.
+
+Three things changed. The formatter is kept between calls, keyed on the locale,
+which every scan benefits from and not only the picker. A colour change now
+repaints the chips carrying that one name instead of every row. And the choice
+is written to storage when the picker is released rather than on each of the
+several hundred colours a drag passes through.
+
+Measured after, at the same 327 rows: **1.57 ms** a move.
+
+### Black or white, by hand
+
+A chosen colour gets a radio pair, preselected on the measured answer and free
+to be overruled — once both are legible the choice is a matter of taste, and
+usually only one of them is. The measurement stays as the default because
+without it a dark colour would arrive with black text on it.
+
+The pair is offered only where there is a chosen colour to write on: an assigned
+chip takes its text from the stylesheet along with its background, so there is
+no black-or-white answer to preselect.
+
 ## 1.1.12
 
 **The colour picker opens on the colour the chip is already wearing.** It opened

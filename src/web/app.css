@@ -619,6 +619,15 @@ td.ws .link {
   white-space: nowrap;
 }
 
+/* Two choices on one line: a fieldset a column tall for a pair of words reads
+   as a section of a form rather than as the small choice it is. */
+#palette-ink { display: flex; align-items: center; gap: 1rem; }
+#palette-ink .check { margin-bottom: 0; }
+/* Grey when there is no chosen colour to write on, and saying so by more than
+   being unclickable. */
+#palette-ink:has(input:disabled) legend,
+#palette-ink:has(input:disabled) .check { color: var(--faint); }
+
 .matched { color: var(--muted); font-size: .85em; margin-left: .4rem; }
 
 .empty {

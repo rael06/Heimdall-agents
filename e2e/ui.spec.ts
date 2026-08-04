@@ -457,6 +457,38 @@ test('what is written on a chosen colour stays readable on it', async ({ page })
   await page.locator('#palette').getByText('Close').click();
 });
 
+test('the text on a chosen colour can be set to black or white by hand', async ({ page }) => {
+  await open(page);
+  const badge = rows(page).first().locator('.badge');
+  const ink = () => badge.evaluate((node) => getComputedStyle(node).color);
+  await rows(page).first().locator('td.provider .brush').click();
+
+  // Nothing to write on until a colour has been chosen: an assigned chip takes
+  // its text from the stylesheet along with its background.
+  await expect(page.locator('#palette-ink input').first()).toBeDisabled();
+
+  await page.locator('#palette-colour').fill('#fa1f19');
+  // Preselected on the measured answer — black on this red, which is at
+  // luminance 0.213 where black gives 5.26:1 and white 3.99:1.
+  await expect(page.locator('#palette-ink input[value="#000000"]')).toBeChecked();
+  expect(await ink()).toBe('rgb(0, 0, 0)');
+
+  // And overruled, because once both are legible it is a matter of taste.
+  await page.locator('#palette-ink input[value="#ffffff"]').check();
+  expect(await ink()).toBe('rgb(255, 255, 255)');
+
+  await page.reload();
+  await expect(rows(page)).not.toHaveCount(0);
+  expect(await ink()).toBe('rgb(255, 255, 255)');
+
+  await rows(page).first().locator('td.provider .brush').click();
+  await expect(page.locator('#palette-ink input[value="#ffffff"]')).toBeChecked();
+  await page.locator('#palette-auto').click();
+  await expect(page.locator('#palette-ink input').first()).toBeDisabled();
+  await page.locator('#palette').getByText('Close').click();
+  expect(problems).toEqual([]);
+});
+
 test('the provider chip is drawn at the size of the workspace chip', async ({ page }) => {
   await open(page);
   const row = rows(page).first();

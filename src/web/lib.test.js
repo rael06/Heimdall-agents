@@ -176,7 +176,18 @@ describe('ink', () => {
 });
 
 describe('assignSlots', () => {
-  const fresh = { slots: {}, colours: {} };
+  const fresh = { slots: {}, colours: {}, inks: {} };
+
+  it('carries the chosen text colour along with the colour it is written on', () => {
+    const stored = { slots: {}, colours: { alpha: '#ff0000' }, inks: { alpha: '#ffffff' } };
+    const after = assignSlots(['alpha', 'beta'], stored);
+    expect(after.inks).toEqual({ alpha: '#ffffff' });
+  });
+
+  it('drops the text colour with the project it belonged to', () => {
+    const stored = { slots: {}, colours: { gone: '#ff0000' }, inks: { gone: '#ffffff' } };
+    expect(assignSlots(['alpha'], stored).inks).toEqual({});
+  });
 
   it('gives every project on screen a colour of its own', () => {
     // The property the whole thing exists for, and the one a hash cannot have:
@@ -263,9 +274,12 @@ describe('assignSlots', () => {
 
 describe('readSlots', () => {
   it('reads back what was stored', () => {
-    expect(readSlots('{"slots":{"alpha":0},"colours":{"beta":"#FF8800"}}')).toEqual({
+    expect(
+      readSlots('{"slots":{"alpha":0},"colours":{"beta":"#FF8800"},"inks":{"beta":"#000000"}}'),
+    ).toEqual({
       slots: { alpha: 0 },
       colours: { beta: '#ff8800' },
+      inks: { beta: '#000000' },
     });
   });
 
@@ -275,6 +289,7 @@ describe('readSlots', () => {
     expect(readSlots('{"slots":{"alpha":0,"beta":99,"gamma":"x"}}')).toEqual({
       slots: { alpha: 0 },
       colours: {},
+      inks: {},
     });
   });
 
@@ -283,9 +298,20 @@ describe('readSlots', () => {
     expect(readSlots(stored).colours).toEqual({ d: '#abcdef' });
   });
 
+  it('refuses a text colour that is neither of the two', () => {
+    const stored = '{"colours":{"a":"#abcdef"},"inks":{"a":"#123456"}}';
+    expect(readSlots(stored).inks).toEqual({});
+  });
+
+  it('drops a text colour with no chosen background under it', () => {
+    // An assigned chip takes its text from the stylesheet along with its
+    // background, so an ink for one would be a setting with nothing to apply to.
+    expect(readSlots('{"inks":{"a":"#000000"}}').inks).toEqual({});
+  });
+
   it('survives anything at all in the stored value', () => {
     for (const stored of [null, undefined, '', 'not json', '[]', '"text"', '7']) {
-      expect(readSlots(stored)).toEqual({ slots: {}, colours: {} });
+      expect(readSlots(stored)).toEqual({ slots: {}, colours: {}, inks: {} });
     }
   });
 });
