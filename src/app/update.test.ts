@@ -1,5 +1,11 @@
 import { describe, expect, it, vi } from 'vitest';
-import { INSTALLER_ARGUMENTS, runInstaller, worthAnnouncing } from './update';
+import {
+  INSTALLER_ARGUMENTS,
+  runInstaller,
+  updateAnswer,
+  updateButtons,
+  worthAnnouncing,
+} from './update';
 import { Release } from './release';
 
 const release = (version: string, extra: Partial<Release> = {}): Release => ({
@@ -7,6 +13,38 @@ const release = (version: string, extra: Partial<Release> = {}): Release => ({
   installer: { name: `Setup ${version}.exe`, url: 'https://github.com/x/y', size: 10 },
   manifest: { name: 'latest.yml', url: 'https://github.com/x/latest.yml', size: 1 },
   ...extra,
+});
+
+describe('updateAnswer', () => {
+  it('reads the last button as install, in both offers', () => {
+    // Found by length rather than by a number written twice: an off-by-one here
+    // installs an update on somebody who declined, quietly and once.
+    expect(updateAnswer(false, 1)).toBe('install');
+    expect(updateAnswer(true, 2)).toBe('install');
+  });
+
+  it('only offers to skip where skipping is offered', () => {
+    expect(updateAnswer(true, 0)).toBe('skip');
+    // Button 0 of the menu's offer is "Not now", and reading it as a skip would
+    // silence a check nobody agreed to silence.
+    expect(updateAnswer(false, 0)).toBe('later');
+  });
+
+  it('treats anything else as not now, which is what Escape has to mean', () => {
+    // Electron answers with `cancelId` when the dialog is dismissed, and -1 is
+    // what it answers with on the platforms where there is no cancel.
+    expect(updateAnswer(true, 1)).toBe('later');
+    expect(updateAnswer(true, -1)).toBe('later');
+    expect(updateAnswer(false, -1)).toBe('later');
+  });
+
+  it('installs on the last button whatever the offer is made of', () => {
+    for (const skippable of [false, true]) {
+      const buttons = updateButtons(skippable);
+      expect(updateAnswer(skippable, buttons.length - 1)).toBe('install');
+      expect(buttons[buttons.length - 1]).toMatch(/install/i);
+    }
+  });
 });
 
 describe('worthAnnouncing', () => {

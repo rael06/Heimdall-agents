@@ -13,7 +13,14 @@ import { createDesktop } from '../service/desktop';
 import { ElectronNotifier } from './notifier';
 import { AppRequest, PROTOCOL, openUri, requestFromArgv, showUri } from './protocol';
 import { isInstallable } from './release';
-import { checkForUpdate, downloadInstaller, runInstaller, worthAnnouncing } from './update';
+import {
+  checkForUpdate,
+  downloadInstaller,
+  runInstaller,
+  updateAnswer,
+  updateButtons,
+  worthAnnouncing,
+} from './update';
 import type { Release } from './release';
 
 /**
@@ -285,14 +292,12 @@ async function checkForUpdates(): Promise<void> {
  * answer meant.
  */
 async function offerUpdate(release: Release, skippable: boolean): Promise<void> {
-  const buttons = skippable
-    ? ['Skip this version', 'Not now', 'Download and install']
-    : ['Not now', 'Download and install'];
-  const install = buttons.length - 1;
+  const buttons = [...updateButtons(skippable)];
   const { response } = await dialog.showMessageBox({
     type: 'question',
     buttons,
-    defaultId: install,
+    defaultId: buttons.length - 1,
+    // Escape lands on "not now", which is the last button in neither list.
     cancelId: skippable ? 1 : 0,
     title: 'Update available',
     message: `Version ${release.version} is available. You have ${app.getVersion()}.`,
@@ -304,11 +309,12 @@ async function offerUpdate(release: Release, skippable: boolean): Promise<void> 
       `It is not code-signed, so Windows may warn about it — the only thing ` +
       `vouching for it is that it came from GitHub over TLS.`,
   });
-  if (skippable && response === 0) {
+  const answer = updateAnswer(skippable, response);
+  if (answer === 'skip') {
     await preferences().writeApp({ skippedVersion: release.version });
     return;
   }
-  if (response !== install) {
+  if (answer !== 'install') {
     return;
   }
 

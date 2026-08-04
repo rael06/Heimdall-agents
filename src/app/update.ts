@@ -124,6 +124,42 @@ export function worthAnnouncing(found: UpdateCheck, skippedVersion: string): boo
 }
 
 /**
+ * What the offer says, and what an answer to it means.
+ *
+ * Here rather than beside the dialog, for the reason this file's own header
+ * gives: the decisions belong somewhere pure and tested, and what is left in
+ * the window is the part that cannot be. Reading an answer out of a button
+ * index is exactly a decision — an off-by-one in it installs an update on
+ * somebody who declined, quietly and once, which is not a thing to find out
+ * from a user.
+ *
+ * The launch offer carries a third button and the menu's does not. Asked from
+ * the menu, "not now" means not now: nothing will raise it again unless the
+ * reader does. Raised unprompted, the same answer would come back at the next
+ * launch and every one after it, so that route needs a way to say never — and
+ * as its own button rather than as a meaning read into "not now".
+ */
+export const UPDATE_BUTTONS = {
+  asked: ['Not now', 'Download and install'],
+  offered: ['Skip this version', 'Not now', 'Download and install'],
+} as const;
+
+export type UpdateAnswer = 'install' | 'skip' | 'later';
+
+export function updateButtons(skippable: boolean): readonly string[] {
+  return skippable ? UPDATE_BUTTONS.offered : UPDATE_BUTTONS.asked;
+}
+
+export function updateAnswer(skippable: boolean, response: number): UpdateAnswer {
+  const buttons = updateButtons(skippable);
+  // Installing is the last button in both, so it is found by length rather than
+  // by a number written twice. Anything that is not one of the two named
+  // answers is "later", which is what a dialog dismissed by Escape has to mean.
+  if (response === buttons.length - 1) return 'install';
+  return skippable && response === 0 ? 'skip' : 'later';
+}
+
+/**
  * Downloads the installer and checks it is what the release said it was.
  *
  * Nothing is run that has not matched its published length, and its checksum
