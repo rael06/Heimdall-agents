@@ -255,6 +255,11 @@ Open that URL and you get the list, live.
   colour you pick or take at random. A random pick chooses a hue rather than a colour, and the
   accent derived from it is adjusted until it clears 4.5:1 on the background in use — the frame only
   has to be seen, the accent is read.
+- **The wait before a notification is a setting**, under *Behaviour*, in seconds. It is how long a
+  session has to stay stopped before it is worth telling you about, so a turn that ends and starts
+  again inside that window is never reported. Zero is a choice, not an accident: it tells you the
+  moment the transcript says so, false stops included. It takes effect when saved rather than at the
+  next start, and a wait already running keeps the delay it began with.
 - **It looks for a new release when it starts**, ten seconds after the window opens and in the
   background. It says nothing unless there is something to act on — up to date, offline, or a
   release it could not verify are all silent, and the *Check for updates…* menu item still answers

@@ -15,6 +15,29 @@ describe('NotificationQueue', () => {
     expect(send).toHaveBeenCalledWith('a');
   });
 
+  it('takes a new delay without being rebuilt', () => {
+    // The whole reason this can be a setting rather than a command-line flag:
+    // the queue is built once and lives as long as the service does.
+    const send = vi.fn();
+    const queue = new NotificationQueue(5000, send);
+    queue.delay = 1000;
+    queue.schedule('a');
+    vi.advanceTimersByTime(1000);
+    expect(send).toHaveBeenCalledWith('a');
+  });
+
+  it('leaves a wait already running on its original delay', () => {
+    // The same rule `schedule` states: what is measured is a quiet period since
+    // the session stopped, and rewriting a running timer would restart it from
+    // a moment that has nothing to do with the session.
+    const send = vi.fn();
+    const queue = new NotificationQueue(5000, send);
+    queue.schedule('a');
+    queue.delay = 60_000;
+    vi.advanceTimersByTime(5000);
+    expect(send).toHaveBeenCalledWith('a');
+  });
+
   it('says nothing about a session that started working again', () => {
     // The case the wait exists for: a turn that ends and resumes at once.
     const send = vi.fn();

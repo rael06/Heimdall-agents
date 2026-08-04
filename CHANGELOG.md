@@ -1,5 +1,34 @@
 # Changelog
 
+## 1.1.19
+
+**The wait before a notification is a setting**, under *Behaviour*, in seconds.
+
+It is how long a session must stay stopped before it is worth telling you about
+— a turn that ends and starts again inside that window is never reported, which
+is the whole reason the wait exists. It was a command-line flag and nothing
+else, which meant the desktop application, having no command line, did not
+really have the setting at all.
+
+Zero is allowed and is a real choice rather than an accident to be protected
+from: it means telling you the moment the transcript says so, false stops
+included. The ceiling is ten minutes, and it is there for the file rather than
+for the form — a number typed into the interface is bounded by the input, and a
+number read back off disk has been through a text editor and a synchronised
+profile since it was written.
+
+**It takes effect when saved, not at the next start.** The queue was built once
+with the delay and could not be told otherwise, which is exactly why this was a
+flag; it accepts one now. A wait already running keeps the delay it started
+with, on the same grounds the queue already scheduled by: what is being measured
+is a quiet period since the session stopped, and rewriting a running timer would
+restart that period from a moment that has nothing to do with the session.
+
+That is also why it travels by the notifications route rather than with the rest
+of the dialog, which offers a restart. The interface test reads the value back
+out of the service rather than out of the field that was typed into, because the
+failure worth catching is the one where it never leaves the page.
+
 ## 1.1.18
 
 **Arriving in a hex field takes the whole value**, hash included, so typing over

@@ -1,5 +1,11 @@
 import { describe, expect, it } from 'vitest';
-import { DEFAULT_NOTIFICATIONS, DEFAULT_SCAN, sanitizePreferences } from './preferences';
+import {
+  DEFAULT_NOTIFICATIONS,
+  DEFAULT_SCAN,
+  MAX_NOTIFY_DELAY_SECONDS,
+  MIN_NOTIFY_DELAY_SECONDS,
+  sanitizePreferences,
+} from './preferences';
 
 const fallback = DEFAULT_NOTIFICATIONS;
 
@@ -13,12 +19,18 @@ describe('sanitizePreferences', () => {
       enabled: false,
       on: ['idle'],
       scope: 'unacknowledged',
+      delaySeconds: fallback.delaySeconds,
     });
   });
 
   it('falls back to what the command line asked for, field by field', () => {
     expect(sanitizePreferences({ notifications: { enabled: false } }, fallback).notifications).toEqual(
-      { enabled: false, on: fallback.on, scope: fallback.scope },
+      {
+        enabled: false,
+        on: fallback.on,
+        scope: fallback.scope,
+        delaySeconds: fallback.delaySeconds,
+      },
     );
   });
 
@@ -82,6 +94,39 @@ describe('sanitizePreferences', () => {
   it('survives a file that is not what it should be', () => {
     expect(sanitizePreferences(null, fallback).notifications).toEqual(fallback);
     expect(sanitizePreferences({ notifications: 'yes' }, fallback).notifications).toEqual(fallback);
+  });
+});
+
+describe('sanitizePreferences, on the notification delay', () => {
+  const delayOf = (notifications: unknown) =>
+    sanitizePreferences({ notifications }, fallback).notifications.delaySeconds;
+
+  it('keeps what was chosen', () => {
+    expect(delayOf({ delaySeconds: 20 })).toBe(20);
+  });
+
+  it('keeps zero, because waiting for nothing is a choice', () => {
+    // Not the same as never having chosen: it means tell me the moment the
+    // transcript says so, and accept the turns that end and start again.
+    expect(delayOf({ delaySeconds: 0 })).toBe(0);
+  });
+
+  it('clamps rather than rejecting a number out of range', () => {
+    expect(delayOf({ delaySeconds: -5 })).toBe(MIN_NOTIFY_DELAY_SECONDS);
+    expect(delayOf({ delaySeconds: 9999 })).toBe(MAX_NOTIFY_DELAY_SECONDS);
+    expect(delayOf({ delaySeconds: 7.6 })).toBe(8);
+  });
+
+  it('falls back for a value that is not a number at all', () => {
+    // There is no nearest legal value for "soon".
+    for (const value of ['20', null, Number.NaN, Infinity, undefined]) {
+      expect(delayOf({ delaySeconds: value })).toBe(fallback.delaySeconds);
+    }
+  });
+
+  it('gives a file written before the setting existed the seeded value', () => {
+    expect(sanitizePreferences({ notifications: { on: ['idle'] } }, fallback).notifications
+      .delaySeconds).toBe(fallback.delaySeconds);
   });
 });
 

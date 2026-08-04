@@ -24,7 +24,12 @@ export interface HostControls {
 export interface SettingsView {
   providers: ProviderPreferences;
   scan: ScanPreferences;
-  notifications: { enabled: boolean; on: SessionStatus[]; scope: NotifyScope };
+  notifications: {
+    enabled: boolean;
+    on: SessionStatus[];
+    scope: NotifyScope;
+    delaySeconds: number;
+  };
   /** Absent when the host cannot offer them, so the interface hides them. */
   host?: { startsWithLogin: boolean; trayVisible: boolean };
   /** Values in force right now, which differ from the stored ones until a restart. */

@@ -105,6 +105,7 @@ function fillSettings(view) {
     if (input.type === 'checkbox') input.checked = Boolean(view.scan[key]);
     else input.value = String(view.scan[key]);
   }
+  el('set-notify-delay').value = String(view.notifications.delaySeconds);
   // Language and dates belong to the view, not to the service: they are stored
   // here like the theme, and take effect without a restart.
   el('set-language').value = localStorage.getItem('language') ?? 'auto';
@@ -146,8 +147,15 @@ async function saveSettings() {
       ? undefined
       : { startsWithLogin: el('set-login').checked, trayVisible: el('set-tray').checked },
   };
+  // Two routes because they are two different promises. The scan settings are
+  // built into the providers and may want a restart; the notification delay is
+  // handed to the queue and holds from the moment it is saved. Sent first, so a
+  // restart that follows cannot swallow it.
+  const delayed = await post('/api/notifications', {
+    delaySeconds: Number(el('set-notify-delay').value),
+  });
   const result = await post('/api/settings', body);
-  fillSettings(result.saved);
+  fillSettings({ ...result.saved, notifications: delayed.notifications });
 
   if (!result.restartRequired) {
     el('settings-note').textContent = t('settings.saved');

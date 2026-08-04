@@ -153,6 +153,9 @@ const TRANSLATIONS = {
     'settings.subagents': 'List orphan Codex sub-agent transcripts as sessions',
     'settings.behaviourLegend': 'Behaviour',
     'settings.autowatch': 'Watch a session when it starts working',
+    'settings.notifyDelay': 'Wait before notifying, in seconds',
+    'settings.notifyDelayHelp':
+      'How long a session has to stay stopped before it is worth telling you about. A turn that ends and starts again inside this window is never reported. Zero tells you the moment the transcript says so, including the false stops.',
     'settings.handoff': 'Window handover delay, in seconds',
     'settings.appLegend': 'This application',
     'settings.login': 'Start with Windows',
@@ -320,6 +323,9 @@ const TRANSLATIONS = {
 
     'settings.behaviourLegend': 'Comportement',
     'settings.autowatch': 'Suivre une session dès qu’elle se met à travailler',
+    'settings.notifyDelay': 'Attente avant notification, en secondes',
+    'settings.notifyDelayHelp':
+      "Combien de temps une session doit rester arrêtée avant qu'il vaille la peine de vous prévenir. Un tour qui se termine et reprend dans cette fenêtre n'est jamais signalé. Zéro vous prévient dès que le transcript le dit, faux arrêts compris.",
     'settings.handoff': 'Délai de bascule de fenêtre, en secondes',
     'settings.appLegend': 'Cette application',
     'settings.login': 'Démarrer avec Windows',
