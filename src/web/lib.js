@@ -280,6 +280,42 @@ export function ink(hex) {
     : '#ffffff';
 }
 
+/**
+ * A tinted text colour, walked until it is readable on the chip it sits on.
+ *
+ * The tint is what makes an assigned chip look considered: its text is a
+ * near-white or near-black carrying a trace of its own hue rather than a flat
+ * one. Measured, that trace costs contrast — on `#fa1f19` the tinted white
+ * reaches 4.42:1 and on `#808080` 4.46:1, both under the bar where the flat
+ * answer clears it. So the tint is the starting point and not the answer: it is
+ * walked towards whichever of black or white wins on that background until it
+ * clears 4.5:1, which for most colours means it never moves at all.
+ *
+ * Not {@link readable}, which walks towards black or white by asking whether
+ * the background is above half luminance. That is the wrong question here: a
+ * background at 0.3 is below half and still takes black, because the answer
+ * turns over at 0.179 rather than 0.5.
+ */
+export function readableInk(candidate, fill) {
+  const background = toRgb(fill);
+  const flat = ink(fill);
+  const target = toRgb(flat);
+  let colour = toRgb(candidate);
+  // Judged on the colour that gets painted, not on the one being walked: the
+  // channels are fractional while the loop runs and the rounding on the way out
+  // is enough to drop back under the bar.
+  const painted = (value) => toRgb(toHex(value));
+  for (let step = 0; step < 40 && contrast(painted(colour), background) < 4.5; step += 1) {
+    colour = colour.map((value, index) => value + (target[index] - value) * 0.08);
+  }
+  // The walk approaches its target without ever arriving — forty steps of eight
+  // per cent leave three and a half per cent of the distance — and on the worst
+  // backgrounds that remainder is the difference between 4.48:1 and the 4.58:1
+  // the flat answer guarantees. Measured, not predicted: the sweep below caught
+  // it. So a walk that runs out falls back rather than shipping a near miss.
+  return contrast(painted(colour), background) >= 4.5 ? toHex(colour) : flat;
+}
+
 const HEX = /^#[0-9a-f]{6}$/i;
 
 /**

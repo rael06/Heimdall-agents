@@ -1084,10 +1084,8 @@ function paintTag(node, kind, name) {
   const { colours, inks, slots } = PALETTES[kind].state;
   const chosen = colours[name];
   if (chosen) {
-    // The measured answer unless the reader has said otherwise. It is the
-    // default rather than the rule: black or white is a matter of taste once
-    // both are legible, and only one of them usually is.
-    const readable = inks[name] ?? ink(chosen);
+    // The measured answer unless the reader has said otherwise.
+    const readable = inks[name] ?? contrastingInk(chosen);
     node.style.setProperty('background', chosen);
     node.style.setProperty('color', readable);
     // The edge, for a chip that lands on a row of nearly its own colour. It is
@@ -1140,12 +1138,43 @@ let recolouring = null;
  * into the picker for a chip that was painted pink. Filling a pixel and reading
  * it back is the engine answering in the space the screen works in.
  */
+let pixel = null;
+
 function paintedHex(value) {
-  const context = document.createElement('canvas').getContext('2d');
-  context.fillStyle = '#000000';
-  context.fillStyle = value;
-  context.fillRect(0, 0, 1, 1);
-  return toHex([...context.getImageData(0, 0, 1, 1).data].slice(0, 3));
+  // One canvas, kept: this is on the path of a colour drag now, and a new one
+  // per call is an allocation per pointer move.
+  pixel ??= document.createElement('canvas').getContext('2d');
+  pixel.fillStyle = '#000000';
+  pixel.fillStyle = value;
+  pixel.fillRect(0, 0, 1, 1);
+  return toHex([...pixel.getImageData(0, 0, 1, 1).data].slice(0, 3));
+}
+
+/**
+ * The text a chip wears when nobody has said otherwise.
+ *
+ * The same kind of answer the stylesheet gives an assigned chip: a near-white
+ * or near-black carrying a trace of the chip's own hue. It used to be flat
+ * black or flat white, which measured better and looked worse — and worse
+ * still, it looked like a different rule from the one every other chip follows.
+ * `oklch(from …)` takes the hue off the chosen colour, so the stylesheet's
+ * lightness and chroma can be applied to it without this file having to convert
+ * anything by hand.
+ */
+const TINT = { light: '.97 .04', dark: '.22 .06' };
+const inkCache = new Map();
+
+function contrastingInk(fill) {
+  let answer = inkCache.get(fill);
+  if (answer !== undefined) return answer;
+  const flat = ink(fill);
+  if (!CSS.supports('color', 'oklch(from red 0.5 0.1 h)')) return flat;
+  const tint = flat === '#ffffff' ? TINT.light : TINT.dark;
+  answer = readableInk(paintedHex(`oklch(from ${fill} ${tint} h)`), fill);
+  // Bounded, because a drag passes through a colour a frame.
+  if (inkCache.size > 500) inkCache.clear();
+  inkCache.set(fill, answer);
+  return answer;
 }
 
 /** What a chip is painted right now, as the colour input needs it: a hex. */
@@ -1528,7 +1557,7 @@ function wireControls() {
     if (!recolouring) return;
     const { kind, name } = recolouring;
     const { fill } = currentColours(kind, name);
-    chooseColour(kind, name, fill, ink(fill));
+    chooseColour(kind, name, fill, contrastingInk(fill));
     storeColours(kind);
     syncPalette();
   });

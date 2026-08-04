@@ -391,10 +391,16 @@ test('any colour at all can be chosen by hand, and stays chosen', async ({ page 
   // Not one of a list. The picker offers what the frame colour offers, so the
   // test picks a colour that is deliberately not in the palette at all.
   await page.locator('#palette-colour').fill('#fa1f19');
-  // Black on this red, not white: it sits at relative luminance 0.213, where
+  const seen = await painted();
+  expect(seen.background).toBe('rgb(250, 31, 25)');
+  // Dark on this red, not light: it sits at relative luminance 0.213, where
   // black gives 5.26:1 and white only 3.99:1. A saturated colour is not
   // necessarily a dark one, which is the assumption the ink exists to replace.
-  expect(await painted()).toEqual({ background: 'rgb(250, 31, 25)', colour: 'rgb(0, 0, 0)' });
+  // Dark, but not flat black — it carries a trace of the chip's own hue, which
+  // is what makes it look like the same rule the assigned chips follow.
+  expect(ratio(seen.colour, seen.background)).toBeGreaterThanOrEqual(4.5);
+  expect(seen.colour).not.toBe('rgb(0, 0, 0)');
+  expect(parse(seen.colour)[0]).toBeGreaterThan(parse(seen.colour)[2]);
   await page.locator('#palette').getByText('Close').click();
 
   await page.reload();
@@ -466,9 +472,11 @@ test('the text colour is picked as freely as the background, and can be contrast
   await rows(page).first().locator('td.provider .brush').click();
 
   await page.locator('#palette-colour').fill('#fa1f19');
-  // The measured answer is what a chip starts with: black on this red, which is
-  // at luminance 0.213 where black gives 5.26:1 and white only 3.99:1.
-  expect(await ink()).toBe('rgb(0, 0, 0)');
+  // The measured answer is what a chip starts with, and it is a tint rather
+  // than a flat extreme — the same kind of ink an assigned chip is written in.
+  const started = await ink();
+  expect(started).not.toBe('rgb(0, 0, 0)');
+  expect(ratio(started, 'rgb(250, 31, 25)')).toBeGreaterThanOrEqual(4.5);
 
   // Any colour at all, including one nobody should choose — the picker does not
   // second-guess, and the button below is how it is taken back.
@@ -483,9 +491,11 @@ test('the text colour is picked as freely as the background, and can be contrast
   await expect(rows(page)).not.toHaveCount(0);
   expect(await ink()).toBe('rgb(224, 26, 20)');
 
+  // And the button gives back exactly what the chip started with, which is the
+  // whole of what it is for: the same answer, not a flatter one.
   await rows(page).first().locator('td.provider .brush').click();
   await page.locator('#palette-contrast').click();
-  expect(await ink()).toBe('rgb(0, 0, 0)');
+  expect(await ink()).toBe(started);
   await page.locator('#palette-auto').click();
   await page.locator('#palette').getByText('Close').click();
   expect(problems).toEqual([]);

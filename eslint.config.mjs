@@ -48,6 +48,7 @@ export default tseslint.config(
         WORKSPACE_HUES: 'readonly',
         hashSlot: 'readonly',
         ink: 'readonly',
+        readableInk: 'readonly',
         assignSlots: 'readonly',
         readSlots: 'readonly',
         minutesSince: 'readonly',

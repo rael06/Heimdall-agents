@@ -233,9 +233,11 @@ Open that URL and you get the list, live.
   and the two columns start half the list apart so they do not mirror each other.
 - **The brush beside each value opens two free colour pickers**, the same one the frame colour uses
   — one for the chip, one for the text on it, neither a list to choose from. What you pick is used
-  exactly as picked, in both themes. *Contrast it* works out what can be read on the chip in force
-  and is what a chip starts with: black or white, whichever wins, which for any colour at all
-  clears 4.58:1. A chosen colour takes no place in the palette, so it never costs another project
+  exactly as picked, in both themes. *Contrast it* works out what can be read on the chip in force,
+  and gives the same kind of answer an assigned chip gets: a near-white or near-black carrying a
+  trace of the chip's own hue, walked towards the flat extreme only where that trace costs too much
+  to keep. It is also what a chip starts with, so the button is how a colour that turned out badly
+  is taken back. A chosen colour takes no place in the palette, so it never costs another project
   one, and *Choose for me* hands the chip back to the automatic assignment.
 - **Filters, sort and search live in the URL**, so a view reloads and can be bookmarked.
 - **A click opens the session** in VS Code — the title opens the conversation, the workspace opens
