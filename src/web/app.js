@@ -1161,7 +1161,7 @@ function paintedHex(value) {
  * lightness and chroma can be applied to it without this file having to convert
  * anything by hand.
  */
-const TINT = { light: '.97 .04', dark: '.22 .06' };
+const TINT = { light: '.91 .11', dark: '.30 .12' };
 const inkCache = new Map();
 
 function contrastingInk(fill) {

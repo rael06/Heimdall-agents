@@ -251,6 +251,11 @@ Open that URL and you get the list, live.
   colour you pick or take at random. A random pick chooses a hue rather than a colour, and the
   accent derived from it is adjusted until it clears 4.5:1 on the background in use — the frame only
   has to be seen, the accent is read.
+- **It looks for a new release when it starts**, ten seconds after the window opens and in the
+  background. It says nothing unless there is something to act on — up to date, offline, or a
+  release it could not verify are all silent, and the *Check for updates…* menu item still answers
+  every one of those. An update raised this way can be turned down for good with *Skip this
+  version*, so the same release is never raised on its own twice.
 - **The palette is measured, not judged.** `node scripts/check-contrast.mjs` reads it out of the
   stylesheet and holds every pair to WCAG: 4.5:1 for text, 3:1 for a shape that carries meaning.
   The workspace colours are held to the same bars by the interface tests instead, because they are

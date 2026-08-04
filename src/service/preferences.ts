@@ -136,9 +136,18 @@ export const DEFAULT_SCAN: ScanPreferences = {
 /** Properties of the window rather than of the service. */
 export interface AppPreferences {
   showTray: boolean;
+  /**
+   * A version offered at launch and turned down, so it is not offered again.
+   *
+   * The launch check exists to say something once. Without somewhere to record
+   * that it has been said, it would say it at every start until the update was
+   * taken — which is the interruption the check was deliberately not doing
+   * before. Empty means nothing has been declined.
+   */
+  skippedVersion: string;
 }
 
-export const DEFAULT_APP: AppPreferences = { showTray: true };
+export const DEFAULT_APP: AppPreferences = { showTray: true, skippedVersion: '' };
 
 export interface Preferences {
   version: number;
@@ -212,6 +221,10 @@ export function sanitizePreferences(value: unknown, fallback: NotificationPrefer
     app: {
       showTray:
         typeof appRaw.showTray === 'boolean' ? appRaw.showTray : DEFAULT_APP.showTray,
+      skippedVersion:
+        typeof appRaw.skippedVersion === 'string'
+          ? appRaw.skippedVersion
+          : DEFAULT_APP.skippedVersion,
     },
     notifications: {
       enabled:
@@ -263,8 +276,16 @@ export class PreferencesStore {
     await this.update((current) => ({ ...current, scan }));
   }
 
-  async writeApp(appPreferences: AppPreferences): Promise<void> {
-    await this.update((current) => ({ ...current, app: appPreferences }));
+  /**
+   * Merged rather than replaced, and that is a fix rather than a nicety.
+   *
+   * It took a whole `AppPreferences` and its one caller passed `{ showTray }`,
+   * which was the same thing while there was one field. There are two now, and
+   * the same call would have silently dropped the other — the exact shape of
+   * bug the note on `update` below already warns about.
+   */
+  async writeApp(appPreferences: Partial<AppPreferences>): Promise<void> {
+    await this.update((current) => ({ ...current, app: { ...current.app, ...appPreferences } }));
   }
 
   /** Read, change, write back: one half must never drop the other. */
