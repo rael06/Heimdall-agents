@@ -1,5 +1,35 @@
 # Changelog
 
+## 1.1.15
+
+**Contrast it gives the same answer the chip started with**, rather than a
+flatter one.
+
+It returned pure black or pure white. A chip that had never been touched was
+already wearing something better: a near-white or near-black carrying a trace of
+its own hue, which is what the stylesheet gives every assigned chip. Pressing the
+button therefore made a chip look *less* like the rest of the table, which is
+the opposite of what a button called *Contrast it* should do.
+
+`oklch(from <the chosen colour> …)` takes the hue off the colour in force, so the
+stylesheet's own lightness and chroma can be applied to it without converting
+anything by hand. It is the same declaration, pointed at a different origin.
+
+The tint is a starting point rather than the answer, and the difference is
+measured. On `#fa1f19` the tinted white reaches 4.42:1 and on `#808080` 4.46:1
+— both under the bar, where the flat answer clears it. So the tint is walked
+towards whichever of black or white wins on that background until it clears
+4.5:1, which for most colours means it never moves at all.
+
+Two things were found by sweeping rather than by reasoning. The walk approaches
+its target without arriving — forty steps of eight per cent leave three and a
+half per cent — and on the worst backgrounds that remainder is the difference
+between 4.48:1 and the 4.58:1 the flat answer guarantees, so a walk that runs
+out now falls back rather than shipping a near miss. And the walk cannot borrow
+`readable`, which picks its target by asking whether the background is above
+half luminance: the answer turns over at 0.179, so a background at 0.3 is below
+half and still takes black.
+
 ## 1.1.14
 
 **An assigned chip is no longer written in its own colour**, and the text is
