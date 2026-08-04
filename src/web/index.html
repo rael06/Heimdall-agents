@@ -188,7 +188,16 @@
     <h2 id="palette-heading"></h2>
     <!-- The colour on the name it is being given to, beside the picker, because
          a swatch on its own says nothing about how it will read in the list. -->
+    <!--
+      The hex first, and the swatch second, because the panel behind the swatch
+      opens on whichever of hex, rgb and hsl the browser last remembered — that
+      selector is its own chrome and a page cannot order it. Typing here needs
+      the panel not at all.
+    -->
     <div class="palette-row">
+      <label class="sr-only" for="palette-colour-hex" data-i18n="palette.hex">Colour, in hex</label>
+      <input id="palette-colour-hex" class="hex" type="text" spellcheck="false"
+             autocomplete="off" maxlength="7" placeholder="#rrggbb">
       <label class="swatch" data-i18n-title="palette.pick" title="Pick a colour">
         <span class="sr-only" data-i18n="palette.pick">Pick a colour</span>
         <input id="palette-colour" type="color">
@@ -199,6 +208,9 @@
          button beside it works out what can be read on the fill in force, which
          is what a chip starts with and what it can always be taken back to. -->
     <div class="palette-row">
+      <label class="sr-only" for="palette-ink-hex" data-i18n="palette.textHex">Text colour, in hex</label>
+      <input id="palette-ink-hex" class="hex" type="text" spellcheck="false"
+             autocomplete="off" maxlength="7" placeholder="#rrggbb">
       <label class="swatch" data-i18n-title="palette.text" title="Text colour">
         <span class="sr-only" data-i18n="palette.text">Text colour</span>
         <input id="palette-ink" type="color">

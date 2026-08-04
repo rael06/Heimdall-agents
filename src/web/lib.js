@@ -319,6 +319,21 @@ export function readableInk(candidate, fill) {
 const HEX = /^#[0-9a-f]{6}$/i;
 
 /**
+ * A hex a person typed, or nothing.
+ *
+ * Forgiving about the parts nobody means: the leading hash, the case, and the
+ * spaces either side of a value that came off a clipboard. Strict about the
+ * rest, because the caller paints with the answer — a half-typed `#ff` must
+ * come back as nothing rather than as some colour, or the chip would flicker
+ * through three of them on the way to the one being typed.
+ */
+export function normalizeHex(text) {
+  const trimmed = String(text ?? '').trim();
+  const hashed = trimmed.startsWith('#') ? trimmed : `#${trimmed}`;
+  return HEX.test(hashed) ? hashed.toLowerCase() : null;
+}
+
+/**
  * What was stored, kept wherever it is still a colour.
  *
  * A partial answer is useful here, unlike the column widths: a name whose slot

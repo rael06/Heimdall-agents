@@ -628,6 +628,15 @@ td.ws .link {
   gap: .6rem;
   margin-bottom: .9rem;
 }
+/* Seven characters, in a face where they do not shuffle as they are typed —
+   and `ch` is the width of a zero, which the padding and the border are not, so
+   the box is wider than the count of characters suggests it needs to be. */
+.hex {
+  width: 11ch;
+  font-family: ui-monospace, SFMono-Regular, Consolas, monospace;
+  text-transform: lowercase;
+}
+
 #palette-preview {
   border: 1px solid transparent;
   max-width: 16rem;

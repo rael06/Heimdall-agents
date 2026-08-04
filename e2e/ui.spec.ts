@@ -536,6 +536,42 @@ test('an assigned chip is written in something well clear of its own colour', as
   await page.locator('#theme').click(); // back to auto
 });
 
+test('a colour can be typed as hex without opening the native panel', async ({ page }) => {
+  await open(page);
+  const badge = rows(page).first().locator('.badge');
+  const painted = () =>
+    badge.evaluate((node) => {
+      const style = getComputedStyle(node);
+      return { background: style.backgroundColor, colour: style.color };
+    });
+  await rows(page).first().locator('td.provider .brush').click();
+
+  // The hex comes first because the panel behind the swatch opens on whichever
+  // of hex, rgb and hsl the browser last remembered, and that selector is its
+  // own chrome — the page cannot order it. Typing here needs it not at all.
+  await page.locator('#palette-colour-hex').fill('#204060');
+  expect((await painted()).background).toBe('rgb(32, 64, 96)');
+  // And the two stay one thing: the swatch follows the field.
+  expect(await page.locator('#palette-colour').inputValue()).toBe('#204060');
+
+  // The text half, typed the same way and without its hash.
+  await page.locator('#palette-ink-hex').fill('ffd700');
+  expect((await painted()).colour).toBe('rgb(255, 215, 0)');
+  expect((await painted()).background).toBe('rgb(32, 64, 96)');
+
+  // Half a value paints nothing, rather than flashing through a colour nobody
+  // asked for on the way to the one they did.
+  await page.locator('#palette-ink-hex').fill('#ff');
+  expect((await painted()).colour).toBe('rgb(255, 215, 0)');
+  // And committing it puts the field back to what is actually painted.
+  await page.locator('#palette-ink-hex').blur();
+  expect(await page.locator('#palette-ink-hex').inputValue()).toBe('#ffd700');
+
+  await page.locator('#palette-auto').click();
+  await page.locator('#palette').getByText('Close').click();
+  expect(problems).toEqual([]);
+});
+
 test('the provider chip is drawn at the size of the workspace chip', async ({ page }) => {
   await open(page);
   const row = rows(page).first();

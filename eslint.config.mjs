@@ -49,6 +49,7 @@ export default tseslint.config(
         hashSlot: 'readonly',
         ink: 'readonly',
         readableInk: 'readonly',
+        normalizeHex: 'readonly',
         assignSlots: 'readonly',
         readSlots: 'readonly',
         minutesSince: 'readonly',

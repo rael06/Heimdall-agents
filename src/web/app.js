@@ -1194,15 +1194,29 @@ function paintedTag(kind, name) {
 }
 
 /** Keeps the dialog's own controls in step with what the chip now wears. */
-function syncPalette() {
+function syncPalette(settled = false) {
   const { kind, name } = recolouring;
   const preview = el('palette-preview');
   paintTag(preview, kind, name);
-  el('palette-colour').value = paintedTag(kind, name);
+  const fill = paintedTag(kind, name);
+  el('palette-colour').value = fill;
   // Read off the preview rather than worked out again: an assigned chip takes
   // its text from the stylesheet, so the only place the answer exists is on an
   // element that has applied it.
-  el('palette-ink').value = paintedHex(getComputedStyle(preview).color);
+  const tone = paintedHex(getComputedStyle(preview).color);
+  el('palette-ink').value = tone;
+  // Never into the field being typed in, unless the value has been committed:
+  // rewriting under the cursor would fight whoever is halfway through, and `#ff`
+  // would become `#ff0000` before they had said which red they meant. Once it
+  // is settled — blurred, or Enter, which keeps the focus — whatever was left
+  // half-typed goes back to what the chip actually wears, so no field sits
+  // there claiming a colour nothing is painted in.
+  for (const [id, value] of [
+    ['palette-colour-hex', fill],
+    ['palette-ink-hex', tone],
+  ]) {
+    if (settled || document.activeElement !== el(id)) el(id).value = value;
+  }
   // Nothing to take back while the chip is still wearing what it was given.
   el('palette-auto').disabled = PALETTES[kind].state.colours[name] === undefined;
 }
@@ -1545,6 +1559,32 @@ function wireControls() {
     chooseColour(kind, name, fill, event.target.value);
     syncPalette();
   });
+  // The hex fields, which are the first way in rather than the last: the panel
+  // behind the swatch opens on whichever of hex, rgb and hsl the browser last
+  // remembered, and that selector is its own chrome — a page cannot order it.
+  for (const [id, half] of [
+    ['palette-colour-hex', 'fill'],
+    ['palette-ink-hex', 'tone'],
+  ]) {
+    el(id).addEventListener('input', (event) => {
+      const typed = normalizeHex(event.target.value);
+      if (!recolouring || !typed) return;
+      const { kind, name } = recolouring;
+      const current = currentColours(kind, name);
+      chooseColour(
+        kind,
+        name,
+        half === 'fill' ? typed : current.fill,
+        half === 'fill' ? current.tone : typed,
+      );
+      syncPalette();
+    });
+    el(id).addEventListener('change', () => {
+      if (!recolouring) return;
+      storeColours(recolouring.kind);
+      syncPalette(true);
+    });
+  }
   for (const id of ['palette-colour', 'palette-ink']) {
     el(id).addEventListener('change', () => {
       if (recolouring) storeColours(recolouring.kind);
