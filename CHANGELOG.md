@@ -1,5 +1,26 @@
 # Changelog
 
+## 1.1.21
+
+**The tray icon is the count**, large, with the application's triangle in the
+bottom-right corner rather than the other way round.
+
+The badge version shipped in 1.1.20 gave the digit about five pixels of height,
+which is where 1, 3, 9 and `+` stop being different shapes. Given the middle of
+the icon instead it gets ten, which is legible — and **two digits now fit side by
+side**, so the count is exact up to 99 where it used to stop at 9. A hundred and
+upwards is a `+`, and the exact figure is in the tooltip either way.
+
+Zero is drawn rather than hidden: an icon that only appears when something is
+wrong is one nobody can find when nothing is. It is drawn in grey, where a count
+that is waiting for you is drawn in the light tint of the idle colour — the
+number says which, and the colour agrees with it.
+
+There is a tile behind the digits now, because a taskbar is light on one machine
+and dark on the next, and the orange this application is drawn in measures 6.6:1
+on a dark one and 2.2:1 on a light one. Borrowing the background was not an
+option, so it brings its own.
+
 ## 1.1.20
 
 **The tray icon carries a count of what you have not seen**, summed from the
