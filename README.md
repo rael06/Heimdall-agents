@@ -255,6 +255,10 @@ Open that URL and you get the list, live.
   colour you pick or take at random. A random pick chooses a hue rather than a colour, and the
   accent derived from it is adjusted until it clears 4.5:1 on the background in use — the frame only
   has to be seen, the accent is read.
+- **The tray icon counts what you have not seen**, summed from the same dots the rows carry, so the
+  two cannot disagree. It follows the marks rather than a timer, so an acknowledgement clears it at
+  once. A tray icon is sixteen pixels and a digit inside a badge on it is about five, so ten or more
+  is a `+` and the exact figure is in the tooltip.
 - **The wait before a notification is a setting**, under *Behaviour*, in seconds. It is how long a
   session has to stay stopped before it is worth telling you about, so a turn that ends and starts
   again inside that window is never reported. Zero is a choice, not an accident: it tells you the
