@@ -22,6 +22,7 @@ import {
   worthAnnouncing,
 } from './update';
 import type { Release } from './release';
+import { trayIcon } from './trayIcon';
 
 /**
  * The desktop application: the same service, the same interface, in a window
@@ -78,6 +79,9 @@ const controls: HostControls = {
   setTrayVisible: (visible) => {
     if (visible && !tray) {
       tray = createTray();
+      // Switched back on mid-run, it starts at whatever is unseen now rather
+      // than at nothing until the next scan changes something.
+      paintTray(service?.engine.currentMarks.unacknowledged.length ?? 0);
     } else if (!visible && tray) {
       tray.destroy();
       tray = undefined;
@@ -509,9 +513,32 @@ function buildMenu(): void {
   Menu.setApplicationMenu(Menu.buildFromTemplate(template));
 }
 
+/**
+ * The dot beside a status, counted up and put where it can be seen from
+ * anywhere.
+ *
+ * The dot says "this status is new to you" one row at a time, which is only
+ * legible when the list is on screen — and the list is hidden most of the time,
+ * which is what the tray is for. The count is the same fact, summed.
+ *
+ * The exact number goes in the tooltip whatever the badge shows. A tray icon is
+ * sixteen pixels and a digit inside a badge on it is about five, so the drawing
+ * stops being a number at ten and says `+` instead; the tooltip never has to.
+ */
+function paintTray(count: number): void {
+  if (!tray) {
+    return;
+  }
+  tray.setImage(nativeImage.createFromBuffer(trayIcon(count)));
+  tray.setToolTip(
+    count === 0
+      ? APP_NAME
+      : `${APP_NAME} — ${count} ${count === 1 ? 'session' : 'sessions'} you have not seen`,
+  );
+}
+
 function createTray(): Tray {
-  const image = nativeImage.createFromPath(iconPath());
-  const created = new Tray(image.isEmpty() ? nativeImage.createEmpty() : image);
+  const created = new Tray(nativeImage.createFromBuffer(trayIcon(0)));
   created.setToolTip(APP_NAME);
   const menu = Menu.buildFromTemplate([
     { label: 'Show the list', click: () => showWindow() },
@@ -578,6 +605,10 @@ if (!app.requestSingleInstanceLock()) {
     if ((await preferences().read()).app.showTray) {
       tray = createTray();
     }
+    // The same set the dots are drawn from, so the two cannot disagree: there is
+    // no second idea of what counts as unseen.
+    paintTray(service.engine.currentMarks.unacknowledged.length);
+    service.engine.onMarks((marks) => paintTray(marks.unacknowledged.length));
     handle(requestFromArgv(process.argv));
 
     // Behind a timer rather than awaited: the window is up and the reader is

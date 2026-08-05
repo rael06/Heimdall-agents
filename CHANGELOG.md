@@ -1,5 +1,37 @@
 # Changelog
 
+## 1.1.20
+
+**The tray icon carries a count of what you have not seen**, summed from the
+same dots the rows carry.
+
+The dot beside a status says "this status is new to you" one row at a time,
+which is only legible when the list is on screen — and the list is hidden most
+of the time, which is what the tray is for. The count is the same fact, and it
+is read from the same set the dots are drawn from, so the two cannot disagree.
+
+It follows the marks rather than a timer: the service already announces every
+change to them, including an acknowledgement, so the badge is exact rather than
+current-as-of-a-poll.
+
+### What sixteen pixels can hold, rendered rather than assumed
+
+Drawn at 32px and left for Windows to shrink, the digits were mush — 1, 3, 9 and
+`+` all came out as the same vertical smudge, because a glyph five pixels tall
+halved is two and a half pixels of anything. No unit test would have caught
+that; it took rendering the set and looking at it.
+
+So the mark is drawn at the size it is shown at, where a glyph pixel is a screen
+pixel, and the digits survive. Even then one digit is the limit: **ten or more is
+a `+`**, and the exact figure lives in the tooltip, where it is a number rather
+than a drawing of one.
+
+The tray mark is its own drawing rather than the application icon scaled down.
+The icon is 256px and wears a rounded square so it does not read as a screenshot
+pasted into a corner; a tray mark sits at 16px beside a dozen others, where a
+square background is a smudge and every pixel spent on it is one not spent on
+the shape. So: the triangle alone, on nothing.
+
 ## 1.1.19
 
 **The wait before a notification is a setting**, under *Behaviour*, in seconds.
