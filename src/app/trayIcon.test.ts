@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { badgeText, trayIcon } from './trayIcon';
+import { trayIcon, trayText } from './trayIcon';
 
 /**
  * The tray mark, which is drawn rather than shipped, and therefore has to be
@@ -21,17 +21,24 @@ const dimensions = (png: Buffer) => ({
   height: png.readUInt32BE(20),
 });
 
-describe('badgeText', () => {
-  it('shows the count while it is one character wide', () => {
-    expect(badgeText(1)).toBe('1');
-    expect(badgeText(9)).toBe('9');
+describe('trayText', () => {
+  it('shows nothing waiting as a nought rather than as an empty icon', () => {
+    // An icon that only appears when something is wrong is one nobody can find
+    // when nothing is.
+    expect(trayText(0)).toBe('0');
   });
 
-  it('stops counting where a second digit would stop being readable', () => {
-    // Measured rather than assumed: at sixteen pixels the badge is about eight,
-    // and two glyphs inside that are indistinguishable from one another.
-    expect(badgeText(10)).toBe('+');
-    expect(badgeText(4000)).toBe('+');
+  it('shows the count while two digits fit', () => {
+    expect(trayText(1)).toBe('1');
+    expect(trayText(9)).toBe('9');
+    expect(trayText(47)).toBe('47');
+    expect(trayText(99)).toBe('99');
+  });
+
+  it('stops at the width it has, rather than drawing something unreadable', () => {
+    // Three glyphs do not fit across sixteen pixels at a size that can be read.
+    expect(trayText(100)).toBe('+');
+    expect(trayText(4000)).toBe('+');
   });
 });
 
@@ -53,12 +60,14 @@ describe('trayIcon', () => {
   });
 
   it('differs between the counts it claims to distinguish', () => {
-    const drawn = [0, 1, 2, 3, 5, 8, 9, 10].map((count) => trayIcon(count).toString('base64'));
+    const drawn = [0, 1, 2, 3, 5, 8, 9, 10, 47, 99, 100].map((count) =>
+      trayIcon(count).toString('base64'),
+    );
     expect(new Set(drawn).size).toBe(drawn.length);
   });
 
-  it('draws everything past nine the same, because it says the same thing', () => {
-    expect(trayIcon(10).equals(trayIcon(250))).toBe(true);
+  it('draws everything past ninety-nine the same, because it says the same thing', () => {
+    expect(trayIcon(100).equals(trayIcon(4000))).toBe(true);
   });
 
   it('gives the same bytes for the same count, so the tray is not redrawn for nothing', () => {
