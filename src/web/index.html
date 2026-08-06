@@ -56,6 +56,8 @@
         <option value="watched-asc" data-i18n="sort.watched-asc">watched last</option>
         <option value="starred-desc" data-i18n="sort.starred-desc">starred first</option>
         <option value="starred-asc" data-i18n="sort.starred-asc">starred last</option>
+        <option value="minutes-desc" data-i18n="sort.minutes-desc">minutes in this status, longest first</option>
+        <option value="minutes-asc" data-i18n="sort.minutes-asc">minutes in this status, shortest first</option>
         <option value="created-desc" data-i18n="sort.created-desc">created, newest first</option>
         <option value="created-asc" data-i18n="sort.created-asc">created, oldest first</option>
         <option value="updated-desc" data-i18n="sort.updated-desc">last activity, newest first</option>
@@ -164,7 +166,11 @@
             </button>
           </th>
           <th scope="col" data-column="transcript"><span class="sr-only" data-i18n="column.transcript">Transcript</span></th>
-          <th scope="col" class="num" data-column="minutes"><span class="sr-only" data-i18n="column.minutes">Minutes in this status</span></th>
+          <th scope="col" class="num" data-column="minutes">
+            <button class="sort" type="button" data-key="minutes">
+              <span class="sr-only" data-i18n="column.minutes">Minutes in this status</span>
+            </button>
+          </th>
           <th scope="col" data-column="created"><button class="sort" type="button" data-key="created" data-i18n="column.created">created</button></th>
           <th scope="col" data-column="updated"><button class="sort" type="button" data-key="updated" data-i18n="column.updated">last activity</button></th>
           <th scope="col" data-column="provider"><button class="sort" type="button" data-key="provider" data-i18n="column.provider">provider</button></th>

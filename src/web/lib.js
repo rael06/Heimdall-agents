@@ -71,6 +71,7 @@ export const SORT_KEYS = [
   'status',
   'watched',
   'starred',
+  'minutes',
   'created',
   'updated',
   'provider',
@@ -85,12 +86,29 @@ export const FIRST_DIRECTION = {
   // following.
   watched: 'desc',
   starred: 'desc',
+  // Longest first: the useful question about this column is which session has
+  // been sitting in its status the longest, not which one just changed.
+  minutes: 'desc',
   created: 'desc',
   updated: 'desc',
   provider: 'asc',
   workspace: 'asc',
   title: 'asc',
 };
+
+/**
+ * Two sessions, fewest minutes in their current status first.
+ *
+ * Here rather than beside the other comparators, and for a reason worth stating:
+ * the minutes are how long *ago* the status changed, so ascending minutes is the
+ * timestamp descending. Written the natural way round it sorts perfectly and
+ * backwards, and nothing on screen would say so — every session in the test
+ * fixture shares a status age, because that age is measured from when the
+ * service first saw the session rather than from anything in the transcript. So
+ * the direction is settled here, where it can be asked directly.
+ */
+export const byStatusAge = (a, b) =>
+  Date.parse(b.statusChangedAt) - Date.parse(a.statusChangedAt);
 
 /** Accepts the names earlier versions wrote, so an old bookmark still sorts. */
 export function normalizeSort(value) {

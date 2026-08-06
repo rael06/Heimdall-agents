@@ -436,6 +436,14 @@ const ASCENDING = {
   // Rank ascending, so running comes first: the priority order.
   status: (a, b) =>
     STATUSES.indexOf(a.status) - STATUSES.indexOf(b.status) || time(b.updatedAt) - time(a.updatedAt),
+  /*
+   * The direction lives in `lib.js`, where it can be asked directly — see the
+   * note there. Every row takes part, including the ones showing nothing: the
+   * column is filled on watched rows only, since the point of it is the handful
+   * you follow, but the age behind it is a fact about all of them and leaving
+   * the rest unordered would be a sort that scattered them.
+   */
+  minutes: byStatusAge,
   created: (a, b) => time(a.createdAt) - time(b.createdAt),
   updated: (a, b) => time(a.updatedAt) - time(b.updatedAt),
   provider: (a, b) => a.provider.localeCompare(b.provider),

@@ -212,7 +212,8 @@ Open that URL and you get the list, live.
   lights when a session stops, and clears when it starts working again, when you click the icon, or
   with *Acknowledge visible* — which settles what is on screen and never the rows a filter hides.
 - **Minutes in the current status**, on watched rows only, right-aligned over four characters with
-  tabular digits.
+  tabular digits — and sortable, longest wait first. Every row takes part in that ordering, not only
+  the ones showing a number: the age behind it is a fact about all of them.
 - **Absolute dates**, a shape per status, a tooltip saying why the status was inferred, and the full
   workspace path in a tooltip. The table scrolls sideways rather than squeezing its columns, and a
   long title or folder name is cut with the whole of it in the tooltip — otherwise the widest row
@@ -342,7 +343,12 @@ one notification too many and the channel gets muted for good. So the rules are 
 - **Nothing for a session it is seeing for the first time**, or a cold start would raise a toast for
   the entire history at once.
 - **Enough to decide without opening anything**: workspace, provider, title, and why it stopped.
-- **An action button**, not just a click.
+- **Two action buttons**, not just a click: **Mark as seen** on the left, which marks it and opens
+  nothing at all, and **Open the session** on the right. Turning a notification down is worth as
+  much as acting on it, but only while it costs nothing — and it stops costing nothing the moment it
+  opens a window to be closed again. The tray count drops as the mark clears. `asm serve` notifies
+  through URLs a browser opens, so it keeps *Show the list* instead: a URL that marked a session seen
+  would open a tab to do it.
 - **A sound per status**, so what happened is audible before it is read. Only the platform's own
   sound events can be named — an application without a packaged resource cannot point a toast at a
   file of its own.

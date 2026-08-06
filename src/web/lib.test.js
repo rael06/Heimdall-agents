@@ -1,10 +1,13 @@
 import { describe, expect, it } from 'vitest';
 import {
   COLUMN_FORMAT,
+  FIRST_DIRECTION,
+  SORT_KEYS,
   MAX_COLUMN_WIDTH,
   MIN_COLUMN_WIDTH,
   WORKSPACE_HUES,
   assignSlots,
+  byStatusAge,
   clampColumnWidth,
   contrast,
   day,
@@ -84,6 +87,61 @@ describe('normalizeSort', () => {
     expect(normalizeSort('nonsense')).toBe('created-desc');
     expect(normalizeSort('title-sideways')).toBe('created-desc');
     expect(normalizeSort('nosuchcolumn-asc')).toBe('created-desc');
+  });
+});
+
+describe('byStatusAge', () => {
+  const at = (statusChangedAt) => ({ statusChangedAt });
+
+  it('puts the fewest minutes first, which is the latest change', () => {
+    // The inversion this exists to pin down: minutes count how long *ago* the
+    // status changed, so ascending minutes is the timestamp descending. The
+    // other way round sorts perfectly and backwards, and nothing on screen
+    // would say so — every session in the fixture shares a status age.
+    const older = at('2026-08-04T10:00:00.000Z');
+    const newer = at('2026-08-04T11:00:00.000Z');
+    expect(byStatusAge(newer, older)).toBeLessThan(0);
+    expect(byStatusAge(older, newer)).toBeGreaterThan(0);
+  });
+
+  it('orders a list the way the column reads it', () => {
+    const sessions = [
+      at('2026-08-04T09:00:00.000Z'),
+      at('2026-08-04T11:00:00.000Z'),
+      at('2026-08-04T10:00:00.000Z'),
+    ];
+    expect([...sessions].sort(byStatusAge).map((s) => s.statusChangedAt)).toEqual([
+      '2026-08-04T11:00:00.000Z',
+      '2026-08-04T10:00:00.000Z',
+      '2026-08-04T09:00:00.000Z',
+    ]);
+    // And reversed, which is what the first click on the header asks for.
+    expect([...sessions].sort((a, b) => -byStatusAge(a, b)).map((s) => s.statusChangedAt)).toEqual([
+      '2026-08-04T09:00:00.000Z',
+      '2026-08-04T10:00:00.000Z',
+      '2026-08-04T11:00:00.000Z',
+    ]);
+  });
+
+  it('says two sessions of the same age are the same age', () => {
+    expect(byStatusAge(at('2026-08-04T10:00:00.000Z'), at('2026-08-04T10:00:00.000Z'))).toBe(0);
+  });
+});
+
+describe('SORT_KEYS and FIRST_DIRECTION', () => {
+  it('names a direction for every key it offers', () => {
+    // A key with no first direction sorts ascending by accident rather than by
+    // decision, and the accident is silent.
+    for (const key of SORT_KEYS) {
+      expect(FIRST_DIRECTION[key], key).toMatch(/^(asc|desc)$/);
+    }
+  });
+
+  it('opens the minutes on the longest wait', () => {
+    // The useful question about that column is which session has been sitting
+    // in its status longest, not which one just changed.
+    expect(FIRST_DIRECTION.minutes).toBe('desc');
+    expect(normalizeSort('minutes-desc')).toBe('minutes-desc');
   });
 });
 
