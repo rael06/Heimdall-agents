@@ -155,9 +155,23 @@ export interface AppPreferences {
    * before. Empty means nothing has been declined.
    */
   skippedVersion: string;
+  /**
+   * The language the application speaks — `auto`, `en` or `fr`.
+   *
+   * Here rather than only in the page, because the menus, the dialogs and the
+   * toast buttons are written by the desktop process, which cannot see the
+   * page's `localStorage`. The page keeps its own copy of the same choice for
+   * the same reason in reverse: it needs the answer synchronously, in every
+   * render, and cannot await a request per string.
+   */
+  language: string;
 }
 
-export const DEFAULT_APP: AppPreferences = { showTray: true, skippedVersion: '' };
+export const DEFAULT_APP: AppPreferences = {
+  showTray: true,
+  skippedVersion: '',
+  language: 'auto',
+};
 
 export interface Preferences {
   version: number;
@@ -235,6 +249,12 @@ export function sanitizePreferences(value: unknown, fallback: NotificationPrefer
         typeof appRaw.skippedVersion === 'string'
           ? appRaw.skippedVersion
           : DEFAULT_APP.skippedVersion,
+      // Only the three that mean something. A language nobody wrote strings for
+      // would show as English anyway, so it is stored as `auto` rather than
+      // kept as a setting that silently does nothing.
+      language: ['auto', 'en', 'fr'].includes(appRaw.language as string)
+        ? (appRaw.language as string)
+        : DEFAULT_APP.language,
     },
     notifications: {
       enabled:

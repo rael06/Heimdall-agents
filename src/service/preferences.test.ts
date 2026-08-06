@@ -134,21 +134,38 @@ describe('sanitizePreferences, on the application', () => {
   const appOf = (application: unknown) =>
     sanitizePreferences({ app: application }, DEFAULT_NOTIFICATIONS).app;
 
-  it('reads back both halves', () => {
-    expect(appOf({ showTray: false, skippedVersion: '1.2.0' })).toEqual({
+  it('reads back every part', () => {
+    expect(appOf({ showTray: false, skippedVersion: '1.2.0', language: 'fr' })).toEqual({
       showTray: false,
       skippedVersion: '1.2.0',
+      language: 'fr',
     });
   });
 
-  it('fills in the half that is missing rather than dropping the other', () => {
-    // A file written before the launch check existed has no skipped version,
-    // and the tray choice in it is still a choice.
-    expect(appOf({ showTray: false })).toEqual({ showTray: false, skippedVersion: '' });
+  it('fills in what is missing rather than dropping what is there', () => {
+    // A file written before the launch check existed has no skipped version and
+    // no language, and the tray choice in it is still a choice.
+    expect(appOf({ showTray: false })).toEqual({
+      showTray: false,
+      skippedVersion: '',
+      language: 'auto',
+    });
   });
 
   it('refuses a version that is not one', () => {
     expect(appOf({ skippedVersion: 7 }).skippedVersion).toBe('');
+  });
+
+  it('refuses a language it has no strings for', () => {
+    // Stored as `auto` rather than kept: a language nobody wrote strings for
+    // would show as English anyway, and a setting that silently does nothing is
+    // worse than one that says what it did.
+    for (const value of ['de', '', 7, null]) {
+      expect(appOf({ language: value }).language).toBe('auto');
+    }
+    for (const value of ['auto', 'en', 'fr']) {
+      expect(appOf({ language: value }).language).toBe(value);
+    }
   });
 });
 

@@ -139,14 +139,22 @@ export function worthAnnouncing(found: UpdateCheck, skippedVersion: string): boo
  * launch and every one after it, so that route needs a way to say never — and
  * as its own button rather than as a meaning read into "not now".
  */
-export const UPDATE_BUTTONS = {
-  asked: ['Not now', 'Download and install'],
-  offered: ['Skip this version', 'Not now', 'Download and install'],
-} as const;
-
 export type UpdateAnswer = 'install' | 'skip' | 'later';
 
-export function updateButtons(skippable: boolean): readonly string[] {
+/**
+ * The answers on offer, in the order they are shown.
+ *
+ * Answers rather than labels. This module knows which answers exist and what
+ * an index means; what any of them is called is the window's business, and in
+ * two languages now — a list of English strings here would be a third place for
+ * them to live and the only one nobody would think to translate.
+ */
+export const UPDATE_BUTTONS = {
+  asked: ['later', 'install'],
+  offered: ['skip', 'later', 'install'],
+} as const satisfies Record<string, readonly UpdateAnswer[]>;
+
+export function updateButtons(skippable: boolean): readonly UpdateAnswer[] {
   return skippable ? UPDATE_BUTTONS.offered : UPDATE_BUTTONS.asked;
 }
 

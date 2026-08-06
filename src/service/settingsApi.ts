@@ -17,6 +17,15 @@ export interface HostControls {
   setStartsWithLogin(enabled: boolean): void;
   trayVisible(): boolean;
   setTrayVisible(visible: boolean): void;
+  /**
+   * Rebuilds what the application says about itself in the new language.
+   *
+   * A menu is built once, at startup, from strings resolved then. Nothing about
+   * writing the preference reaches back into it, so the host is told rather than
+   * left to find out — which is the difference between a language that applies
+   * and one that applies at the next launch.
+   */
+  setLanguage(language: string): void;
   /** Applies what only a fresh start can apply. */
   restart(): void;
 }
@@ -32,6 +41,8 @@ export interface SettingsView {
   };
   /** Absent when the host cannot offer them, so the interface hides them. */
   host?: { startsWithLogin: boolean; trayVisible: boolean };
+  /** Properties of the window rather than of the service. */
+  app: { language: string };
   /** Values in force right now, which differ from the stored ones until a restart. */
   effective: ProviderPreferences;
 }
@@ -40,6 +51,7 @@ export interface SaveRequest {
   providers?: Partial<ProviderPreferences>;
   scan?: Partial<ScanPreferences>;
   host?: { startsWithLogin?: boolean; trayVisible?: boolean };
+  app?: { language?: string };
 }
 
 export interface SaveResult {
@@ -93,6 +105,7 @@ export class SettingsApi {
       host: this.host
         ? { startsWithLogin: this.host.startsWithLogin(), trayVisible: this.host.trayVisible() }
         : undefined,
+      app: { language: stored.app.language },
       effective: this.effective,
     };
   }
@@ -122,6 +135,12 @@ export class SettingsApi {
       if (request.host.trayVisible !== undefined) {
         this.host.setTrayVisible(request.host.trayVisible);
       }
+    }
+    // Written whether or not there is a host to tell: a bare service has no
+    // menus to relabel, and the choice is still the reader's to keep.
+    if (request.app?.language !== undefined && request.app.language !== before.app.language) {
+      await this.preferences.writeApp({ language: request.app.language });
+      this.host?.setLanguage(request.app.language);
     }
     return { saved: await this.read(), restartRequired };
   }

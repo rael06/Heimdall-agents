@@ -451,7 +451,11 @@ a plausible wrong answer.
 Anything the providers are built with — the paths, the caps, the timeouts — asks for a restart, and
 takes one. Everything else applies as you change it.
 
-**Language and dates.** English and French, following the system and falling back to English. The
+**Language and dates.** English and French — the page *and* what the application itself writes:
+menus, dialogs, the tray and the notification buttons. The choice is stored twice on purpose, once
+where the page can read it on every string it draws and once where the desktop process can read it
+at all, from the one control. The desktop chrome keeps a table of its own, because the two share no
+string: one names columns and filters, the other names *Uninstall…*. Following the system and
 date locale is separate and defaults to following the language, with `ISO` available on its own:
 `01/08` is the first of August or the eighth of January depending on the reader, and a column of
 dates is where that matters, so English stays on `2026-08-01 14:30` unless told otherwise.
