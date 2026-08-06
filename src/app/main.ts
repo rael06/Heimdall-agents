@@ -23,6 +23,7 @@ import {
 } from './update';
 import type { Release } from './release';
 import { trayIcon } from './trayIcon';
+import { Language, appLanguage, text } from './strings';
 
 /**
  * The desktop application: the same service, the same interface, in a window
@@ -51,6 +52,15 @@ let window: BrowserWindow | undefined;
 let tray: Tray | undefined;
 /** Set when the user really means it, so closing the window only hides it. */
 let quitting = false;
+/**
+ * The language everything below is written in, resolved once and again on every
+ * change. Held rather than looked up per string: a menu is built in one pass.
+ */
+let language: Language = 'en';
+
+/** One string of this application's own, in the language in force. */
+const say = (key: string, values: Record<string, string | number> = {}): string =>
+  text(language, key, { app: APP_NAME, ...values });
 
 function iconPath(): string {
   return path.join(__dirname, '..', 'build', 'icon.png');
@@ -89,6 +99,18 @@ const controls: HostControls = {
     // Remembered, or the icon would come back at every launch and the switch
     // would be something you do rather than something you set.
     void preferences().writeApp({ showTray: visible });
+  },
+  setLanguage: (chosen) => {
+    language = appLanguage(chosen, app.getLocale());
+    // Both are built from strings resolved when they were built, so both are
+    // built again. The tray is destroyed and remade rather than relabelled: its
+    // menu is a template, not a live object.
+    buildMenu();
+    if (tray) {
+      tray.destroy();
+      tray = createTray();
+      paintTray(service?.engine.currentMarks.unacknowledged.length ?? 0);
+    }
   },
   // Relaunching is how a setting that the providers were built with takes hold:
   // they are constructed once, and a setter cannot reach back into them.
@@ -151,8 +173,8 @@ async function start(): Promise<StartedService> {
       // the answers come in: the question a toast asks is whether this is worth
       // interrupting for, and "no" is answered first.
       actions: [
-        { label: 'Mark as seen', uri: ackUri(id) },
-        { label: 'Open the session', uri: openUri(id) },
+        { label: say('toast.markSeen'), uri: ackUri(id) },
+        { label: say('toast.open'), uri: openUri(id) },
       ],
     }),
   };
@@ -227,8 +249,8 @@ async function checkForUpdates(): Promise<void> {
   if (found.kind === 'error') {
     await dialog.showMessageBox({
       type: 'error',
-      title: 'Could not check for updates',
-      message: 'GitHub could not be reached.',
+      title: say('update.errorTitle'),
+      message: say('update.errorMessage'),
       detail: found.message ?? '',
     });
     return;
@@ -236,19 +258,17 @@ async function checkForUpdates(): Promise<void> {
   if (found.kind === 'none') {
     await dialog.showMessageBox({
       type: 'info',
-      title: 'No release published',
-      message: 'There is nothing to update to yet.',
-      detail:
-        'No published release was found. A private repository answers the same ' +
-        'way as one with no releases, so this says nothing about which it is.',
+      title: say('update.noneTitle'),
+      message: say('update.noneMessage'),
+      detail: say('update.noneDetail'),
     });
     return;
   }
   if (found.kind === 'current') {
     await dialog.showMessageBox({
       type: 'info',
-      title: 'Up to date',
-      message: `${APP_NAME} ${app.getVersion()} is the latest version.`,
+      title: say('update.currentTitle'),
+      message: say('update.currentMessage', { version: app.getVersion() }),
     });
     return;
   }
@@ -264,9 +284,9 @@ async function checkForUpdates(): Promise<void> {
   if (!release.installer) {
     await dialog.showMessageBox({
       type: 'info',
-      title: 'Nothing to install',
-      message: `Version ${release.version} is published, and carries no Windows installer.`,
-      detail: `You are on ${app.getVersion()}. There is nothing here to install from yet.`,
+      title: say('update.noInstallerTitle'),
+      message: say('update.noInstallerMessage', { version: release.version }),
+      detail: say('update.noInstallerDetail', { current: app.getVersion() }),
     });
     return;
   }
@@ -278,14 +298,9 @@ async function checkForUpdates(): Promise<void> {
   if (!isInstallable(release)) {
     await dialog.showMessageBox({
       type: 'warning',
-      title: 'Update available, but not verifiable',
-      message: `Version ${release.version} is published, and cannot be installed from here.`,
-      detail:
-        `The release carries no checksum manifest, so there is nothing to check ` +
-        `the download against. Without a code-signing certificate that manifest ` +
-        `is the whole of what can be verified, and running an installer whose ` +
-        `only credential is that it arrived over TLS is not something this will ` +
-        `do quietly.\n\nInstall it by hand from the releases page if you want it.`,
+      title: say('update.unverifiableTitle'),
+      message: say('update.unverifiableMessage', { version: release.version }),
+      detail: say('update.unverifiableDetail'),
     });
     return;
   }
@@ -305,22 +320,19 @@ async function checkForUpdates(): Promise<void> {
  * answer meant.
  */
 async function offerUpdate(release: Release, skippable: boolean): Promise<void> {
-  const buttons = [...updateButtons(skippable)];
+  const answers = updateButtons(skippable);
   const { response } = await dialog.showMessageBox({
     type: 'question',
-    buttons,
-    defaultId: buttons.length - 1,
+    buttons: answers.map((answer) => say(`update.${answer}`)),
+    defaultId: answers.length - 1,
     // Escape lands on "not now", which is the last button in neither list.
     cancelId: skippable ? 1 : 0,
-    title: 'Update available',
-    message: `Version ${release.version} is available. You have ${app.getVersion()}.`,
-    detail:
-      `The installer is downloaded, checked against the length and the sha512 ` +
-      `published with the release, then run — and nothing is run that fails ` +
-      `either check. ${APP_NAME} closes while it works and comes back on the ` +
-      `new version.\n\n` +
-      `It is not code-signed, so Windows may warn about it — the only thing ` +
-      `vouching for it is that it came from GitHub over TLS.`,
+    title: say('update.availableTitle'),
+    message: say('update.availableMessage', {
+      version: release.version,
+      current: app.getVersion(),
+    }),
+    detail: say('update.availableDetail'),
   });
   const answer = updateAnswer(skippable, response);
   if (answer === 'skip') {
@@ -350,14 +362,12 @@ async function offerUpdate(release: Release, skippable: boolean): Promise<void> 
     window?.setProgressBar(-1);
     await dialog.showMessageBox({
       type: 'error',
-      title: 'Update failed',
-      message: 'Nothing was installed.',
-      detail:
-        `${String(error instanceof Error ? error.message : error)}\n\n` +
-        `You are still on ${app.getVersion()} and nothing was replaced. Every ` +
-        `release stays on the releases page, so an installer can be fetched by ` +
-        `hand — and going back to an earlier version is the same thing: install ` +
-        `it over this one.`,
+      title: say('update.failedTitle'),
+      message: say('update.failedMessage'),
+      detail: say('update.failedDetail', {
+        error: String(error instanceof Error ? error.message : error),
+        current: app.getVersion(),
+      }),
     });
   }
 }
@@ -399,11 +409,13 @@ async function checkForUpdatesAtLaunch(): Promise<void> {
 async function about(): Promise<void> {
   await dialog.showMessageBox({
     type: 'info',
-    title: `About ${APP_NAME}`,
-    message: `${APP_NAME} ${app.getVersion()}`,
-    detail:
-      `Electron ${process.versions.electron} · Node ${process.versions.node}\n\n` +
-      `Shared files: ${settingsFrom(parseArgs([])).sharedDir}`,
+    title: say('about.title'),
+    message: say('about.message', { version: app.getVersion() }),
+    detail: say('about.detail', {
+      electron: process.versions.electron,
+      node: process.versions.node,
+      shared: settingsFrom(parseArgs([])).sharedDir,
+    }),
   });
 }
 
@@ -426,16 +438,12 @@ async function uninstall(): Promise<void> {
 
   const { response } = await dialog.showMessageBox({
     type: 'warning',
-    buttons: ['Cancel', 'Uninstall'],
+    buttons: [say('uninstall.cancel'), say('uninstall.confirm')],
     defaultId: 0,
     cancelId: 0,
-    title: `Uninstall ${APP_NAME}`,
-    message: `Remove ${APP_NAME} from this computer?`,
-    detail:
-      `The application closes and the Windows uninstaller takes over.\n\n` +
-      `Your marks, titles and settings stay in ${shared}, so a later install ` +
-      `picks up where you left off. Delete that folder by hand if you want ` +
-      `them gone as well.`,
+    title: say('uninstall.title'),
+    message: say('uninstall.message'),
+    detail: say('uninstall.detail', { shared }),
   });
   if (response !== 1) {
     return;
@@ -446,11 +454,9 @@ async function uninstall(): Promise<void> {
   } catch {
     await dialog.showMessageBox({
       type: 'error',
-      title: 'Nothing to uninstall',
-      message: 'This copy was not installed by the Windows installer.',
-      detail:
-        `No uninstaller was found beside the executable, which is what a run ` +
-        `from a build directory looks like. Delete that directory instead.`,
+      title: say('uninstall.noneTitle'),
+      message: say('uninstall.noneMessage'),
+      detail: say('uninstall.noneDetail'),
     });
     return;
   }
@@ -474,10 +480,10 @@ async function uninstall(): Promise<void> {
 function buildMenu(): void {
   const template: Parameters<typeof Menu.buildFromTemplate>[0] = [
     {
-      label: 'File',
+      label: say('menu.file'),
       submenu: [
         {
-          label: 'Settings…',
+          label: say('menu.settings'),
           accelerator: 'CommandOrControl+,',
           click: () => {
             showWindow();
@@ -486,7 +492,7 @@ function buildMenu(): void {
         },
         { type: 'separator' },
         {
-          label: 'Quit',
+          label: say('menu.quit'),
           accelerator: 'CommandOrControl+Q',
           click: () => {
             quitting = true;
@@ -504,16 +510,16 @@ function buildMenu(): void {
       role: 'help',
       submenu: [
         {
-          label: `About ${APP_NAME}`,
+          label: say('menu.help.about'),
           click: () => void about(),
         },
         {
-          label: 'Check for updates…',
+          label: say('menu.help.updates'),
           click: () => void checkForUpdates(),
         },
         { type: 'separator' },
         {
-          label: 'Uninstall…',
+          label: say('menu.help.uninstall'),
           click: () => void uninstall(),
         },
       ],
@@ -540,9 +546,7 @@ function paintTray(count: number): void {
   }
   tray.setImage(nativeImage.createFromBuffer(trayIcon(count)));
   tray.setToolTip(
-    count === 0
-      ? APP_NAME
-      : `${APP_NAME} — ${count} ${count === 1 ? 'session' : 'sessions'} you have not seen`,
+    count === 0 ? APP_NAME : say(count === 1 ? 'tray.unseenOne' : 'tray.unseen', { count }),
   );
 }
 
@@ -550,17 +554,17 @@ function createTray(): Tray {
   const created = new Tray(nativeImage.createFromBuffer(trayIcon(0)));
   created.setToolTip(APP_NAME);
   const menu = Menu.buildFromTemplate([
-    { label: 'Show the list', click: () => showWindow() },
+    { label: say('tray.show'), click: () => showWindow() },
     { type: 'separator' },
     {
-      label: 'Start with Windows',
+      label: say('tray.login'),
       type: 'checkbox',
       checked: app.getLoginItemSettings().openAtLogin,
       click: (item) => app.setLoginItemSettings({ openAtLogin: item.checked }),
     },
     { type: 'separator' },
     {
-      label: 'Quit',
+      label: say('tray.quit'),
       click: () => {
         quitting = true;
         app.quit();
@@ -613,12 +617,18 @@ if (!app.requestSingleInstanceLock()) {
       app.setAsDefaultProtocolClient(PROTOCOL, process.execPath, [path.resolve(process.argv[1])]);
     }
 
+    // Before anything with a label on it. `app.getLocale()` is only meaningful
+    // once the application is ready, which is why this is here and not beside
+    // the declaration.
+    const stored = await preferences().read();
+    language = appLanguage(stored.app.language, app.getLocale());
+
     service = await start();
     window = createWindow(service.url);
     buildMenu();
     // Hidden only if it was hidden deliberately: a first run always shows it,
     // since the tray is where quitting and the settings live.
-    if ((await preferences().read()).app.showTray) {
+    if (stored.app.showTray) {
       tray = createTray();
     }
     // The same set the dots are drawn from, so the two cannot disagree: there is

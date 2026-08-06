@@ -739,6 +739,28 @@ test('the wait before notifying is a setting, and the service takes it', async (
   expect(problems).toEqual([]);
 });
 
+test('the language reaches the service, not only the page', async ({ page }) => {
+  await open(page);
+  await page.locator('#open-settings').click();
+  await page.locator('#set-language').selectOption('fr');
+  await expect(page.locator('#reset')).toHaveText('Réinitialiser');
+
+  // The page draws itself from `localStorage`, which it can read on every
+  // string. The menus, the dialogs and the toast buttons are written by a
+  // process that cannot see that storage at all, so the choice has to reach the
+  // service — and asserting on the page alone would pass while it never did.
+  const stored = await page.evaluate(async () => {
+    const token = new URLSearchParams(location.search).get('token');
+    return (await (await fetch(`/api/settings?token=${token}`)).json()).app.language;
+  });
+  expect(stored).toBe('fr');
+
+  await page.locator('#set-language').selectOption('auto');
+  await page.keyboard.press('Escape');
+  await page.evaluate(() => localStorage.removeItem('language'));
+  expect(problems).toEqual([]);
+});
+
 test('a bare service offers only what it can actually do', async ({ page }) => {
   await open(page);
   await page.locator('#open-settings').click();

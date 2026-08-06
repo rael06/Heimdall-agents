@@ -1669,8 +1669,15 @@ function wireControls() {
   // are in different worlds, and this is the only door between them.
   window.openSettings = openSettings;
   el('set-language').addEventListener('change', (event) => {
-    localStorage.setItem('language', event.target.value);
+    const chosen = event.target.value;
+    // Kept here for this page, which asks for the language on every string it
+    // draws and cannot await a request per call — and sent to the service as
+    // well, because the menus, the dialogs and the toast buttons are written by
+    // a process that cannot see this storage. One control, two readers, each
+    // holding the answer where it can reach it.
+    localStorage.setItem('language', chosen);
     redrawEverything();
+    void post('/api/settings', { app: { language: chosen } }).catch(() => undefined);
   });
   el('set-date-locale').addEventListener('change', (event) => {
     localStorage.setItem('dateLocale', event.target.value);
@@ -1874,6 +1881,14 @@ async function boot() {
     ['starred', 'star'],
   ]) {
     prependIcon(document.querySelector(`button.sort[data-key="${key}"]`), icon);
+  }
+  // A language chosen before the desktop process could read one is still a
+  // choice, and it lives here. Sent on every start rather than migrated once:
+  // it costs a request nobody waits on, and there is no flag to get wrong. A
+  // reader who never picked one leaves this at `auto` and nothing is sent.
+  const chosenLanguage = localStorage.getItem('language');
+  if (chosenLanguage && chosenLanguage !== 'auto') {
+    void post('/api/settings', { app: { language: chosenLanguage } }).catch(() => undefined);
   }
   // Before the language pass, which is what names the handles it builds.
   buildColumns();

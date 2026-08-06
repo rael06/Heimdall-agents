@@ -12,6 +12,7 @@ function view(overrides: Partial<SettingsView> = {}): SettingsView {
     providers: { claudeHome: '', codexHome: '' },
     scan: DEFAULT_SCAN,
     notifications: { enabled: true, on: ['idle'], scope: 'watched', delaySeconds: 5 },
+    app: { language: 'auto' },
     effective,
     ...overrides,
   };
@@ -70,6 +71,9 @@ describe('SettingsApi', () => {
       setTrayVisible: (visible) => {
         tray = visible;
         calls.push(`tray:${visible}`);
+      },
+      setLanguage: (chosen) => {
+        calls.push(`language:${chosen}`);
       },
       restart: () => calls.push('restart'),
     };
@@ -161,6 +165,7 @@ describe('SettingsApi, when the host misbehaves', () => {
       }),
       trayVisible: () => true,
       setTrayVisible: vi.fn(),
+      setLanguage: vi.fn(),
       restart: vi.fn(),
     });
 

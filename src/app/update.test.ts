@@ -42,7 +42,17 @@ describe('updateAnswer', () => {
     for (const skippable of [false, true]) {
       const buttons = updateButtons(skippable);
       expect(updateAnswer(skippable, buttons.length - 1)).toBe('install');
-      expect(buttons[buttons.length - 1]).toMatch(/install/i);
+      expect(buttons[buttons.length - 1]).toBe('install');
+    }
+  });
+
+  it('reads every position back as the answer that sits there', () => {
+    // The list is answers rather than labels now, so the two can be checked
+    // against each other instead of against a string nobody translates.
+    for (const skippable of [false, true]) {
+      updateButtons(skippable).forEach((answer, index) => {
+        expect(updateAnswer(skippable, index), `${skippable} ${index}`).toBe(answer);
+      });
     }
   });
 });

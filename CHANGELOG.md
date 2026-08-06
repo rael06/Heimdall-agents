@@ -1,5 +1,47 @@
 # Changelog
 
+## 1.1.23
+
+**The application speaks French too** — menus, dialogs, the tray and the toast
+buttons, not only the page.
+
+Until now the page was bilingual and everything the desktop process writes was
+English: *File*, *Check for updates…*, *Uninstall…*, and the notification
+buttons. One French string among them would have been worse than none, so they
+all move together.
+
+### The language had to be somewhere both could read
+
+It lived in the page's `localStorage`, which the desktop process cannot see. It
+is now also a stored preference, written by the same control. The page keeps its
+copy: it asks for the language on every string it draws and cannot await a
+request per call. One control, two readers, each holding the answer where it can
+reach it — and a language chosen before this release is sent to the service at
+the next start, so nobody's choice is lost.
+
+The menu is built in one pass at startup, so writing the preference reaches
+nothing already on screen. The host is told rather than left to find out, and
+rebuilds its menu and tray — which is the difference between a language that
+applies and one that applies at the next launch.
+
+### Its own table, deliberately
+
+Not the page's. The two have no string in common — one names columns and
+filters, the other names *Uninstall…* and *Nothing was installed* — so a shared
+table would ship each side the other's vocabulary for nothing. `i18n.js` is also
+a classic script served into the page, and this project compiles with `allowJs`
+off, so it was not importable in any case. What is duplicated is twenty lines of
+mechanism.
+
+Two tests hold it together: every key must exist in every language, and every
+string must ask for the same placeholders as its English original. A key added
+on one side and forgotten on the other shows as an English sentence in a French
+menu, and only to the people reading French.
+
+`updateButtons` returned English labels from a module that had no business
+owning them, and now returns the answers themselves — `skip`, `later`,
+`install`. What they are called is the window's business, in two languages.
+
 ## 1.1.22
 
 **The minutes column sorts**, and **a notification can be turned down without
