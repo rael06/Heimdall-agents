@@ -42,6 +42,7 @@ export default tseslint.config(
         SORT_KEYS: 'readonly',
         FIRST_DIRECTION: 'readonly',
         normalizeSort: 'readonly',
+        byStatusAge: 'readonly',
         splitSort: 'readonly',
         day: 'readonly',
         folder: 'readonly',

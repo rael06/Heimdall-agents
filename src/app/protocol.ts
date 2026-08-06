@@ -12,7 +12,25 @@ export const PROTOCOL = 'heimdall-agents';
 export type AppRequest =
   /** Open a session, through the usual two-step handover. */
   | { kind: 'open'; id: string }
-  /** Bring the list up. */
+  /**
+   * Mark a session as seen, and show nothing.
+   *
+   * The one request that deliberately brings no window up. A toast saying a
+   * session has stopped is answered either by going to look or by deciding not
+   * to, and the second answer is worth as much as the first — but only if it
+   * costs nothing, which it stops doing the moment it opens a window to be
+   * closed again.
+   */
+  | { kind: 'ack'; id: string }
+  /**
+   * Bring the list up.
+   *
+   * No toast carries this any more — it was the third button and gave way to
+   * marking a session seen. The route stays because notifications already
+   * raised do not change: one sitting in the Action Center from before the
+   * update still has the button, and a URI this refused would do nothing at all
+   * when it was pressed.
+   */
   | { kind: 'show' };
 
 /**
@@ -35,9 +53,9 @@ export function parseRequest(value: string): AppRequest | undefined {
   if (route === 'show') {
     return { kind: 'show' };
   }
-  if (route === 'open') {
+  if (route === 'open' || route === 'ack') {
     const id = url.searchParams.get('id');
-    return id ? { kind: 'open', id } : undefined;
+    return id ? { kind: route, id } : undefined;
   }
   return undefined;
 }
@@ -55,6 +73,10 @@ export function requestFromArgv(argv: readonly string[]): AppRequest | undefined
 
 export function openUri(id: string): string {
   return `${PROTOCOL}://open?id=${encodeURIComponent(id)}`;
+}
+
+export function ackUri(id: string): string {
+  return `${PROTOCOL}://ack?id=${encodeURIComponent(id)}`;
 }
 
 export function showUri(): string {

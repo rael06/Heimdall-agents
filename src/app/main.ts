@@ -11,7 +11,7 @@ import { PreferencesStore, preferencesFilePath } from '../service/preferences';
 import { HostControls } from '../service/settingsApi';
 import { createDesktop } from '../service/desktop';
 import { ElectronNotifier } from './notifier';
-import { AppRequest, PROTOCOL, openUri, requestFromArgv, showUri } from './protocol';
+import { AppRequest, PROTOCOL, ackUri, openUri, requestFromArgv } from './protocol';
 import { isInstallable } from './release';
 import {
   checkForUpdate,
@@ -141,9 +141,18 @@ async function start(): Promise<StartedService> {
     // no second click.
     notificationTarget: (id: string) => ({
       launchUri: openUri(id),
+      // Two, which is what the note on `ToastContent.actions` says a toast can
+      // carry and still read. "Show the list" was the third and is gone: it was
+      // the least useful of them once clicking the toast itself opens the
+      // session, and the answer it displaced — deciding not to go and look — is
+      // the one worth having a button for.
+      //
+      // Dismissing on the left, acting on the right, because that is the order
+      // the answers come in: the question a toast asks is whether this is worth
+      // interrupting for, and "no" is answered first.
       actions: [
+        { label: 'Mark as seen', uri: ackUri(id) },
         { label: 'Open the session', uri: openUri(id) },
-        { label: 'Show the list', uri: showUri() },
       ],
     }),
   };
@@ -566,6 +575,13 @@ function createTray(): Tray {
 function handle(request: AppRequest | undefined): void {
   if (!request) {
     showWindow();
+    return;
+  }
+  // No window, on purpose: turning a toast down is only cheap if it costs
+  // nothing to turn down, and a window opened to be closed again is not nothing.
+  // The tray count drops as the marks change, which is the whole answer.
+  if (request.kind === 'ack') {
+    void service?.engine.acknowledge([request.id]);
     return;
   }
   if (request.kind === 'show') {

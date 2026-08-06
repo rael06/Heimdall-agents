@@ -680,6 +680,32 @@ test('the interface and the dates follow the chosen language', async ({ page }) 
   });
 });
 
+test('the minutes column claims the ordering, and opens on the longest wait', async ({ page }) => {
+  await open(page);
+  const header = page.locator('th[data-column="minutes"] button.sort');
+  const column = page.locator('th[data-column="minutes"]');
+
+  // Descending on the first click: the useful question about that column is
+  // which session has been sitting in its status the longest.
+  await header.click();
+  await expect(column).toHaveAttribute('aria-sort', 'descending');
+  await expect(page.locator('#sort')).toHaveValue('minutes-desc');
+  await header.click();
+  await expect(column).toHaveAttribute('aria-sort', 'ascending');
+
+  // Only one column claims it at a time, like every other.
+  await page.locator('th[data-column="title"] button.sort').click();
+  await expect(column).not.toHaveAttribute('aria-sort', /.*/);
+
+  // What this deliberately does not check is the resulting order of the rows.
+  // `statusChangedAt` is measured from when the service first saw a session,
+  // not from anything in the transcript, so every session in this fixture
+  // shares one — a column of identical values would pass on any order at all.
+  // The direction is pinned down in the unit tests, on `byStatusAge`, where
+  // two ages can actually differ.
+  expect(problems).toEqual([]);
+});
+
 test('the wait before notifying is a setting, and the service takes it', async ({ page }) => {
   await open(page);
   await page.locator('#open-settings').click();

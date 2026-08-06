@@ -1,5 +1,55 @@
 # Changelog
 
+## 1.1.22
+
+**The minutes column sorts**, and **a notification can be turned down without
+opening anything**.
+
+### Minutes
+
+Clicking the header sorts by how long a session has been in its current status,
+longest first — which is the useful question about that column. Every row takes
+part, including the ones that show nothing: the column is filled on watched rows
+only, since the point of it is the handful you follow, but the age behind it is
+a fact about all of them and leaving the rest unordered would be a sort that
+scattered them.
+
+The direction is settled in a pure function rather than beside the other
+comparators, and that is not tidiness. The minutes count how long *ago* the
+status changed, so ascending minutes is the timestamp descending — written the
+natural way round it sorts perfectly and backwards. Nothing on screen would say
+so either: `statusChangedAt` is measured from when the service first saw a
+session rather than from anything in the transcript, so every session in the
+test fixture shares one age, and an interface test of the order would have
+passed on any order at all. It is asked directly in the unit tests instead, and
+the interface test says in as many words what it does not check.
+
+### Mark as seen
+
+The toast raised when a session stops now carries **Mark as seen** on the left
+and **Open the session** on the right. It marks the session seen and **opens no
+window**, which is the whole point: the answer "not now" is worth as much as
+"show me", but only while it costs nothing, and it stops costing nothing the
+moment it opens something to be closed again. The tray count drops as the mark
+clears, which is the confirmation.
+
+Dismissing on the left and acting on the right, because that is the order the
+answers come in: the question a toast asks is whether this is worth interrupting
+for, and "no" is answered first.
+
+*Show the list* is gone, which keeps the toast at the two buttons its payload
+note says it can carry and still read. It was the least useful of the three once
+clicking the toast itself opens the session.
+
+The `show` route is still parsed, and deliberately. A notification raised before
+this update is still sitting in the Action Center with that button on it, and a
+URI refused would be a button that does nothing when pressed.
+
+`asm serve` keeps its own two, *Open the session* and *Show the list*, and does
+not gain this one: it notifies through URLs a browser opens, and a URL that
+marks a session seen would still open a tab to do it — which is the one thing
+the button exists to avoid.
+
 ## 1.1.21
 
 **The tray icon is the count**, large, with the application's triangle in the
