@@ -685,6 +685,15 @@ test('the minutes column claims the ordering, and opens on the longest wait', as
   const header = page.locator('th[data-column="minutes"] button.sort');
   const column = page.locator('th[data-column="minutes"]');
 
+  // Something to see and something to hit. This shipped once with its whole
+  // label in `sr-only`: the header drew nothing and the button was about six
+  // pixels wide, so the column looked untitled and unsortable while every
+  // assertion about it passed.
+  await expect(header).toHaveText('m.');
+  await expect(header).toHaveAttribute('aria-label', /[Mm]inutes/);
+  const box = await header.boundingBox();
+  expect(box!.width, 'the header must be wide enough to click').toBeGreaterThan(14);
+
   // Descending on the first click: the useful question about that column is
   // which session has been sitting in its status the longest.
   await header.click();
