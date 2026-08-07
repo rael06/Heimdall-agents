@@ -44,6 +44,15 @@ owning them, and now returns the answers themselves — `skip`, `later`,
 
 ## 1.1.22
 
+**Never published under this number.** Everything below shipped in 1.1.23, and
+there is no `v1.1.22` release to look for. GitHub Actions was in a major outage
+while this waited for its checks — six hours between the branch being pushed and
+a run finally being created — and by the time they ran, the localisation was
+finished behind it. The two were tagged once rather than twice.
+
+The entry stays rather than being folded into 1.1.23, so the gap in the version
+numbers has something to point at.
+
 **The minutes column sorts**, and **a notification can be turned down without
 opening anything**.
 
