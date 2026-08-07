@@ -166,10 +166,15 @@
             </button>
           </th>
           <th scope="col" data-column="transcript"><span class="sr-only" data-i18n="column.transcript">Transcript</span></th>
+          <!-- A visible label, unlike the three marker columns beside it. Those
+               carry an icon and hide their word; this one carried nothing at
+               all, which made the header empty to look at and about six pixels
+               wide to click. The full name stays as the accessible one. -->
           <th scope="col" class="num" data-column="minutes">
-            <button class="sort" type="button" data-key="minutes">
-              <span class="sr-only" data-i18n="column.minutes">Minutes in this status</span>
-            </button>
+            <button class="sort" type="button" data-key="minutes"
+                    data-i18n="column.minutesShort"
+                    data-i18n-aria-label="column.minutes"
+                    data-i18n-title="column.minutes">m.</button>
           </th>
           <th scope="col" data-column="created"><button class="sort" type="button" data-key="created" data-i18n="column.created">created</button></th>
           <th scope="col" data-column="updated"><button class="sort" type="button" data-key="updated" data-i18n="column.updated">last activity</button></th>

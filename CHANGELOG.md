@@ -1,5 +1,22 @@
 # Changelog
 
+## 1.1.24
+
+**The minutes column has a heading you can see and click**: `m.`
+
+The sort shipped in 1.1.22 and could not be reached. The header carried a
+button whose entire label was `sr-only`, copying the three marker columns beside
+it — but those carry an icon and hide only their *word*, and this one carried
+nothing at all. It drew an empty heading about six pixels wide, so the column
+looked untitled and unsortable while every assertion about it passed: the
+interface test clicked the button by selector, which no reader can do.
+
+The full name stays as the accessible label and the tooltip; `m.` is what is
+drawn, short enough not to set the width of a column of three-digit numbers.
+
+The test now requires the header to have visible text and to be wide enough to
+hit, and was run against the old markup to check that it fails on it.
+
 ## 1.1.23
 
 **The application speaks French too** — menus, dialogs, the tray and the toast
