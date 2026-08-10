@@ -70,6 +70,12 @@ const WANTED = [
   // Changing the colour a workspace or a provider is drawn in. A brush says
   // "this paints" without needing a word, in a cell that has no room for one.
   { id: 'brush', from: '@phosphor-icons/core/assets/regular/paint-brush.svg' },
+  // The switch that decides whether the list keeps itself in order. Two
+  // drawings rather than one at two weights, because the two states are not the
+  // same thing done harder: one is a list that is sorted, the other a list
+  // holding rows that would move.
+  { id: 'sort-ascending', from: '@phosphor-icons/core/assets/regular/sort-ascending.svg' },
+  { id: 'reorder', from: '@phosphor-icons/core/assets/regular/arrows-down-up.svg' },
 ];
 
 /**

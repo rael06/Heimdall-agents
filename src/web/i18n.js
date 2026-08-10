@@ -49,6 +49,9 @@ const TRANSLATIONS = {
     'sort.starred-asc': 'starred last',
     'sort.status-asc': 'status, most urgent first',
     'sort.status-desc': 'status, least urgent first',
+    'bar.autoSort': 'Keep sorted',
+    'bar.autoSortTitle':
+      'Reorder the list as it changes, instead of offering to. Off, rows already on screen stay where they are until you ask.',
     'sort.minutes-desc': 'minutes in this status, longest first',
     'sort.minutes-asc': 'minutes in this status, shortest first',
     'sort.created-desc': 'created, newest first',
@@ -217,6 +220,9 @@ const TRANSLATIONS = {
     'sort.starred-asc': 'favorites en dernier',
     'sort.status-asc': 'statut, plus urgent d’abord',
     'sort.status-desc': 'statut, moins urgent d’abord',
+    'bar.autoSort': 'Tri auto',
+    'bar.autoSortTitle':
+      'Réordonner la liste à mesure qu’elle change, au lieu de le proposer. Désactivé, les lignes déjà à l’écran restent en place jusqu’à ce que vous le demandiez.',
     'sort.minutes-desc': 'minutes dans ce statut, plus longtemps d’abord',
     'sort.minutes-asc': 'minutes dans ce statut, moins longtemps d’abord',
     'sort.created-desc': 'création, plus récent d’abord',

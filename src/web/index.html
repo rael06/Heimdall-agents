@@ -109,6 +109,14 @@
       <span id="counts" class="muted"></span>
       <button id="reorder" type="button" class="hidden"></button>
     </span>
+    <!-- Beside the offer it replaces, and deliberately outside the live region:
+         a switch that lives in a `role="status"` has every press announced as
+         news about the list, which it is not. The label sits in its own span so
+         the icon prepended at boot survives a language change. -->
+    <button id="auto-sort" class="chip" type="button" aria-pressed="false"
+            data-i18n-title="bar.autoSortTitle">
+      <span class="chip-label" data-i18n="bar.autoSort">Keep sorted</span>
+    </button>
     <span class="grow"></span>
     <!-- Both act on the list as it stands: one settles what is on screen, the
          other re-reads it. They belong beside the counter that says whether
