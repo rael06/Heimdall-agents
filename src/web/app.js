@@ -660,19 +660,45 @@ function syncRows(target, applyOrder) {
   return [...rowsBody.children].map((tr) => tr.dataset.id);
 }
 
+/**
+ * Whether the list keeps itself in order, or offers to.
+ *
+ * Off, a sort applies to rows as they arrive and the ones already on screen
+ * stay put until asked — nothing jumps under the cursor, which is what the
+ * offer beside the counter exists for. On, the order is the order, and a row
+ * that stops working moves to where the sort says while you are looking at it.
+ *
+ * Beside the theme rather than in the address bar: it changes how the list
+ * behaves rather than what it shows, and a link that reordered someone else's
+ * screen under them would be a strange thing to send.
+ */
+const AUTO_SORT = 'autoSort';
+const autoSorting = () => localStorage.getItem(AUTO_SORT) === 'on';
+
+/** The switch says which of the two it is doing, in its state and its icon. */
+function syncAutoSort() {
+  const on = autoSorting();
+  const button = el('auto-sort');
+  button.setAttribute('aria-pressed', String(on));
+  // Sorted while it holds, and the offer to sort while it does not: the icon
+  // says what is happening rather than what the button would do next.
+  swapIcon(button, on ? 'sort-ascending' : 'reorder');
+}
+
 function render(applyOrder = false) {
   // Before the rows are drawn, since it decides what colour they carry. It
   // returns early unless the set of projects actually changed, so this costs a
   // comparison on every render and a write on almost none.
   syncColours();
+  const keepOrdered = applyOrder || autoSorting();
   const target = targetOrder();
-  const shown = syncRows(target, applyOrder);
+  const shown = syncRows(target, keepOrdered);
 
   // If the sort would genuinely reorder the rows on screen, the list does not
   // jump: it offers to do it when you ask.
   const moved = shown.filter((id, index) => target[index] !== id).length;
   const reorder = el('reorder');
-  if (moved > 0 && !applyOrder) {
+  if (moved > 0 && !keepOrdered) {
     state.pendingOrder = true;
     setText(reorder, t('state.reorder', { count: moved }));
     reorder.classList.remove('hidden');
@@ -1538,6 +1564,7 @@ function syncControls() {
   el('sort').value = filters.sort;
   el('match').value = filters.match;
   syncSortHeaders();
+  syncAutoSort();
   el('from').value = filters.from;
   el('to').value = filters.to;
   el('watched-only').setAttribute('aria-pressed', String(filters.watchedOnly));
@@ -1710,6 +1737,14 @@ function wireControls() {
   window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', () => {
     if ((localStorage.getItem('theme') ?? 'auto') === 'auto') applyAppearance();
   });
+  el('auto-sort').addEventListener('click', () => {
+    const next = !autoSorting();
+    localStorage.setItem(AUTO_SORT, next ? 'on' : 'off');
+    syncAutoSort();
+    // Straight away rather than at the next scan: switching it on is itself the
+    // asking, exactly as pressing the reorder offer is.
+    render(next);
+  });
   el('reset').addEventListener('click', resetFilters);
   el('reorder').addEventListener('click', () => render(true));
   el('refresh').addEventListener('click', () => void refreshAll());
@@ -1869,6 +1904,7 @@ async function boot() {
   prependIcon(el('watched-only'), 'eye');
   prependIcon(el('favorites-only'), 'star');
   prependIcon(el('notify'), 'bell');
+  prependIcon(el('auto-sort'), 'reorder');
   // Reset turns back, refresh turns forward.
   prependIcon(el('reset'), 'reset');
   prependIcon(el('refresh'), 'refresh');

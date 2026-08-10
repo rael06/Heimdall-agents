@@ -1,5 +1,30 @@
 # Changelog
 
+## 1.1.25
+
+**The list can keep itself in order**, if you tell it to. A switch beside the
+counter — *Keep sorted* — decides whether the ordering re-applies as the list
+changes, or is offered first.
+
+Off, which is what it was until now and still the default, nothing moves under
+you: a status arriving or a marker taken repaints the row where it is, and the
+list says *"3 row(s) would move — reorder"* and waits. On, that move simply
+happens, and the offer never appears. The setting is remembered like the theme,
+and the icon shows the state rather than the next click: a sorted list when it
+is holding the order, two arrows when it is holding rows back.
+
+### What the offer was actually about
+
+Writing this turned up something the interface had never made clear: *choosing a
+sort already applied it*, and always has. `applyFilters` draws the view in full,
+order included, because asking for a view is the asking. So the offer never came
+from touching the sort — it came from the list moving on its own, which is the
+only case the switch changes. The README said "nothing reorders itself" without
+that distinction, and now makes it.
+
+The first test written for this assumed the opposite and failed for the right
+reason; it now marks a row, which is a real trigger.
+
 ## 1.1.24
 
 **The minutes column has a heading you can see and click**: `m.`

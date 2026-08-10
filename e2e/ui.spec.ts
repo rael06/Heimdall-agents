@@ -715,6 +715,46 @@ test('the minutes column claims the ordering, and opens on the longest wait', as
   expect(problems).toEqual([]);
 });
 
+test('the list can keep itself in order, or offer to', async ({ page }) => {
+  await open(page);
+  const auto = page.locator('#auto-sort');
+  const offer = page.locator('#reorder');
+  await expect(auto).toHaveAttribute('aria-pressed', 'false');
+
+  // Marking a row is what makes an order pending, not changing the sort:
+  // choosing a sort already draws the view in full, order included. What the
+  // offer exists for is the list moving under you on its own — a mark taken, a
+  // status arriving — and the automatic grouping wanting to lift the row.
+  const unwatched = rows(page).filter({ has: page.locator('.watched[aria-pressed="false"]') });
+  const subject = unwatched.last();
+  const title = (await subject.locator('.title .text').textContent()) ?? '';
+  expect(title, 'the fixture must leave a row to mark').not.toBe('');
+  await subject.locator('.watched').click();
+  await expect(offer).toBeVisible();
+
+  // On: the offer is what it replaces, so it goes and the move happens.
+  await auto.click();
+  await expect(auto).toHaveAttribute('aria-pressed', 'true');
+  await expect(offer).toBeHidden();
+  await expect(rows(page).last().locator('.title .text')).not.toHaveText(title);
+
+  // And it stays on, like the theme: it is a way of working, not a click.
+  await page.reload();
+  await expect(rows(page)).not.toHaveCount(0);
+  await expect(page.locator('#auto-sort')).toHaveAttribute('aria-pressed', 'true');
+  // The icon says which of the two it is doing, not what the next click would.
+  await expect(page.locator('#auto-sort use')).toHaveAttribute('href', '#icon-sort-ascending');
+
+  // A mark taken while it holds moves the row rather than offering to.
+  await rows(page).filter({ hasText: title }).locator('.watched').click();
+  await expect(page.locator('#reorder')).toBeHidden();
+
+  await page.locator('#auto-sort').click();
+  await expect(page.locator('#auto-sort')).toHaveAttribute('aria-pressed', 'false');
+  await expect(page.locator('#auto-sort use')).toHaveAttribute('href', '#icon-reorder');
+  expect(problems).toEqual([]);
+});
+
 test('the wait before notifying is a setting, and the service takes it', async ({ page }) => {
   await open(page);
   await page.locator('#open-settings').click();

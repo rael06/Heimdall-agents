@@ -189,9 +189,13 @@ Open that URL and you get the list, live.
 
 ### What the interface does
 
-- **Nothing reorders itself.** A row's position depends on the sort you chose and on nothing else.
-  A status changing repaints that row where it is. If a sort *would* move rows, the list says so
-  and waits: *"3 row(s) would move — reorder"*.
+- **Nothing reorders itself, unless you ask it to.** A row's position depends on the sort you chose
+  and on nothing else. A status changing repaints that row where it is. If the list *would* move
+  rows, it says so and waits: *"3 row(s) would move — reorder"*. **Keep sorted**, beside that
+  message, takes the offer for you from then on: the ordering re-applies as the list changes rather
+  than being proposed. It is remembered, and the icon says which of the two it is doing.
+  Choosing a sort has always applied at once, whichever way the switch is set — asking for a view
+  is the asking.
 - **Every column sorts, both ways.** Click a header to sort by it, click again to reverse. The
   select and the headers are the same setting, and both live in the URL.
 - **The title is the name a session keeps.** Claude rewrites its generated title as the subject
