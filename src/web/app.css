@@ -212,6 +212,17 @@ button:hover { border-color: var(--accent); }
 /* A chip that is off should still show which status it is about. */
 .chip:disabled .chip-glyph { opacity: .55; }
 
+/*
+ * The two marker filters, in the colour a set marker wears on a row.
+ *
+ * They sit at the end of a row of four status chips that each carry their own
+ * colour, so a grey eye and a grey star read as unavailable rather than as
+ * markers. Coloured whatever the chip's own state, like the status glyphs
+ * beside them: the colour says which marker this is about, not whether the
+ * filter is on — the pressed border and fill already say that.
+ */
+.chip-marker .icon { color: var(--accent); }
+
 .picker { position: relative; }
 .picker > summary {
   list-style: none;

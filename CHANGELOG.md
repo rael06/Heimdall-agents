@@ -1,5 +1,23 @@
 # Changelog
 
+## 1.1.27
+
+**The two marker filters carry their colour**, and the dates get a line of their
+own.
+
+*Watched* and *Starred* sit at the end of a row that begins with four status
+chips, each carrying the colour of the status it filters on. Those two carried a
+grey eye and a grey star — the same drawings the rows use, in none of the colour
+the rows give them — which among coloured neighbours reads as *unavailable*
+rather than as a marker. They now wear the accent a set marker wears on a row,
+in both chip states: the colour says which marker the chip is about, and the
+pressed border and fill already say whether the filter is on.
+
+*from* and *to* moved to a line of their own underneath. Two date fields wide
+enough to hold a format hint sat mid-row between the chips that narrow by kind
+and the chips that narrow by marker, splitting one row into three things to
+read.
+
 ## 1.1.26
 
 **The controls move under the title**, and *opening…* is said while it is true.
