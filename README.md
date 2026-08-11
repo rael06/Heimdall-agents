@@ -306,7 +306,9 @@ Starting it twice is not an error: the second one finds the first, prints its UR
 
 VS Code routes a URI to the **focused** window, so opening a session takes two steps: the window
 holding its workspace is brought up first, then asked to reveal the session. `--handoff-delay`
-covers the time a window takes to come up; raise it if a session opens in the wrong one.
+covers the time a window takes to come up; raise it if a session opens in the wrong one. Those
+seconds are visible: the bar beside the title says *opening…* for as long as the handover is
+running, and goes back to the scan state once it has arrived.
 
 ```
 vscode://file/<path>                                      the workspace, or the transcript

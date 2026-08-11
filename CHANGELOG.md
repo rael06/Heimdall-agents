@@ -1,5 +1,41 @@
 # Changelog
 
+## 1.1.26
+
+**The controls move under the title**, and *opening…* is said while it is true.
+
+Two things about the top of the window, both noticed by looking at it.
+
+### Eleven controls were sharing a line with the title
+
+The settings gear, the theme, the colour and its *Random*, the notification
+switch and its four statuses, the scope and *Pause* all sat on the header's
+first line, pushed against its right edge, with the application name and the
+state of the service on the left of the same line. One row, text on one side and
+controls on the other, and the state — the only thing up there that changes on
+its own — got whatever room the rest had not taken.
+
+They now have a line of their own, directly under the title, like every other
+group of controls in the window.
+
+### The progress note arrived after the progress
+
+Clicking a session showed *opening…* for a moment and then flicked back to
+*watching N root(s) — last scan …*. The message was written when the call
+**returned** — and the service performs the entire handover before it replies,
+the pause a window is given to come up included. So it announced something that
+had already finished, said nothing at all during the seconds that needed
+answering, and then sat there until some later scan happened to overwrite it: a
+lifetime decided by nothing.
+
+It is now said before the call and cleared when the session arrives, so it
+covers exactly the wait. The failure message is unchanged.
+
+The test for it stubs the handover — a real one would launch VS Code on the
+machine running the tests. Worth recording: the first version of that stub
+matched `**/api/open`, which matches nothing, because every call carries
+`?token=…`. It ran a real handover instead and said nothing about it.
+
 ## 1.1.25
 
 **The list can keep itself in order**, if you tell it to. A switch beside the

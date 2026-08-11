@@ -12,7 +12,15 @@
   <div class="bar">
     <h1>Heimdall agents</h1>
     <span id="service-state" class="muted" data-i18n="state.connecting">connecting…</span>
-    <span class="grow"></span>
+  </div>
+
+  <!-- The controls sit on a line of their own, under the title, rather than
+       pressed against the right edge of it. Eleven of them shared that line with
+       the name and the state of the service, which made one crowded row whose
+       left half was text and whose right half was not — and left the state, the
+       only thing on it that changes on its own, with whatever room the rest did
+       not take. -->
+  <div class="bar">
     <button id="open-settings" type="button" data-i18n-title="bar.settings" title="Settings">⚙</button>
     <button id="theme" type="button">Theme</button>
     <label class="swatch" data-i18n-title="bar.primary" title="Primary colour">

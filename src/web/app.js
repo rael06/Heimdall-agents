@@ -844,13 +844,24 @@ async function open(id, target) {
     // was asked for says so on screen and stays quiet.
     announce(message);
   };
+  /*
+   * Said before the call, not on the way back from it. The service runs the
+   * whole handover before it replies — including the pause a window is given to
+   * come up — so a note written afterwards announced something that had already
+   * finished, and left the click unanswered for the seconds that were the only
+   * ones needing an answer. It then stayed until some later scan happened to
+   * overwrite it, which is a lifetime decided by nothing.
+   */
+  el('service-state').textContent = t('state.opening');
   try {
     const result = await post('/api/open', { id, target });
-    const message = t(result.fellBack ? 'state.fellBack' : 'state.opening');
-    el('service-state').textContent = message;
     if (result.fellBack) {
-      announce(message);
+      say(t('state.fellBack'));
+      return;
     }
+    // It arrived, so the bar goes back to saying what it says the rest of the
+    // time rather than holding a progress note about finished progress.
+    renderService();
   } catch (error) {
     say(t('settings.failed', { error: error.message }));
   }

@@ -1226,6 +1226,36 @@ test('every action is a target of its own, reachable by keyboard', async ({ page
   await expect(row.locator('td.ws .link')).toHaveAttribute('title', /Open /);
 });
 
+test('the bar says it is opening while it opens, and not once it is done', async ({ page }) => {
+  await open(page);
+  const bar = page.locator('#service-state');
+  await expect(bar).toContainText('watching');
+
+  // The handover itself is stubbed, and held open on purpose. A real one would
+  // launch VS Code on the machine running the tests, and what is under test is
+  // when the message is said — which is only observable while the call is in
+  // flight, because the service performs the whole handover before replying.
+  let release = (): void => {};
+  const held = new Promise<void>((resolve) => {
+    release = resolve;
+  });
+  // Matched on a pattern that allows for the query string: every call carries
+  // `?token=…`, so a plain `**/api/open` glob matches nothing and the handover
+  // runs for real — which is exactly what this stub exists to prevent.
+  await page.route(/\/api\/open(\?|$)/, async (route) => {
+    await held;
+    await route.fulfill({ json: { opened: [], fellBack: false } });
+  });
+
+  await rows(page).first().locator('.title .link').click();
+  await expect(bar).toHaveText('opening…');
+
+  // And it does not outlive what it describes, waiting for a scan to clear it.
+  release();
+  await expect(bar).toContainText('watching');
+  expect(problems).toEqual([]);
+});
+
 /** The column header cell, which is the only element `aria-sort` is valid on. */
 const header = (page: Page, key: string) => page.locator(`th:has(button.sort[data-key="${key}"])`);
 
