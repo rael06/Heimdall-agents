@@ -1256,6 +1256,37 @@ test('the bar says it is opening while it opens, and not once it is done', async
   expect(problems).toEqual([]);
 });
 
+test('the marker filters wear the marker colour, and the dates have a line to themselves', async ({
+  page,
+}) => {
+  await open(page);
+  // Asked of an element that has actually applied it: a custom property reads
+  // back as its unresolved `light-dark(…, …)` token.
+  const accent = await page.evaluate(() => {
+    const probe = document.createElement('span');
+    probe.style.cssText = 'color: var(--accent); position: absolute; visibility: hidden';
+    document.body.append(probe);
+    const painted = getComputedStyle(probe).color;
+    probe.remove();
+    return painted;
+  });
+  // Both, and in both states: the colour says which marker the chip is about,
+  // not whether the filter is on.
+  for (const id of ['#watched-only', '#favorites-only']) {
+    const icon = page.locator(`${id} .icon`);
+    expect(await icon.evaluate((node) => getComputedStyle(node).color)).toBe(accent);
+    await page.locator(id).click();
+    expect(await icon.evaluate((node) => getComputedStyle(node).color)).toBe(accent);
+    await page.locator(id).click();
+  }
+
+  // And the dates sit below the chips rather than splitting them in two.
+  const chip = await page.locator('#watched-only').boundingBox();
+  const from = await page.locator('#from').boundingBox();
+  expect(from!.y).toBeGreaterThanOrEqual(chip!.y + chip!.height);
+  expect(problems).toEqual([]);
+});
+
 /** The column header cell, which is the only element `aria-sort` is valid on. */
 const header = (page: Page, key: string) => page.locator(`th:has(button.sort[data-key="${key}"])`);
 

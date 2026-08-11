@@ -96,18 +96,26 @@
       <summary><span data-i18n="bar.workspaces">Workspaces</span> <span id="workspace-count" class="muted"></span></summary>
       <div id="workspace-list" class="picker-body"></div>
     </details>
-    <label><span data-i18n="bar.from">from</span> <input id="from" type="date"></label>
-    <label><span data-i18n="bar.to">to</span> <input id="to" type="date"></label>
     <div class="chips" role="group" aria-label="Filter by marker">
-      <!-- The same eye and star the rows carry: a filter that narrows to a
-           marker should look like the marker it narrows to. -->
-      <button id="watched-only" class="chip" type="button" aria-pressed="false">
+      <!-- The same eye and star the rows carry, in the same colour: a filter
+           that narrows to a marker should look like the marker it narrows to,
+           and these two sat grey among four status chips that all carry theirs. -->
+      <button id="watched-only" class="chip chip-marker" type="button" aria-pressed="false">
         <span class="chip-label" data-i18n="bar.watched">Watched</span>
       </button>
-      <button id="favorites-only" class="chip" type="button" aria-pressed="false">
+      <button id="favorites-only" class="chip chip-marker" type="button" aria-pressed="false">
         <span class="chip-label" data-i18n="bar.starred">Starred</span>
       </button>
     </div>
+  </div>
+
+  <!-- The dates on a line of their own. Two fields wide enough to hold a format
+       hint, sitting mid-row between the chips that narrow by kind and the chips
+       that narrow by marker, split that row into three things to read instead
+       of two. -->
+  <div class="bar">
+    <label><span data-i18n="bar.from">from</span> <input id="from" type="date"></label>
+    <label><span data-i18n="bar.to">to</span> <input id="to" type="date"></label>
   </div>
 
   <div class="bar">

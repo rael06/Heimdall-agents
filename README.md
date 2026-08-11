@@ -211,7 +211,8 @@ Open that URL and you get the list, live.
 - **Updates are keyed.** Rows are addressed by identifier and their cells are rewritten in place,
   so focus, selection and scroll survive an update. Never a re-render.
 - **Watched and starred are markers and filters.** Hollow when unset, filled when set — the shape
-  carries it, not only the colour.
+  carries it, not only the colour. The two filter chips wear the same accent a set marker wears, so
+  they read as markers rather than as disabled buttons among the coloured status chips.
 - **An acknowledgement dot** on the corner of the status icon means "this status is new to you". It
   lights when a session stops, and clears when it starts working again, when you click the icon, or
   with *Acknowledge visible* — which settles what is on screen and never the rows a filter hides.
