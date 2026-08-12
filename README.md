@@ -261,7 +261,11 @@ Open that URL and you get the list, live.
   to keep. It is also what a chip starts with, so the button is how a colour that turned out badly
   is taken back. A chosen colour takes no place in the palette, so it never costs another project
   one, and *Choose for me* hands the chip back to the automatic assignment.
-- **Filters, sort and search live in the URL**, so a view reloads and can be bookmarked.
+- **Filters, sort and search live in the URL**, so a view reloads and can be bookmarked — and are
+  kept beside it, so the next start opens on the view you left rather than on the default one. The
+  address still decides: one that carries a view replaces the kept one instead of merging with it,
+  because a link is a whole view and half of someone else's filters mixed into yours is neither.
+  *Reset* clears both.
 - **A click opens the session** in VS Code — the title opens the conversation, the workspace opens
   its window, and the icon on the left opens the raw transcript. Opening a session acknowledges it.
 - **Refresh** forces a scan *and* takes the whole list back from the service, so a push missed by a

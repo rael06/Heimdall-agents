@@ -356,8 +356,40 @@ function applyLanguage() {
 // arithmetic: none of them needs a document, and all of them are worth asking
 // directly rather than through a browser.
 
+/**
+ * Everything that makes a view: the token is not part of one, and neither is
+ * the `open` a toast adds to send the browser here with a session to reveal.
+ */
+const VIEW_KEYS = [
+  'q',
+  'scope',
+  'sort',
+  'match',
+  'status',
+  'provider',
+  'ws',
+  'from',
+  'to',
+  'watched',
+  'starred',
+];
+const VIEW = 'view';
+
 function readUrl() {
-  const query = new URLSearchParams(location.search);
+  let query = new URLSearchParams(location.search);
+  /*
+   * A start carries no view — the window opens the bare address every time, and
+   * a toast adds only the session to open — so the last one is restored, from
+   * where the theme, the colours and the column widths already live. Which
+   * sessions you look at is a way of working rather than a one-off.
+   *
+   * An address that carries a view wins, and is not merged with the stored one:
+   * a link is a whole view, and half of someone else's filters mixed into yours
+   * would be neither of the two.
+   */
+  if (!VIEW_KEYS.some((key) => query.has(key))) {
+    query = new URLSearchParams(localStorage.getItem(VIEW) ?? '');
+  }
   const set = (name) => new Set((query.get(name) ?? '').split(',').filter(Boolean));
   filters.q = query.get('q') ?? '';
   filters.scope = query.get('scope') ?? 'both';
@@ -374,7 +406,10 @@ function readUrl() {
 
 /**
  * Filters, sort and search live in the URL, so a view is reloadable and can be
- * kept as a bookmark — "what is waiting on webshop" as a favourite.
+ * kept as a bookmark — "what is waiting on webshop" as a favourite — and in
+ * storage beside it, so the next start opens on the view you left rather than
+ * on the default one. The URL is still the one that decides: see
+ * {@link readUrl}.
  */
 function writeUrl() {
   const query = new URLSearchParams();
@@ -390,6 +425,11 @@ function writeUrl() {
   put('to', filters.to);
   if (filters.watchedOnly) query.set('watched', '1');
   if (filters.favoritesOnly) query.set('starred', '1');
+  // Stored before the token is added, and deliberately without it: a new token
+  // is minted every time the service starts, so a stored one would restore a
+  // view that cannot talk to it. Reset writes an empty view through here too,
+  // which is what makes it clear the stored one as well.
+  localStorage.setItem(VIEW, query.toString());
   // The token stays in the URL: without it a reload cannot talk to the service.
   query.set('token', token);
   history.replaceState(null, '', `${location.pathname}?${query}`);

@@ -1,5 +1,29 @@
 # Changelog
 
+## 1.1.29
+
+**The sort and the filters survive a restart.**
+
+They lived in the URL, which made a view reloadable and bookmarkable but did
+nothing for the case that happens every day: the window opens the bare address
+at every start, so it always came up on the default view. Whatever you had set
+up was gone with the previous run.
+
+They are now kept beside the URL, where the theme, the chosen colours and the
+column widths already live — which sessions you look at is a way of working, not
+a one-off. The search text goes with them, since it is part of the same view and
+splitting it would make *Reset* and a shared link mean two different things.
+
+**The address still decides.** One that carries a view — typed, bookmarked, sent
+to you — replaces the kept one rather than merging with it: a link is a whole
+view, and half of someone else's filters mixed into yours would be neither of
+the two. *Reset* clears what was kept as well, so the next start opens on the
+default.
+
+The token is deliberately left out of what is kept: a new one is minted every
+time the service starts, and a stored one would restore a view that cannot talk
+to it.
+
 ## 1.1.28
 
 **A session running a background task no longer says it is idle.**
