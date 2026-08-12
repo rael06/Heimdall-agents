@@ -1159,6 +1159,34 @@ test('filters and sort survive a reload, because they live in the URL', async ({
   await expect(rows(page)).toHaveCount(2);
 });
 
+test('the view you left is the view you get back, unless the address says otherwise', async ({
+  page,
+}) => {
+  await open(page);
+  await page.locator('#sort').selectOption('title-asc');
+  await page.locator('#watched-only').click();
+  await expect(page.locator('#watched-only')).toHaveAttribute('aria-pressed', 'true');
+
+  // Not a reload: the bare address, which is what a start gives you. The window
+  // opens this every time, so this is the case the URL alone never covered.
+  await open(page);
+  await expect(page.locator('#sort')).toHaveValue('title-asc');
+  await expect(page.locator('#watched-only')).toHaveAttribute('aria-pressed', 'true');
+
+  // An address carrying a view wins, and replaces the stored one rather than
+  // merging with it: a link is a whole view.
+  await open(page, '&sort=title-desc');
+  await expect(page.locator('#sort')).toHaveValue('title-desc');
+  await expect(page.locator('#watched-only')).toHaveAttribute('aria-pressed', 'false');
+
+  // And Reset clears what was kept, so the next start opens on the default.
+  await page.locator('#reset').click();
+  await open(page);
+  await expect(page.locator('#sort')).toHaveValue('created-desc');
+  await expect(page.locator('#watched-only')).toHaveAttribute('aria-pressed', 'false');
+  expect(problems).toEqual([]);
+});
+
 test('a session mid-tool is watched on its own, and shows its minutes', async ({ page }) => {
   await open(page);
   // The transcript left mid-tool was just written, so it counts as running, and
