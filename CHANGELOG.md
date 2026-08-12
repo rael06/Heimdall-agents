@@ -1,5 +1,59 @@
 # Changelog
 
+## 1.1.28
+
+**A session running a background task no longer says it is idle.**
+
+Claude Code can run a task outside the turn that started it — a background
+command, an agent, a workflow — and wake the session when it finishes. The
+transcript records `end_turn`, so the session read as *idle*, with the reason
+*"the turn ended, nothing more happens without you"*. That is the one case where
+that sentence is false: something does happen, and the session picks the work up
+on its own.
+
+It now reads as *running* while a task is in flight, and the tooltip names the
+task.
+
+### Why it was invisible
+
+A task is started by a tool call carrying an identifier and ended by a
+notification carrying the same one, so the two pair exactly. But the
+notification is written as a `queue-operation` — precisely the entry type the
+conversation walk skips as bookkeeping. The evidence was in the file the whole
+time, in the one place nothing was looking.
+
+Two windows are read rather than one. The turn state only needs the end of the
+transcript, but a task can be launched long before the turn that outlives it
+ends: measured across the transcripts on one machine, an unpaired launch sits a
+median of 173 entries from the end and up to 558, so the 80 entries the status
+reads would have missed about seven in ten.
+
+### Going cold means something here
+
+An open turn that stops being written to becomes *inconclusive*, because nothing
+can still be trusted. A background task is different: it belongs to the process
+that launched it, so a transcript that has not moved says that process is gone
+and the turn really did end — which is *idle*, a conclusion rather than the
+absence of one.
+
+That distinction is the difference between a fix and a regression. Of the 42
+sessions on this machine that the change touches, **2** are recent enough to
+read as running; the other 40 are finished work that stays idle. Without the
+rule they would all have turned inconclusive.
+
+### Codex
+
+Codex reaches the same behaviour by its own means: a `wait_agent` call with no
+output is a pending tool call, which already read as running.
+
+It is worth recording what was checked and rejected. Codex spawns sub-agents and
+writes a `sub_agent_activity` entry for each — but its kinds are only `started`,
+`interacted` and `interrupted`. There is **no event for a sub-agent finishing
+normally**, so a status built on those would light up and never go out. That is
+why this ships as a correction to an existing status rather than as a fifth one:
+a category only one provider can fill correctly is a category that reports the
+same situation differently depending on who produced it.
+
 ## 1.1.27
 
 **The two marker filters carry their colour**, and the dates get a line of their

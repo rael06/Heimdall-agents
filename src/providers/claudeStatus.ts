@@ -14,6 +14,40 @@ import { ScanOptions, StatusVerdict, TurnState, gradeTurnState } from './provide
  */
 const ASKING_TOOLS = new Set(['AskUserQuestion', 'ExitPlanMode']);
 
+/**
+ * Tools whose call outlives the turn that made it.
+ *
+ * `Workflow` always does — it returns immediately and reports back later.
+ * `Agent` does unless told otherwise, which is why the test is against an
+ * explicit `false` rather than for a `true`. Everything else, `Bash` included,
+ * only does when asked.
+ */
+function isBackgroundCall(name: string, input: Json | undefined): boolean {
+  if (name === 'Workflow') {
+    return true;
+  }
+  if (name === 'Agent') {
+    return input?.run_in_background !== false;
+  }
+  return input?.run_in_background === true;
+}
+
+/**
+ * Statuses a task notification uses to say a task is over.
+ *
+ * `running` is deliberately absent: it is a progress ping, and reading it as an
+ * ending would clear a task that is still going — the exact mistake this whole
+ * function exists to avoid.
+ */
+const TASK_FINISHED = new Set(['completed', 'failed', 'killed', 'stopped']);
+
+const TASK_NOTIFICATION = '<task-notification>';
+const NOTIFIED_ID = /<tool-use-id>([^<]+)<\/tool-use-id>/;
+const NOTIFIED_STATUS = /<status>([a-z_]+)<\/status>/;
+
+/** Trimmed so a long shell command cannot take over the tooltip. */
+const DESCRIPTION_LIMIT = 60;
+
 const INTERRUPTION_MARKERS = [
   'request interrupted by user',
   "doesn't want to proceed",
@@ -100,8 +134,58 @@ export function isConversationEntry(entry: Json): boolean {
   return entry.type === 'user' || entry.type === 'assistant';
 }
 
+/**
+ * The background task still in flight at the end of these entries, if any,
+ * named as the model described it.
+ *
+ * A task is started by a `tool_use` block and ended by a notification carrying
+ * the same identifier, so the two can be paired exactly rather than guessed at.
+ * The notification is written as a `queue-operation`, which
+ * {@link isConversationEntry} deliberately skips — the reason a session running
+ * a background task read as *idle* for as long as it did.
+ *
+ * Given a wider window than the status needs, on purpose: measured over the
+ * transcripts on one machine, an unpaired launch sits a median of 173 entries
+ * from the end and up to 558, so the 80 the turn state reads would have missed
+ * about seven in ten.
+ */
+export function pendingBackgroundTask(entries: unknown[]): string | undefined {
+  const started = new Map<string, string>();
+  for (const raw of entries) {
+    const entry = asObject(raw);
+    if (!entry) {
+      continue;
+    }
+    if (entry.type === 'assistant') {
+      for (const block of contentBlocks(entry)) {
+        const name = typeof block.name === 'string' ? block.name : '';
+        const input = asObject(block.input);
+        if (block.type !== 'tool_use' || typeof block.id !== 'string') {
+          continue;
+        }
+        if (isBackgroundCall(name, input)) {
+          const described = typeof input?.description === 'string' ? input.description.trim() : '';
+          started.set(block.id, described.slice(0, DESCRIPTION_LIMIT) || name);
+        }
+      }
+    }
+    // The notification is enqueued as bookkeeping and then delivered as a
+    // message, so it can arrive as either. Both carry the same two fields.
+    const said = typeof entry.content === 'string' ? entry.content : plainText(entry);
+    if (said.includes(TASK_NOTIFICATION) && TASK_FINISHED.has(NOTIFIED_STATUS.exec(said)?.[1] ?? '')) {
+      const id = NOTIFIED_ID.exec(said)?.[1];
+      if (id) {
+        started.delete(id);
+      }
+    }
+  }
+  // The most recent one: with several in flight, it is the one that says most
+  // about what the session is doing now.
+  return [...started.values()].pop();
+}
+
 /** What the end of the transcript says, before the clock has its say. */
-export function claudeTurnState(tail: unknown[]): TurnState {
+export function claudeTurnState(tail: unknown[], background?: string): TurnState {
   for (let index = tail.length - 1; index >= 0; index -= 1) {
     const entry = asObject(tail[index]);
     if (!entry || !isConversationEntry(entry)) {
@@ -156,6 +240,20 @@ export function claudeTurnState(tail: unknown[]): TurnState {
       // With nothing stated, the content decides, as it did before the field was
       // read: tool calls mean the turn is open, prose means it is over.
       if (toolUses.length === 0 || (reason !== undefined && reason !== 'tool_use')) {
+        // The turn ended and something it started did not, which is the one
+        // case where "nothing more happens without you" is false: the task
+        // reports back on its own and the session picks the work up again.
+        if (background) {
+          return {
+            kind: 'pending',
+            running: `The turn ended, but a background task is still running (${background}).`,
+            unknown: 'The turn ended; a background task was left without an answer.',
+            // Not inconclusive. A task belongs to the process that launched it,
+            // so a transcript this cold says that process is gone — and then the
+            // turn ended after all, which is what it says.
+            staleStatus: 'idle',
+          };
+        }
         // end_turn or stop_sequence: "a natural stopping point".
         return {
           kind: 'settled',
@@ -219,5 +317,8 @@ export function inferClaudeStatus(
   ageMs: number,
   options: ScanOptions,
 ): StatusVerdict {
-  return gradeTurnState(claudeTurnState(tail), ageMs, options);
+  // One window here, where the caller has only one to give. The provider reads
+  // a wider one for the background scan, for the reason given on
+  // {@link pendingBackgroundTask}.
+  return gradeTurnState(claudeTurnState(tail, pendingBackgroundTask(tail)), ageMs, options);
 }

@@ -106,6 +106,18 @@ which is the one way a tool like this dies, since alerts you learn to distrust a
 reading. The guess is gone. An open turn stays running until the stale delay, then becomes
 *inconclusive*, which claims nothing.
 
+**A turn can end while what it started keeps going.** Claude Code runs a task in the background and
+wakes the session when it finishes, so the transcript reads `end_turn` while work is still going on
+— and the session read as *idle*, "nothing more happens without you", which is the one case where
+that sentence is false. A task is now paired with the notification that ends it, by identifier, so a
+session with one still in flight reads as *running* and its tooltip names the task. The notification
+is written as a `queue-operation`, an entry type the conversation walk skips as bookkeeping, which
+is why this went unseen for so long. When such a session goes cold it falls back to *idle* rather
+than *inconclusive*: a task belongs to the process that launched it, so a transcript that has not
+moved says that process is gone and the turn did end after all. Codex reaches the same behaviour by
+its own means — a `wait_agent` call with no output is a pending tool call, which already reads as
+running.
+
 A 100 MB installer, 348 MB unpacked. That is what an Electron application costs.
 
 It used to say 200 MB and ~700 MB, and that was measured rather than guessed — 1.0.1 really did

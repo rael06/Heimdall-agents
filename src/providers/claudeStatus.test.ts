@@ -151,6 +151,131 @@ describe('inferClaudeStatus', () => {
     expect(inferClaudeStatus(tail, OLD, options).status).toBe('idle');
   });
 
+  /**
+   * A turn can end while something it started keeps going: the harness runs the
+   * task and wakes the session when it finishes. The transcript said `end_turn`
+   * and the session read as *idle* — "nothing more happens without you" — which
+   * was the one case where that sentence is false.
+   */
+  describe('a background task outliving the turn that started it', () => {
+    const launch = (id: string, description: string, input: Record<string, unknown> = {}) => ({
+      type: 'assistant',
+      message: {
+        role: 'assistant',
+        stop_reason: 'tool_use',
+        content: [
+          {
+            type: 'tool_use',
+            id,
+            name: 'Bash',
+            input: { command: 'npm run dist', description, run_in_background: true, ...input },
+          },
+        ],
+      },
+    });
+
+    /**
+     * Written as a `queue-operation`, which is exactly the entry type the
+     * conversation walk skips as bookkeeping — the reason this went unnoticed.
+     */
+    const notified = (id: string, status: string) => ({
+      type: 'queue-operation',
+      operation: 'enqueue',
+      content: [
+        '<task-notification>',
+        '<task-id>bnuny9zh2</task-id>',
+        `<tool-use-id>${id}</tool-use-id>`,
+        `<status>${status}</status>`,
+        '<summary>Background command "Build the installer" completed</summary>',
+        '</task-notification>',
+      ].join('\n'),
+    });
+
+    it('is running, and says which task', () => {
+      const tail = [launch('toolu_1', 'Build the installer'), assistantText('Started the build.')];
+      const verdict = inferClaudeStatus(tail, FRESH, options);
+      expect(verdict.status).toBe('running');
+      expect(verdict.reason).toContain('Build the installer');
+    });
+
+    it('goes idle rather than inconclusive once the file has gone cold', () => {
+      // A task belongs to the process that launched it. Nothing written for a
+      // day says that process is gone, so the turn did end after all. Reading it
+      // as inconclusive would have turned 43 finished sessions on this machine
+      // from idle into unknown, which is why this case is measured, not assumed.
+      const tail = [launch('toolu_1', 'Build the installer'), assistantText('Started the build.')];
+      expect(inferClaudeStatus(tail, OLD, options).status).toBe('idle');
+    });
+
+    it('is over once the notification pairs with it', () => {
+      const tail = [
+        launch('toolu_1', 'Build the installer'),
+        notified('toolu_1', 'completed'),
+        assistantText('The build is done.'),
+      ];
+      expect(inferClaudeStatus(tail, FRESH, options).status).toBe('idle');
+    });
+
+    it('is not ended by a progress ping', () => {
+      // `running` is a status a notification really carries, and reading it as
+      // an ending would clear a task that is still going.
+      const tail = [
+        launch('toolu_1', 'Build the installer'),
+        notified('toolu_1', 'running'),
+        assistantText('Still building.'),
+      ];
+      expect(inferClaudeStatus(tail, FRESH, options).status).toBe('running');
+    });
+
+    it('pairs by identifier, so another task ending does not clear this one', () => {
+      const tail = [
+        launch('toolu_1', 'Build the installer'),
+        notified('toolu_2', 'completed'),
+        assistantText('One of them finished.'),
+      ];
+      expect(inferClaudeStatus(tail, FRESH, options).status).toBe('running');
+    });
+
+    it('counts an Agent unless it was told not to run in the background', () => {
+      const agent = (background: boolean) => ({
+        type: 'assistant',
+        message: {
+          role: 'assistant',
+          stop_reason: 'tool_use',
+          content: [
+            {
+              type: 'tool_use',
+              id: 'toolu_9',
+              name: 'Agent',
+              input: background ? { description: 'Sweep the tests' } : { run_in_background: false },
+            },
+          ],
+        },
+      });
+      expect(inferClaudeStatus([agent(true), assistantText('off it goes')], FRESH, options).status)
+        .toBe('running');
+      expect(inferClaudeStatus([agent(false), assistantText('done')], FRESH, options).status)
+        .toBe('idle');
+    });
+
+    it('leaves a turn that stopped to ask you something alone', () => {
+      // Waiting on you outranks a task ticking over: the session cannot move
+      // either way until you answer.
+      const tail = [
+        launch('toolu_1', 'Build the installer'),
+        {
+          type: 'assistant',
+          message: {
+            role: 'assistant',
+            stop_reason: 'tool_use',
+            content: [{ type: 'tool_use', id: 'toolu_2', name: 'AskUserQuestion', input: {} }],
+          },
+        },
+      ];
+      expect(inferClaudeStatus(tail, FRESH, options).status).toBe('idle');
+    });
+  });
+
   it('stays unknown when nothing is usable', () => {
     expect(inferClaudeStatus([{ type: 'queue-operation' }], FRESH, options).status).toBe('unknown');
     expect(inferClaudeStatus([], FRESH, options).status).toBe('unknown');

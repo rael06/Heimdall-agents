@@ -57,7 +57,23 @@ export type TurnState =
    * no amount of waiting turns that into evidence of anything else. The clock
    * only decides when to stop believing the file at all.
    */
-  | { kind: 'pending'; running: string; unknown: string };
+  | {
+      kind: 'pending';
+      running: string;
+      unknown: string;
+      /**
+       * What a file gone cold means here, when it means more than "this can no
+       * longer be trusted". Defaults to `unknown`, which is what an open turn
+       * deserves: nothing in the transcript says whether it ever ended.
+       *
+       * A background task is the case that needed this. It belongs to the
+       * process that launched it, so a transcript that has not moved in the
+       * stale window says that process is gone and the task with it — and then
+       * the turn really did end, which is a conclusion and not an absence of
+       * one.
+       */
+      staleStatus?: SessionStatus;
+    };
 
 /** Grades what the transcript said against the current time and the settings. */
 export function gradeTurnState(
@@ -90,9 +106,9 @@ export function gradeTurnState(
 export function pendingVerdict(
   ageMs: number,
   options: ScanOptions,
-  labels: { running: string; unknown: string },
+  labels: { running: string; unknown: string; staleStatus?: SessionStatus },
 ): StatusVerdict {
   return ageMs < options.staleAfterMs
     ? { status: 'running', reason: labels.running }
-    : { status: 'unknown', reason: labels.unknown };
+    : { status: labels.staleStatus ?? 'unknown', reason: labels.unknown };
 }
