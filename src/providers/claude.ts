@@ -6,7 +6,7 @@ import { TitleIndex } from '../core/titleIndex';
 import { truncate } from '../core/text';
 import { normalizeWorkspacePath } from '../core/workspace';
 import { AgentSession } from '../model/types';
-import { claudeTurnState } from './claudeStatus';
+import { claudeTurnState, pendingBackgroundTask } from './claudeStatus';
 import { ScanOptions, ScanResult, SessionProvider, TurnState, gradeTurnState } from './provider';
 
 /**
@@ -450,7 +450,13 @@ export class ClaudeSessionProvider implements SessionProvider {
     return {
       fingerprint: fingerprint(candidate.mtimeMs, candidate.sizeBytes),
       updatedAtMs,
-      turnState: claudeTurnState(tailEntries.slice(-STATUS_LINES)),
+      // Two windows on purpose: the turn state only needs the end, while a
+      // background task can have been launched long before the turn that
+      // outlives it ended, and the notification pairing it is written after it.
+      turnState: claudeTurnState(
+        tailEntries.slice(-STATUS_LINES),
+        pendingBackgroundTask(tailEntries),
+      ),
       session: {
         ...base,
         title,
