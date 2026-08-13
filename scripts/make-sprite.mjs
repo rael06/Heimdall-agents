@@ -76,6 +76,10 @@ const WANTED = [
   // holding rows that would move.
   { id: 'sort-ascending', from: '@phosphor-icons/core/assets/regular/sort-ascending.svg' },
   { id: 'reorder', from: '@phosphor-icons/core/assets/regular/arrows-down-up.svg' },
+  // The switch for the fold holding the settings, the search and the filters.
+  // One drawing at one weight: what changes between its two states is whether
+  // the chip around it is lit, not the gear inside it.
+  { id: 'gear', from: '@phosphor-icons/core/assets/regular/gear.svg' },
 ];
 
 /**

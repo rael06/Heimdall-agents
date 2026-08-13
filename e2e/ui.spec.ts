@@ -18,8 +18,22 @@ test.afterAll(async () => {
   await service?.stop();
 });
 
-async function open(page: Page, query = ''): Promise<void> {
+/**
+ * @param controls whether the fold over the settings and the filters starts
+ * open. It is closed by default in the interface, and almost every test here
+ * drives something behind it — so the helper opens it the way a reader would,
+ * through the same stored setting the summary writes. `'default'` is for the
+ * one test that has to see the fold as a new window gets it.
+ */
+async function open(
+  page: Page,
+  query = '',
+  controls: 'open' | 'default' = 'open',
+): Promise<void> {
   problems.length = 0;
+  if (controls === 'open') {
+    await page.addInitScript(() => localStorage.setItem('controls', 'open'));
+  }
   // A page that throws on its first line still renders a header and would pass
   // every check below, so nothing the console reports is ignored.
   page.on('console', (message) => {
@@ -1314,10 +1328,14 @@ test('the marker filters wear the marker colour, and the dates have a line to th
     await page.locator(id).click();
   }
 
-  // And the dates sit below the chips rather than splitting them in two.
-  const chip = await page.locator('#watched-only').boundingBox();
+  // And the dates keep a line of their own, under the chips that narrow by kind
+  // rather than in among them. Measured against `#match` and no longer against
+  // the marker chips: those moved out of this row entirely when the settings
+  // and the filters went behind a fold, so the two are no longer on lines that
+  // can be compared.
+  const match = await page.locator('#match').boundingBox();
   const from = await page.locator('#from').boundingBox();
-  expect(from!.y).toBeGreaterThanOrEqual(chip!.y + chip!.height);
+  expect(from!.y).toBeGreaterThanOrEqual(match!.y + match!.height);
   expect(problems).toEqual([]);
 });
 
@@ -1376,6 +1394,38 @@ test('the row under the pointer answers back, in both themes', async ({ page }) 
     const plain = await page.evaluate(() => getComputedStyle(document.body).backgroundColor);
     expect(difference(hovered, plain), `${theme}: ${hovered} against ${plain}`).toBeGreaterThan(3.5);
   }
+  expect(problems).toEqual([]);
+});
+
+test('the settings and the filters fold away, and the switch says which', async ({ page }) => {
+  // Without the nudge the other tests get: this is the fold as a new window
+  // gets it.
+  await open(page, '', 'default');
+  const toggle = page.locator('#controls-toggle');
+  const dark = await toggle.evaluate((node) => getComputedStyle(node).backgroundColor);
+
+  await expect(toggle).toHaveAttribute('aria-expanded', 'false');
+  await expect(toggle).toHaveAttribute('aria-controls', 'controls');
+  await expect(page.locator('#sort')).toBeHidden();
+
+  // What stays on screen is what is looked at rather than set — and the counter
+  // in particular, which is the only thing left saying a filter is narrowing.
+  for (const id of ['#watched-only', '#favorites-only', '#counts', '#ack-all', '#refresh']) {
+    await expect(page.locator(id)).toBeVisible();
+  }
+
+  await toggle.click();
+  await expect(toggle).toHaveAttribute('aria-expanded', 'true');
+  await expect(page.locator('#sort')).toBeVisible();
+  // Lit rather than merely marked: the state has to be visible, not only in the
+  // accessibility tree.
+  const lit = await toggle.evaluate((node) => getComputedStyle(node).backgroundColor);
+  expect(difference(lit, dark), `${lit} against ${dark}`).toBeGreaterThan(3.5);
+
+  // Remembered, like the theme and the view.
+  await page.reload();
+  await expect(page.locator('#controls-toggle')).toHaveAttribute('aria-expanded', 'true');
+  await expect(page.locator('#sort')).toBeVisible();
   expect(problems).toEqual([]);
 });
 

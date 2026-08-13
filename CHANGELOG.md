@@ -1,5 +1,44 @@
 # Changelog
 
+## 1.1.32
+
+**The settings, the search and the filters fold away**, behind a gear at the
+right of the title line that is lit while they are open.
+
+They are set up occasionally and read past every time, and they were taking four
+of the six lines standing between the title and the table. Closed, the header is
+two lines.
+
+### What stays out of the fold, and why
+
+The two marker filters — *Watched* and *Starred* — move down to the line that
+stays, because narrowing to a marker is done far more often than anything behind
+the fold. They sit on the left of it, with the counter, and *Acknowledge all* and
+*Refresh* on the right.
+
+The counter is not there for symmetry. With the filters folded away, *"10 visible
+/ 327 loaded"* is the only thing left saying that one of them is narrowing the
+list. And the offer to reorder lives inside that counter's live region: folded
+away it would be hidden, so nothing there would be announced and the one action
+it offers could not be taken at the moment it appears. *Keep sorted* went the
+other way, to sit beside the sort it governs.
+
+### Not a `details`
+
+The switch is on the title line and the content is below it, and a `summary` has
+to sit with what it opens. What the platform offers for a control that reveals
+something elsewhere is `aria-expanded` on the button and `aria-controls` naming
+the panel — with `hidden="until-found"` rather than a class, so find-in-page
+still reaches what is folded and opens it to show the match. That last case is
+handled: the panel listens for `beforematch` and lights its switch, or the panel
+would be on screen with the gear still dark.
+
+### Worth knowing
+
+In a browser there are now two gears: this one, and the ⚙ that opens the settings
+dialog. The desktop window hides the second, because its menu already carries
+*Settings*, so the ambiguity does not arise there.
+
 ## 1.1.31
 
 ***Acknowledge visible* is now *Acknowledge all*, and settles everything.**
