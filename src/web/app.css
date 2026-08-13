@@ -275,7 +275,13 @@ button:hover { border-color: var(--accent); }
 }
 .picker-body label { display: flex; color: var(--fg); padding: .12rem 0; }
 
-#notices:empty { display: none; }
+/*
+ * Both notice areas collapse when they have nothing to say — and `#truncated`
+ * has to, because it is the last thing inside the fold: an empty box there would
+ * hold the gap open above the line that never folds.
+ */
+#notices:empty,
+#truncated:empty { display: none; }
 .notice {
   border: 1px solid var(--edge);
   border-left: 3px solid var(--idle);
