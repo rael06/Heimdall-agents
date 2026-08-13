@@ -30,7 +30,7 @@ const TRANSLATIONS = {
     'bar.randomTitle': 'Pick a primary colour at random',
     'bar.primary': 'Primary colour',
     'bar.notifications': 'Notifications',
-    'bar.acknowledge': 'Acknowledge visible',
+    'bar.acknowledge': 'Acknowledge all',
     'bar.workspaces': 'Workspaces',
     'bar.watched': 'Watched',
     'bar.starred': 'Starred',

@@ -1,5 +1,32 @@
 # Changelog
 
+## 1.1.31
+
+***Acknowledge visible* is now *Acknowledge all*, and settles everything.**
+
+It cleared the acknowledgement marker on the rows a filter was letting through,
+and deliberately nothing else — the reasoning being that a hundred sessions
+acknowledged by accident feels irreversible. **That decision is reversed here.**
+
+The guard was the problem. The marker says "this status is new to you", and the
+moment you are looking at a filtered view — watched only, one workspace, a
+search — the button settled what you could see and quietly left the rest marked,
+so the dots and the tray counter stayed up for sessions you had already decided
+about. A button that says *all* and settles some is worse than either of the two
+things it could have been.
+
+It now clears every marker still standing, watched or not, filter or no filter —
+including a session that has aged out of the history window and would otherwise
+keep its marker for good, since it sends the list of what is unacknowledged
+rather than the list of what is loaded.
+
+### The two languages disagreed about it
+
+English said *Acknowledge visible* and French said *Tout marquer comme vu* —
+"mark everything as seen". One of them had been describing a button that did not
+exist. The behaviour is what French claimed, and the English label now says so
+too.
+
 ## 1.1.30
 
 **The chips sit straight, and the row under the pointer answers back.**

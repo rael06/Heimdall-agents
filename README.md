@@ -227,7 +227,9 @@ Open that URL and you get the list, live.
   they read as markers rather than as disabled buttons among the coloured status chips.
 - **An acknowledgement dot** on the corner of the status icon means "this status is new to you". It
   lights when a session stops, and clears when it starts working again, when you click the icon, or
-  with *Acknowledge visible* — which settles what is on screen and never the rows a filter hides.
+  with *Acknowledge all* — which settles everything still carrying one, watched or not, including the
+  rows a filter is hiding and sessions that have aged out of the window. It used to settle only what
+  was on screen, which meant a filtered view left the rest marked and the tray counter up.
 - **Minutes in the current status**, on watched rows only, right-aligned over four characters with
   tabular digits — and sortable, longest wait first. Every row takes part in that ordering, not only
   the ones showing a number: the age behind it is a fact about all of them.
