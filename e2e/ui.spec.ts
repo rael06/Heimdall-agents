@@ -1443,6 +1443,26 @@ test('the settings and the filters fold away, and the switch says which', async 
     JSON.stringify(spacing),
   ).toBeLessThan(1);
 
+  // And the same on both sides of the banner once it has something to say. The
+  // fixture never truncates, so it is put there by hand: what is under test is
+  // the layout rule, not the service that would fill it.
+  const around = await page.evaluate(() => {
+    const box = document.querySelector('#truncated')!;
+    const notice = document.createElement('div');
+    notice.className = 'notice';
+    notice.textContent = 'left out by the history window or the session cap.';
+    box.append(notice);
+    const bar = (selector: string) =>
+      document.querySelector(selector)!.closest('.bar')!.getBoundingClientRect();
+    return {
+      above: box.getBoundingClientRect().top - bar('#from').bottom,
+      below: bar('#watched-only').top - box.getBoundingClientRect().bottom,
+      betweenTwoBars: bar('#match').top - bar('#query').bottom,
+    };
+  });
+  expect(Math.abs(around.above - around.betweenTwoBars), JSON.stringify(around)).toBeLessThan(1);
+  expect(Math.abs(around.below - around.betweenTwoBars), JSON.stringify(around)).toBeLessThan(1);
+
   // Remembered, like the theme and the view.
   await page.reload();
   await expect(page.locator('#controls-toggle')).toHaveAttribute('aria-expanded', 'true');

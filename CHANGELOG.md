@@ -1,5 +1,20 @@
 # Changelog
 
+## 1.1.34
+
+**A gap under the left-out banner**, which had none.
+
+Moving it inside the fold in 1.1.33 made it the last thing there, and nothing
+below it separated it from the line that never folds — so it sat flush against
+the marker chips. It now has the same 6.39px above and below that every other row
+in the header has. The notices outside the fold keep none: they are the last
+thing in the header, and a margin there would only push the table down.
+
+Measured on both sides rather than eyeballed, and the check runs on every build:
+the banner cannot appear in the interface tests, since their fixture is three
+sessions and nothing is ever left out, so the test puts one there itself. What is
+under test is the layout rule, not the service that would fill it.
+
 ## 1.1.33
 
 **The dates row gets its gap back, and the banner about left-out sessions folds
