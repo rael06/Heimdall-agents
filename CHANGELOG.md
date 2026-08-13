@@ -1,5 +1,44 @@
 # Changelog
 
+## 1.1.30
+
+**The chips sit straight, and the row under the pointer answers back.**
+
+### One shape for two columns
+
+The workspace chip is a button and the provider chip a span, so one laid out as
+`inline-block` and the other as `inline` — and the two columns the stylesheet
+says are "drawn the same way" measured **20.84px and 19px** tall. They are one
+shape now, and the padding lives in one place so they cannot drift apart again.
+
+### Centred on the band the letters occupy
+
+Padding on a font box is not what makes a word look centred. With the row's line
+height the box is the full ascent and descent, so a word with no ascender sits
+low in it and a word with no descender sits high — measured on the same pill,
+`app` against `claude`, which is why this looked wrong on some rows and fine on
+others.
+
+What the eye reads as centred is the band from the cap height to the baseline,
+and that band is the same for every word. Measured, it sat 6.88px below the top
+of the chip and 4.88px above the bottom. The padding is deliberately not
+symmetric now: that 2px, split, puts the band in the middle — 5.91 against 5.83
+— and leaves the descenders room to hang without touching the edge. The chip is
+the same height it was, so no row grew.
+
+### A hover worth having
+
+The hovered row was four points off white and six off the dark background. On a
+screenshot of three rows it could not be found at all, which is a repaint that
+answers nothing. It stays a neutral grey rather than moving towards the accent,
+because the selected row is the blue one and the two must not be confused: one
+says *the pointer is here*, the other *this is the row you chose*.
+
+The test for it first passed against the very value it was written to reject: a
+row that is not hovered paints nothing and computes as transparent, which reads
+as black and makes any hover look like a large difference. It compares against
+the page now.
+
 ## 1.1.29
 
 **The sort and the filters survive a restart.**

@@ -1315,6 +1315,64 @@ test('the marker filters wear the marker colour, and the dates have a line to th
   expect(problems).toEqual([]);
 });
 
+test('both chips are one shape, centred on the band the letters occupy', async ({ page }) => {
+  await open(page);
+  const chips = await page.evaluate(() => {
+    return ['tbody tr .ws .tag', 'tbody tr .badge.tag'].map((selector) => {
+      const node = document.querySelector(selector) as HTMLElement;
+      const box = node.getBoundingClientRect();
+      const style = getComputedStyle(node);
+      const canvas = document.createElement('canvas').getContext('2d')!;
+      canvas.font = `${style.fontWeight} ${style.fontSize} ${style.fontFamily}`;
+      const cap = canvas.measureText('H');
+      const range = document.createRange();
+      range.selectNodeContents(node);
+      const baseline = range.getBoundingClientRect().top + canvas.measureText('H').fontBoundingBoxAscent;
+      return {
+        word: node.textContent ?? '',
+        height: box.height,
+        // Word-independent: every word shares this band, which is why it is the
+        // one worth centring. Ink is not — `app` has no ascender and `claude`
+        // no descender, so centring ink would move the pill per row.
+        aboveCap: baseline - cap.actualBoundingBoxAscent - box.top,
+        belowBaseline: box.bottom - baseline,
+      };
+    });
+  });
+
+  // Two columns of names drawn the same way. They were 20.84px and 19px, because
+  // one chip is a button and the other a span.
+  expect(Math.abs(chips[0].height - chips[1].height)).toBeLessThan(0.5);
+  for (const chip of chips) {
+    expect(
+      Math.abs(chip.aboveCap - chip.belowBaseline),
+      `${chip.word}: ${chip.aboveCap.toFixed(2)} above the caps, ${chip.belowBaseline.toFixed(2)} below the baseline`,
+    ).toBeLessThan(1);
+  }
+  expect(problems).toEqual([]);
+});
+
+test('the row under the pointer answers back, in both themes', async ({ page }) => {
+  await open(page);
+  for (const theme of ['light', 'dark']) {
+    await page.evaluate((value) => {
+      document.documentElement.dataset.theme = value;
+    }, theme);
+    await rows(page).nth(1).hover();
+    const hovered = await rows(page)
+      .nth(1)
+      .evaluate((node) => getComputedStyle(node).backgroundColor);
+    // Against the page, not against another row: a row that is not hovered
+    // paints nothing and computes as transparent, which reads as black and
+    // makes any hover at all look like a big difference. That is exactly how
+    // the first version of this test passed against the value it was written to
+    // reject.
+    const plain = await page.evaluate(() => getComputedStyle(document.body).backgroundColor);
+    expect(difference(hovered, plain), `${theme}: ${hovered} against ${plain}`).toBeGreaterThan(3.5);
+  }
+  expect(problems).toEqual([]);
+});
+
 /** The column header cell, which is the only element `aria-sort` is valid on. */
 const header = (page: Page, key: string) => page.locator(`th:has(button.sort[data-key="${key}"])`);
 

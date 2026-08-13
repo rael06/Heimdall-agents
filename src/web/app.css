@@ -28,7 +28,17 @@
    */
   --faint: light-dark(#7b7e87, #7c7f88);
   --raised: light-dark(#f2f3f6, #1e2027);
-  --hover: light-dark(#f6f7f9, #1b1d23);
+  /*
+   * The row under the pointer, and it has to be seen to be worth having.
+   *
+   * It was #f6f7f9 and #1b1d23 — four points off white and six off the dark
+   * background, which on a screenshot of three rows was not findable at all. A
+   * hover nobody notices is a hover that costs a repaint and answers nothing.
+   * It stays a neutral grey rather than moving towards the accent, because the
+   * selected row is the blue one and the two must not be confused: this says
+   * "the pointer is here", that one says "this is the row you chose".
+   */
+  --hover: light-dark(#e9ebf0, #262932);
   --accent: light-dark(#1f5fd8, #83a9ff);
   --selected: light-dark(#dce8ff, #24314c);
   /*
@@ -582,7 +592,32 @@ td.ws .link {
    */
   border-color: light-dark(oklch(.55 .12 var(--hue)), oklch(.68 .12 var(--hue)));
   border-radius: 999px;
-  padding: 0 .45rem;
+  /*
+   * Centred by the layout rather than by the font's metrics, and both chips the
+   * same way.
+   *
+   * Measured before changing anything: the workspace chip is a button and the
+   * provider chip a span, so one laid out as `inline-block` and the other as
+   * `inline`, and the two columns the stylesheet says are "drawn the same way"
+   * came out 20.84px and 19px tall. The taller one also held its text 1px from
+   * the top and 2.84px from the bottom.
+   *
+   * Padding on a font box is not what makes a word look centred, though. With
+   * `line-height` at the row's 1.45 the box is the full ascent and descent, so a
+   * word with no ascender sits low in it and a word with no descender sits high
+   * — measured on the same pill, `app` against `claude`.
+   *
+   * So the padding is not symmetric, and it is not meant to be. What the eye
+   * reads as centred is the band from the cap height to the baseline, which is
+   * the same for every word; measured on this font at this size, that band sat
+   * 6.88px below the top and 4.88px above the bottom. The extra tenth of a rem
+   * underneath is that 2px difference, split, and it leaves the descenders room
+   * to hang without touching the edge.
+   */
+  display: inline-flex;
+  align-items: center;
+  line-height: 1;
+  padding: .12rem .45rem .24rem;
 }
 /* A plain link recolours to the accent on hover. On a chip that drops a blue
    word onto a coloured field with no contrast guarantee, so the tag keeps its
@@ -601,7 +636,8 @@ td.ws .link {
 .badge.tag {
   border-color: light-dark(oklch(.55 .12 var(--hue)), oklch(.68 .12 var(--hue)));
   font-size: inherit;
-  padding: 0 .45rem;
+  /* Padding and layout come from `.tag` now, so the two columns cannot drift
+     apart again the way they had. */
 }
 
 /*
