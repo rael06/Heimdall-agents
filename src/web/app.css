@@ -282,6 +282,11 @@ button:hover { border-color: var(--accent); }
  */
 #notices:empty,
 #truncated:empty { display: none; }
+/* And a gap under it when it does say something: it is the last thing inside the
+   fold, so nothing below would otherwise separate it from the line that never
+   folds. `#notices` gets none — it is the last thing in the header, and a margin
+   there would only push the table down. */
+#truncated:not(:empty) { margin-bottom: .4rem; }
 .notice {
   border: 1px solid var(--edge);
   border-left: 3px solid var(--idle);
