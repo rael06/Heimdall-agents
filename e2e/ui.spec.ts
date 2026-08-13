@@ -1422,6 +1422,27 @@ test('the settings and the filters fold away, and the switch says which', async 
   const lit = await toggle.evaluate((node) => getComputedStyle(node).backgroundColor);
   expect(difference(lit, dark), `${lit} against ${dark}`).toBeGreaterThan(3.5);
 
+  // What the history window and the cap left out folds with the two settings
+  // that decide it. What means something is actually wrong does not.
+  await expect(page.locator('#controls #truncated')).toHaveCount(1);
+  await expect(page.locator('#controls #notices')).toHaveCount(0);
+
+  // The dates row keeps the gap every other row has. It had none: it was the
+  // last child of the fold, and the rule that flattens the last bar of the
+  // header caught it, so the marker chips sat flush against the date fields.
+  const spacing = await page.evaluate(() => {
+    const bar = (selector: string) =>
+      document.querySelector(selector)!.closest('.bar')!.getBoundingClientRect();
+    return {
+      afterTheDates: bar('#watched-only').top - bar('#from').bottom,
+      betweenTwoBars: bar('#match').top - bar('#query').bottom,
+    };
+  });
+  expect(
+    Math.abs(spacing.afterTheDates - spacing.betweenTwoBars),
+    JSON.stringify(spacing),
+  ).toBeLessThan(1);
+
   // Remembered, like the theme and the view.
   await page.reload();
   await expect(page.locator('#controls-toggle')).toHaveAttribute('aria-expanded', 'true');

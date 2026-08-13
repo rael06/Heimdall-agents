@@ -818,40 +818,53 @@ function renderEmpty(visible) {
  * now that it is a live region: identical notices, torn down and put back every
  * thirty seconds, would be read out every thirty seconds.
  */
+/** Writes a list of messages, and only when it actually changed. */
+function fillNotices(node, messages) {
+  // A newline, not a NUL, for the same reason the workspace list uses one.
+  const signature = messages.join('\n');
+  if (node.dataset.signature === signature) {
+    return;
+  }
+  node.dataset.signature = signature;
+  node.textContent = '';
+  for (const message of messages) {
+    const div = document.createElement('div');
+    div.className = 'notice';
+    div.textContent = message;
+    node.append(div);
+  }
+}
+
+/**
+ * Two places, because these are two kinds of thing.
+ *
+ * A scan that failed, a root nobody is watching and a paused service are all
+ * something being wrong now, and they stay on screen: an error behind a fold is
+ * an error nobody reads. The history window and the session cap leaving sessions
+ * out is not wrong, it is the setting doing its job — and the two settings that
+ * decide it live behind the fold, so their consequence goes with them.
+ */
 function renderNotices() {
-  const notices = el('notices');
   const service = state.service;
-  const messages = [];
+  const problems = [];
   if (service) {
-    if (service.paused) messages.push(t('notice.paused'));
+    if (service.paused) problems.push(t('notice.paused'));
     for (const provider of service.providers) {
       if (provider.error) {
-        messages.push(t('notice.scanFailed', {
+        problems.push(t('notice.scanFailed', {
           provider: provider.provider, root: provider.root, error: provider.error,
         }));
       }
     }
     for (const failure of service.watchFailures) {
-      messages.push(t('notice.notWatching', { root: failure.root, error: failure.error }));
-    }
-    if (service.truncated > 0) {
-      messages.push(t('notice.truncated', { count: service.truncated }));
+      problems.push(t('notice.notWatching', { root: failure.root, error: failure.error }));
     }
   }
-
-  // A newline, not a NUL, for the same reason the workspace list uses one.
-  const signature = messages.join('\n');
-  if (notices.dataset.signature === signature) {
-    return;
-  }
-  notices.dataset.signature = signature;
-  notices.textContent = '';
-  for (const message of messages) {
-    const div = document.createElement('div');
-    div.className = 'notice';
-    div.textContent = message;
-    notices.append(div);
-  }
+  fillNotices(el('notices'), problems);
+  fillNotices(
+    el('truncated'),
+    service && service.truncated > 0 ? [t('notice.truncated', { count: service.truncated })] : [],
+  );
 }
 
 function renderWorkspaces() {

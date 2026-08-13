@@ -1,5 +1,27 @@
 # Changelog
 
+## 1.1.33
+
+**The dates row gets its gap back, and the banner about left-out sessions folds
+away with the settings that cause it.**
+
+The date fields sat flush against the marker chips below them. The rule that
+flattens the bottom margin of the header's last bar was written when that bar was
+the last thing in the header; the dates row had become the last thing inside the
+fold, so it caught the same rule and lost the gap every other row has.
+
+### Only the banner folds, not the notices
+
+*"180 session(s) left out by the history window or the session cap"* is those two
+settings doing their job, and both of them live behind the fold, so its
+consequence goes with them. **This reverses what was said one release ago** —
+that folding a warning away is worse than showing it. It holds for a warning; it
+does not hold for a sentence that repeats a setting back at you on every screen.
+
+The notices that mean something is actually wrong stay out: a scan that failed, a
+root nobody is watching, a paused service. An error behind a fold is an error
+nobody reads, and those are the ones the argument was really about.
+
 ## 1.1.32
 
 **The settings, the search and the filters fold away**, behind a gear at the

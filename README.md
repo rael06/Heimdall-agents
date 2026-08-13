@@ -270,6 +270,9 @@ Open that URL and you get the list, live.
   the two buttons that act on the list. The counter is deliberately among them — with the filters
   folded away, *"10 visible / 327 loaded"* is the only thing left saying one is narrowing. The fold
   is remembered, and closed the first time.
+- **What the history window and the session cap left out folds with them**, since it is those two
+  settings doing their job rather than something going wrong. A failed scan, a root nobody is
+  watching and a paused service stay on screen: an error behind a fold is an error nobody reads.
 - **Filters, sort and search live in the URL**, so a view reloads and can be bookmarked — and are
   kept beside it, so the next start opens on the view you left rather than on the default one. The
   address still decides: one that carries a view replaces the kept one instead of merging with it,
