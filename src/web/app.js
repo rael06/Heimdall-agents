@@ -1817,11 +1817,23 @@ function wireControls() {
     state.service = await post(paused ? '/api/resume' : '/api/pause');
     renderService();
   });
-  // Acknowledging everything settles what is on screen, never the rows a filter
-  // is hiding: a hundred sessions acknowledged by accident feels irreversible.
-  el('ack-visible').addEventListener('click', () =>
-    acknowledge([...rowsBody.children].map((tr) => tr.dataset.id)),
-  );
+  /*
+   * Everything carrying an unseen marker, not the rows that happen to be on
+   * screen.
+   *
+   * It used to settle only what a filter was letting through, so that a hundred
+   * rows could not be acknowledged by accident. That guard turned out to be the
+   * problem: the marker exists to say "this is new to you", and the moment you
+   * are looking at a filtered view — watched only, one workspace — the button
+   * silently left the rest marked, so the tray counter and the dots stayed up
+   * for sessions you had decided about. A button that says *all* and settles
+   * some is worse than either.
+   *
+   * The unacknowledged list rather than the loaded sessions: it is exactly what
+   * still carries a dot, including a session that has aged out of the window and
+   * would otherwise keep its marker forever.
+   */
+  el('ack-all').addEventListener('click', () => acknowledge([...state.marks.unacknowledged]));
 
   document.addEventListener('keydown', (event) => {
     const typing = ['INPUT', 'SELECT', 'TEXTAREA'].includes(event.target.tagName);

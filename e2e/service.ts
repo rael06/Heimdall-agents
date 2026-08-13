@@ -107,6 +107,51 @@ export async function finishRunningSession(home: string): Promise<void> {
   await fs.appendFile(file, `\n${JSON.stringify(entry)}`);
 }
 
+const SITE_SESSION = path.join(
+  'claude',
+  'projects',
+  'c--Users-dev-projects-site',
+  '33333333-3333-3333-3333-333333333333.jsonl',
+);
+
+async function append(home: string, entry: unknown): Promise<void> {
+  await fs.appendFile(path.join(home, SITE_SESSION), `\n${JSON.stringify(entry)}`);
+}
+
+/**
+ * Puts the finished session in the other project back to work.
+ *
+ * A session only becomes unseen by stopping, so producing one to acknowledge
+ * means moving it through both states. Split in two so the caller can wait for
+ * the first to be observed before asking for the second: the service has to see
+ * the session running, or the stop is a transition from idle to idle and no
+ * marker lights.
+ */
+export async function startSiteSession(home: string): Promise<void> {
+  await append(home, {
+    type: 'assistant',
+    timestamp: '2026-07-27T11:00:00.000Z',
+    message: {
+      role: 'assistant',
+      stop_reason: 'tool_use',
+      content: [{ type: 'tool_use', id: 'call-2', name: 'Bash', input: {} }],
+    },
+  });
+}
+
+/** Ends that turn, which is what leaves something on the row you have not seen. */
+export async function stopSiteSession(home: string): Promise<void> {
+  await append(home, {
+    type: 'assistant',
+    timestamp: '2026-07-27T11:01:00.000Z',
+    message: {
+      role: 'assistant',
+      stop_reason: 'end_turn',
+      content: [{ type: 'text', text: 'Finished the second pass.' }],
+    },
+  });
+}
+
 export async function startService(): Promise<RunningService> {
   const home = await fs.mkdtemp(path.join(os.tmpdir(), 'asm-e2e-'));
   const project = path.join(home, 'claude', 'projects', 'c--Users-dev-projects-app');

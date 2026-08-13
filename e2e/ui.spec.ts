@@ -1,5 +1,11 @@
 import { Page, expect, test } from '@playwright/test';
-import { RunningService, finishRunningSession, startService } from './service';
+import {
+  RunningService,
+  finishRunningSession,
+  startService,
+  startSiteSession,
+  stopSiteSession,
+} from './service';
 
 let service: RunningService;
 const problems: string[] = [];
@@ -888,12 +894,12 @@ test('refresh sits beside acknowledge, on the bar that carries the counter', asy
   // toolbars apart — and refresh is no longer among the settings, where it was
   // the only control that touched the rows instead of how they behave.
   await expect(bar.locator('#counts')).toBeVisible();
-  await expect(bar.locator('#ack-visible')).toBeVisible();
+  await expect(bar.locator('#ack-all')).toBeVisible();
   await expect(bar.locator('#refresh')).toBeVisible();
 
   const order = await bar.locator('button').evaluateAll((nodes) => nodes.map((node) => node.id));
-  expect(order.indexOf('ack-visible')).toBeGreaterThanOrEqual(0);
-  expect(order.indexOf('refresh')).toBeGreaterThan(order.indexOf('ack-visible'));
+  expect(order.indexOf('ack-all')).toBeGreaterThanOrEqual(0);
+  expect(order.indexOf('refresh')).toBeGreaterThan(order.indexOf('ack-all'));
 
   // Moving it changed nothing about what it does, keyboard included.
   await page.locator('body').press('r');
@@ -1577,5 +1583,38 @@ test('a status change arrives on its own, and marks the row unseen', async ({ pa
 
   await status.click();
   await expect(status).toHaveAttribute('data-unseen', 'false');
+  expect(problems).toEqual([]);
+});
+
+/*
+ * Last in the file on purpose: it drives one of the fixture sessions through a
+ * second turn, so anything asserting that session's status afterwards would be
+ * reading state this test made.
+ */
+test('acknowledging all settles the rows a filter is hiding too', async ({ page }) => {
+  await open(page);
+  const landing = () => rows(page).filter({ hasText: 'Rewrite the landing page' });
+
+  // Waited for rather than slept through: the service has to see it running, or
+  // stopping is a transition from idle to idle and no marker lights.
+  await startSiteSession(service.home);
+  await expect(landing().locator('.status')).toHaveAttribute('data-status', 'running', {
+    timeout: 20000,
+  });
+  await stopSiteSession(service.home);
+  await expect(landing().locator('.status')).toHaveAttribute('data-unseen', 'true', {
+    timeout: 20000,
+  });
+
+  // Out of sight behind a search, which is exactly what the button used to
+  // leave marked: it settled the rows on screen and nothing else.
+  await page.locator('#query').fill('importer');
+  await expect(rows(page)).toHaveCount(1);
+  await expect(landing()).toHaveCount(0);
+
+  await page.locator('#ack-all').click();
+
+  await page.locator('#query').fill('');
+  await expect(landing().locator('.status')).toHaveAttribute('data-unseen', 'false');
   expect(problems).toEqual([]);
 });
