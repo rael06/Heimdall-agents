@@ -263,6 +263,13 @@ Open that URL and you get the list, live.
   to keep. It is also what a chip starts with, so the button is how a colour that turned out badly
   is taken back. A chosen colour takes no place in the palette, so it never costs another project
   one, and *Choose for me* hands the chip back to the automatic assignment.
+- **The settings, the search and the filters fold away**, behind the gear at the right of the title
+  line, which is lit while they are open. They are set up occasionally and read past every time, and
+  they were taking four of the six lines between the title and the table. What stays on screen is
+  what is looked at rather than set: the two marker filters, the counter, the offer to reorder, and
+  the two buttons that act on the list. The counter is deliberately among them — with the filters
+  folded away, *"10 visible / 327 loaded"* is the only thing left saying one is narrowing. The fold
+  is remembered, and closed the first time.
 - **Filters, sort and search live in the URL**, so a view reloads and can be bookmarked — and are
   kept beside it, so the next start opens on the view you left rather than on the default one. The
   address still decides: one that carries a view replaces the kept one instead of merging with it,
@@ -465,8 +472,13 @@ Different evidence, same behaviour, nothing installed on either side.
 
 ## Settings
 
-The gear in the toolbar opens them, and so does **File → Settings** on `Ctrl+,`: where the transcripts are, what is scanned, how a status ages,
-whether to start with Windows, whether to show the tray icon.
+**File → Settings** on `Ctrl+,` opens them — as does the ⚙ button, which the desktop window hides
+because the menu already carries it and a browser keeps because it is the only door: where the
+transcripts are, what is scanned, how a status ages, whether to start with Windows, whether to show
+the tray icon.
+
+Not to be confused with the **gear at the right of the title line**, which folds the settings, the
+search and the filters away rather than opening a dialog. It is lit while they are on screen.
 
 **Detect** probes for the transcript directories rather than guessing — the environment variable,
 the usual place, a relocated profile — and counts what it finds under each. A directory that exists

@@ -233,6 +233,18 @@ button:hover { border-color: var(--accent); }
  */
 .chip-marker .icon { color: var(--accent); }
 
+/*
+ * The switch for the fold, lit while what it opens is on screen.
+ *
+ * `aria-expanded` rather than `aria-pressed`, because it opens something rather
+ * than holding a state, and the two are drawn alike on purpose: the eye should
+ * not have to learn that this particular lit chip means something else.
+ */
+.chip[aria-expanded="true"] {
+  border-color: var(--accent);
+  background: var(--selected);
+}
+
 .picker { position: relative; }
 .picker > summary {
   list-style: none;

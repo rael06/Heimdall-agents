@@ -12,7 +12,35 @@
   <div class="bar">
     <h1>Heimdall agents</h1>
     <span id="service-state" class="muted" data-i18n="state.connecting">connecting…</span>
+    <span class="grow"></span>
+    <!-- The switch for the fold below, at the far end of the title line. It is
+         lit while the fold is open and dark while it is shut, like the
+         notification switch: a control whose state you cannot see is one you end
+         up fighting. The label is for readers who cannot see the gear. -->
+    <button id="controls-toggle" class="chip" type="button" aria-expanded="false"
+            aria-controls="controls" data-i18n-title="bar.controls"
+            data-i18n-aria-label="bar.controls" title="Filters and settings"></button>
   </div>
+
+  <!--
+    Everything that sets the list up, behind one fold: the settings, the search,
+    the sort and the filters. They are reached occasionally and they were taking
+    four of the six lines standing between the title and the table.
+
+    Not a `details`: its switch lives on the title line, and a `summary` has to
+    sit with the content it opens. What the platform offers for a control that
+    reveals something elsewhere is exactly this pair — `aria-expanded` on the
+    button, `aria-controls` naming what it opens — and `hidden="until-found"`
+    rather than a class, so find-in-page still reaches what is folded away and
+    opens it to show the match.
+
+    What deliberately stays outside is what is looked at rather than set: the two
+    marker filters, the counter, and — the reason this is not a matter of taste —
+    the offer to reorder, which lives inside that counter's live region. Folded
+    away it would be hidden, so nothing there would be announced and the one
+    action it offers could not be taken at the moment it appears.
+  -->
+  <div id="controls" hidden="until-found">
 
   <!-- The controls sit on a line of their own, under the title, rather than
        pressed against the right edge of it. Eleven of them shared that line with
@@ -78,6 +106,14 @@
         <option value="title-desc" data-i18n="sort.title-desc">title, Z to A</option>
       </select>
     </label>
+    <!-- Beside the sort it governs, now that both are behind the same fold: it
+         decides whether that ordering re-applies as the list changes or is
+         offered first. The label sits in its own span so the icon prepended at
+         boot survives a language change. -->
+    <button id="auto-sort" class="chip" type="button" aria-pressed="false"
+            data-i18n-title="bar.autoSortTitle">
+      <span class="chip-label" data-i18n="bar.autoSort">Keep sorted</span>
+    </button>
     <button id="reset" type="button">
       <span class="chip-label" data-i18n="bar.reset">Reset</span>
     </button>
@@ -96,6 +132,21 @@
       <summary><span data-i18n="bar.workspaces">Workspaces</span> <span id="workspace-count" class="muted"></span></summary>
       <div id="workspace-list" class="picker-body"></div>
     </details>
+  </div>
+
+  <!-- The dates on a line of their own. Two fields wide enough to hold a format
+       hint, sitting mid-row between the chips that narrow by kind and the chips
+       that narrow by marker, split that row into three things to read instead
+       of two. -->
+  <div class="bar">
+    <label><span data-i18n="bar.from">from</span> <input id="from" type="date"></label>
+    <label><span data-i18n="bar.to">to</span> <input id="to" type="date"></label>
+  </div>
+  </div>
+
+  <!-- The line that stays. Narrowing to a marker is done far more often than
+       anything behind the fold, so those two keep their place on screen. -->
+  <div class="bar">
     <div class="chips" role="group" aria-label="Filter by marker">
       <!-- The same eye and star the rows carry, in the same colour: a filter
            that narrows to a marker should look like the marker it narrows to,
@@ -107,32 +158,15 @@
         <span class="chip-label" data-i18n="bar.starred">Starred</span>
       </button>
     </div>
-  </div>
-
-  <!-- The dates on a line of their own. Two fields wide enough to hold a format
-       hint, sitting mid-row between the chips that narrow by kind and the chips
-       that narrow by marker, split that row into three things to read instead
-       of two. -->
-  <div class="bar">
-    <label><span data-i18n="bar.from">from</span> <input id="from" type="date"></label>
-    <label><span data-i18n="bar.to">to</span> <input id="to" type="date"></label>
-  </div>
-
-  <div class="bar">
     <!-- Both change for the same reason — the list moved — so they are announced
-         together rather than as two unrelated interruptions. -->
+         together rather than as two unrelated interruptions. And they are out of
+         the fold on purpose: a live region inside a closed `details` announces
+         nothing, and the offer it holds is the one thing here that has to be
+         clickable the moment it appears. -->
     <span class="live" role="status">
       <span id="counts" class="muted"></span>
       <button id="reorder" type="button" class="hidden"></button>
     </span>
-    <!-- Beside the offer it replaces, and deliberately outside the live region:
-         a switch that lives in a `role="status"` has every press announced as
-         news about the list, which it is not. The label sits in its own span so
-         the icon prepended at boot survives a language change. -->
-    <button id="auto-sort" class="chip" type="button" aria-pressed="false"
-            data-i18n-title="bar.autoSortTitle">
-      <span class="chip-label" data-i18n="bar.autoSort">Keep sorted</span>
-    </button>
     <span class="grow"></span>
     <!-- Both act on the list as it stands: one settles what is on screen, the
          other re-reads it. They belong beside the counter that says whether

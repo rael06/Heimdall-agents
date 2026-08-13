@@ -715,6 +715,34 @@ function syncRows(target, applyOrder) {
 const AUTO_SORT = 'autoSort';
 const autoSorting = () => localStorage.getItem(AUTO_SORT) === 'on';
 
+/**
+ * Whether the fold over the settings and the filters is open, kept where the
+ * theme and the view already are.
+ *
+ * Closed by default, which is the point of the fold: those four lines are set up
+ * occasionally and then read past every time. What guards against forgetting a
+ * filter is left behind it is the counter, which stays on screen and says "10
+ * visible / 327 loaded" whether the fold is open or not.
+ */
+const CONTROLS = 'controls';
+
+/**
+ * `until-found` rather than a class: the content stays reachable by find-in-page,
+ * which opens it to show the match — and that is the case
+ * {@link showControls} exists to catch, since the switch would otherwise still
+ * read as off over an open panel.
+ */
+function showControls(open) {
+  const panel = el('controls');
+  if (open) panel.removeAttribute('hidden');
+  else panel.setAttribute('hidden', 'until-found');
+  el('controls-toggle').setAttribute('aria-expanded', String(open));
+}
+
+function syncControlsFold() {
+  showControls(localStorage.getItem(CONTROLS) === 'open');
+}
+
 /** The switch says which of the two it is doing, in its state and its icon. */
 function syncAutoSort() {
   const on = autoSorting();
@@ -1796,6 +1824,18 @@ function wireControls() {
     // asking, exactly as pressing the reorder offer is.
     render(next);
   });
+  el('controls-toggle').addEventListener('click', () => {
+    const open = el('controls-toggle').getAttribute('aria-expanded') !== 'true';
+    localStorage.setItem(CONTROLS, open ? 'open' : 'closed');
+    showControls(open);
+  });
+  // Find-in-page reveals `hidden="until-found"` content by itself, and this is
+  // the only warning it gives. Without it the panel would be on screen with its
+  // switch still dark, and the next click would "open" what is already open.
+  el('controls').addEventListener('beforematch', () => {
+    localStorage.setItem(CONTROLS, 'open');
+    el('controls-toggle').setAttribute('aria-expanded', 'true');
+  });
   el('reset').addEventListener('click', resetFilters);
   el('reorder').addEventListener('click', () => render(true));
   el('refresh').addEventListener('click', () => void refreshAll());
@@ -1964,6 +2004,10 @@ async function boot() {
   // Before the language pass: these buttons keep their words in a `.chip-label`
   // span, and the icon sits outside it precisely so translating one does not
   // remove the other.
+  // Before anything is drawn, so the fold does not open and shut in front of you
+  // on every start.
+  syncControlsFold();
+  prependIcon(el('controls-toggle'), 'gear');
   prependIcon(el('watched-only'), 'eye');
   prependIcon(el('favorites-only'), 'star');
   prependIcon(el('notify'), 'bell');
