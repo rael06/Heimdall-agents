@@ -1,5 +1,43 @@
 # Changelog
 
+## 1.2.0
+
+**A session waiting for a permission now says so**, instead of reading as a tool
+that is running.
+
+Two sessions sat at *running* for over an hour while both were stopped on a
+permission prompt. That was not a bug in the reading: on disk the transcript ends
+on a tool call with no result, and so does a tool that is simply taking four
+minutes. The two are the same object, which is why calling the second one
+"waiting for you" past a delay was tried, was wrong on every slow command, and
+was removed.
+
+### The agents can be asked to say it out loud
+
+Claude Code and Codex both fire a `PermissionRequest` hook. A hook that writes
+one small file per session — `<shared-dir>/status/<provider>-<sessionId>.json` —
+turns the unsayable into a fact on disk, and the format is documented in the
+README so it can be installed by anyone.
+
+A session whose turn is open and whose report is not older than the last thing
+written to its transcript reads as **idle**, *"stopped to ask you for a
+permission"*, and notifies like any other session that stopped. Nothing has to
+clean up after it: answering runs the tool, which writes a result younger than
+the request, and the report falls behind on its own.
+
+It stays *idle* however long the wait. A permission does not stop waiting for you
+by waiting longer, and that is exactly where the old status was worst — the
+longer it mattered, the further the row drifted from what it meant.
+
+### Why this is allowed and `~/.claude/sessions/<pid>.json` was not
+
+That file was dropped because only Claude had it, so the same situation would
+have been reported differently depending on who produced it. Here both agents
+write the same shape into the same directory through the same hook, and the
+verdict is reached in one place that neither provider owns. Nothing is required:
+with no hook installed there are no files, and the status is decided exactly as
+before.
+
 ## 1.1.34
 
 **A gap under the left-out banner**, which had none.

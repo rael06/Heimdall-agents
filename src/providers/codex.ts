@@ -7,7 +7,7 @@ import { normalizeWorkspacePath } from '../core/workspace';
 import { AgentSession } from '../model/types';
 import { RolloutFragment, RolloutThread, groupFragments, isInjectedContext } from './codexThread';
 import { codexTurnState } from './codexStatus';
-import { ScanOptions, ScanResult, SessionProvider, TurnState, gradeTurnState } from './provider';
+import { ScanOptions, ScanResult, SessionProvider, TurnState, verdictFor } from './provider';
 
 /**
  * Codex stores rollout files under
@@ -331,8 +331,11 @@ export class CodexSessionProvider implements SessionProvider {
       };
     }
 
-    const ageMs = Math.max(0, options.now - cached.updatedAtMs);
-    const verdict = gradeTurnState(cached.turnState, ageMs, options);
+    const verdict = await verdictFor(
+      cached.turnState,
+      { provider: this.id, nativeId: thread.threadId, updatedAtMs: cached.updatedAtMs },
+      options,
+    );
     const indexTitle = titles.get(thread.threadId);
     return {
       ...cached.session,

@@ -15,6 +15,15 @@ export interface ScanOptions {
    * full scan: the directories are walked and every changed file is read.
    */
   focusIds?: ReadonlySet<string>;
+  /**
+   * When a hook last reported this session as waiting for an answer, in ms, or
+   * nothing. Absent altogether when no shared directory is configured, which is
+   * how every existing caller keeps its old behaviour.
+   *
+   * On the options rather than inside a provider, because both of them have to
+   * reach the same verdict from it and neither should own the rule.
+   */
+  waitingSince?: (provider: ProviderId, nativeId: string) => Promise<number | undefined>;
 }
 
 export interface ScanResult {
@@ -103,6 +112,35 @@ export function gradeTurnState(
  * which says the only true thing left: the file has not moved in a long time
  * and nothing in it can be trusted to still describe the session.
  */
+/**
+ * The verdict for one session: what its transcript said, against the clock and
+ * against anything a hook reported.
+ *
+ * The hook is only consulted on a turn the transcript leaves open, which is the
+ * only state a permission request can be sitting in — and it only counts if it
+ * is not older than the last thing written to the transcript. That comparison
+ * is what makes it self-clearing: the moment you answer, the tool runs and
+ * writes its result, and the report is behind again.
+ *
+ * `idle` rather than a state of its own, and settled rather than ageing into
+ * inconclusive: a permission does not stop waiting for you because it has been
+ * waiting a long time. That is the case where the old status was worst — the
+ * longer it mattered, the further the row drifted from what it meant.
+ */
+export async function verdictFor(
+  state: TurnState,
+  session: { provider: ProviderId; nativeId: string; updatedAtMs: number },
+  options: ScanOptions,
+): Promise<StatusVerdict> {
+  if (state.kind === 'pending' && options.waitingSince) {
+    const asked = await options.waitingSince(session.provider, session.nativeId);
+    if (asked !== undefined && asked >= session.updatedAtMs) {
+      return { status: 'idle', reason: 'Stopped to ask you for a permission.' };
+    }
+  }
+  return gradeTurnState(state, Math.max(0, options.now - session.updatedAtMs), options);
+}
+
 export function pendingVerdict(
   ageMs: number,
   options: ScanOptions,

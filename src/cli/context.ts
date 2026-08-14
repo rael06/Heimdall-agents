@@ -1,4 +1,5 @@
 import * as path from 'node:path';
+import { waitingReader } from '../core/attention';
 import { SessionStore } from '../core/store';
 import { ClaudeSessionProvider } from '../providers/claude';
 import { CodexSessionProvider } from '../providers/codex';
@@ -30,11 +31,15 @@ function buildProviders(settings: Settings): SessionProvider[] {
  */
 export function buildStore(settings: Settings): SessionStore {
   const providers = buildProviders(settings);
+  // Built once: it closes over the directory, and every call is one small read
+  // of one file, for the handful of sessions whose turn is still open.
+  const waitingSince = waitingReader(settings.sharedDir);
   const options = (): ScanOptions => ({
     now: Date.now(),
     staleAfterMs: settings.staleAfterMs,
     historyMs: settings.historyMs,
     maxSessions: settings.maxSessions,
+    waitingSince,
   });
   return new SessionStore(() => providers, options);
 }
