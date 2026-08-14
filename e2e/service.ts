@@ -152,6 +152,38 @@ export async function stopSiteSession(home: string): Promise<void> {
   });
 }
 
+const RUNNING_SESSION = '22222222-2222-2222-2222-222222222222';
+
+/**
+ * Writes what a `PermissionRequest` hook writes, for the session the fixture
+ * leaves mid-tool.
+ *
+ * Dated now on purpose: the report only counts while it is younger than the
+ * last thing written to the transcript, and the fixture's last entry is dated
+ * last month.
+ */
+export async function reportWaiting(home: string): Promise<void> {
+  const dir = path.join(home, 'shared', 'status');
+  await fs.mkdir(dir, { recursive: true });
+  await fs.writeFile(
+    path.join(dir, `claude-${RUNNING_SESSION}.json`),
+    JSON.stringify({
+      version: 1,
+      provider: 'claude',
+      sessionId: RUNNING_SESSION,
+      event: 'PermissionRequest',
+      at: new Date().toISOString(),
+    }),
+  );
+}
+
+/** Takes it back, which is how the test leaves the fixture as it found it. */
+export async function clearWaiting(home: string): Promise<void> {
+  await fs
+    .rm(path.join(home, 'shared', 'status', `claude-${RUNNING_SESSION}.json`))
+    .catch(() => undefined);
+}
+
 export async function startService(): Promise<RunningService> {
   const home = await fs.mkdtemp(path.join(os.tmpdir(), 'asm-e2e-'));
   const project = path.join(home, 'claude', 'projects', 'c--Users-dev-projects-app');

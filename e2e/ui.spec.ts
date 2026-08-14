@@ -1,7 +1,9 @@
 import { Page, expect, test } from '@playwright/test';
 import {
   RunningService,
+  clearWaiting,
   finishRunningSession,
+  reportWaiting,
   startService,
   startSiteSession,
   stopSiteSession,
@@ -1467,6 +1469,26 @@ test('the settings and the filters fold away, and the switch says which', async 
   await page.reload();
   await expect(page.locator('#controls-toggle')).toHaveAttribute('aria-expanded', 'true');
   await expect(page.locator('#sort')).toBeVisible();
+  expect(problems).toEqual([]);
+});
+
+test('a permission being waited on reads as idle, not as a tool running', async ({ page }) => {
+  await open(page);
+  const status = rows(page).filter({ hasText: 'Chase a flaky test' }).locator('.status');
+  // Mid-tool, which on disk is indistinguishable from a tool taking its time.
+  await expect(status).toHaveAttribute('data-status', 'running');
+
+  await reportWaiting(service.home);
+  await page.locator('#refresh').click();
+  await expect(status).toHaveAttribute('data-status', 'idle');
+  await expect(status).toHaveAttribute('title', /permission/i);
+
+  // Taking the report away puts the verdict back, which is what happens on its
+  // own when you answer: the tool runs and writes something younger than the
+  // request. Also how this test leaves the fixture as it found it.
+  await clearWaiting(service.home);
+  await page.locator('#refresh').click();
+  await expect(status).toHaveAttribute('data-status', 'running');
   expect(problems).toEqual([]);
 });
 

@@ -7,7 +7,7 @@ import { truncate } from '../core/text';
 import { normalizeWorkspacePath } from '../core/workspace';
 import { AgentSession } from '../model/types';
 import { claudeTurnState, pendingBackgroundTask } from './claudeStatus';
-import { ScanOptions, ScanResult, SessionProvider, TurnState, gradeTurnState } from './provider';
+import { ScanOptions, ScanResult, SessionProvider, TurnState, verdictFor } from './provider';
 
 /**
  * Claude Code stores one JSONL transcript per session, grouped by project folder,
@@ -343,8 +343,11 @@ export class ClaudeSessionProvider implements SessionProvider {
       };
     }
 
-    const ageMs = Math.max(0, options.now - cached.updatedAtMs);
-    const verdict = gradeTurnState(cached.turnState, ageMs, options);
+    const verdict = await verdictFor(
+      cached.turnState,
+      { provider: this.id, nativeId: candidate.nativeId, updatedAtMs: cached.updatedAtMs },
+      options,
+    );
     return { ...cached.session, status: verdict.status, statusReason: verdict.reason };
   }
 

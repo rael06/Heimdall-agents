@@ -106,6 +106,27 @@ which is the one way a tool like this dies, since alerts you learn to distrust a
 reading. The guess is gone. An open turn stays running until the stale delay, then becomes
 *inconclusive*, which claims nothing.
 
+**Unless the agent is asked to say it.** Both Claude Code and Codex fire a `PermissionRequest` hook,
+and a hook that writes one small file per session turns the unsayable into a fact on disk. Install
+one that writes, on every `PermissionRequest`, to
+`<shared-dir>/status/<provider>-<sessionId>.json`:
+
+```json
+{ "version": 1, "provider": "claude", "sessionId": "<id>", "event": "PermissionRequest",
+  "at": "2026-08-14T12:00:21.971Z" }
+```
+
+A session whose turn is open and whose report is **not older than the last thing written to its
+transcript** then reads as *idle* — "stopped to ask you for a permission" — and notifies like any
+other session that stopped. The date comparison is what clears it: answering runs the tool, which
+writes a result younger than the request. It stays *idle* however long the wait, because a permission
+does not stop waiting for you by waiting longer.
+
+Nothing here is required. With no hook installed there are no files, every lookup comes back empty,
+and the status is decided exactly as it was. And the two agents write the same shape into the same
+directory, so this reads one format and neither of them gets a mechanism the other lacks — the
+difference from `~/.claude/sessions/<pid>.json`, dropped precisely because only one side had it.
+
 **A turn can end while what it started keeps going.** Claude Code runs a task in the background and
 wakes the session when it finishes, so the transcript reads `end_turn` while work is still going on
 — and the session read as *idle*, "nothing more happens without you", which is the one case where
