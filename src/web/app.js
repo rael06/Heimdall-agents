@@ -608,17 +608,24 @@ function updateRow(tr, session) {
   // next redraw died looking for it — which froze every marker below that row.
   // Minutes only on watched rows: the point is how long the handful you follow
   // have been sitting in their current state.
-  tr.querySelector('.num').textContent = watched
-    ? `${minutesSince(session.statusChangedAt)}m`
-    : '';
-  tr.querySelector('.created').textContent = at(session.createdAt);
-  tr.querySelector('.updated').textContent = at(session.updatedAt);
+  //
+  // Through `setText` rather than written straight, here as in the live
+  // regions: assigning `textContent` throws the text node away and makes a new
+  // one even when the string is identical, and most of these are identical on
+  // most passes. It costs a repaint per cell per scan, and a caret or a
+  // selection inside one does not survive it.
+  setText(
+    tr.querySelector('.num'),
+    watched ? `${minutesSince(session.statusChangedAt)}m` : '',
+  );
+  setText(tr.querySelector('.created'), at(session.createdAt));
+  setText(tr.querySelector('.updated'), at(session.updatedAt));
   const badge = tr.querySelector('.badge');
-  badge.textContent = session.provider;
+  setText(badge, session.provider);
   paintTag(badge, 'provider', session.provider);
   const ws = tr.querySelector('.ws .link');
   const workspace = folder(session.cwd);
-  ws.textContent = workspace;
+  setText(ws, workspace);
   // A colour per project, so thirty rows separate into a handful of groups
   // before a single name has been read. The hue is all JavaScript decides; which
   // pair of colours it becomes is the stylesheet's, so the two themes stay one
@@ -646,12 +653,15 @@ function updateRow(tr, session) {
   }
   ws.title = session.cwd ? `${t('row.openWorkspace')} ${session.cwd}` : t('row.workspaceUnknown');
   const title = tr.querySelector('.title .link');
-  title.textContent = session.title;
+  setText(title, session.title);
   // The whole title, since the column cuts it — and what a click does, which
   // the tooltip was saying alone before.
   title.title = `${session.title}\n\n${t('row.openSession')}`;
   const matched = state.matched?.[session.id] ?? [];
-  tr.querySelector('.title .matched').textContent = matched.length ? `[${matched.join(', ')}]` : '';
+  setText(
+    tr.querySelector('.title .matched'),
+    matched.length ? `[${matched.join(', ')}]` : '',
+  );
 }
 
 function syncRows(target, applyOrder) {
@@ -666,10 +676,32 @@ function syncRows(target, applyOrder) {
   }
 
   if (applyOrder) {
+    /*
+     * Only the rows actually out of place are moved.
+     *
+     * `append` on a node already in the document does not leave it alone: it
+     * detaches it and puts it back. Appending every row on every pass therefore
+     * rebuilt the whole table each time, even when the order had not changed at
+     * all — which, with the list keeping itself sorted, is most passes.
+     *
+     * Two things follow, and both were reported before this was found. A row
+     * detached between a mousedown and a mouseup takes the click with it: the
+     * browser fires no click at all when the press and the release do not meet,
+     * so a click on a row simply does nothing. And a link under the pointer
+     * loses its hover and regains it, which is the flash on the underline.
+     *
+     * The cursor walks the rows already there. A row that is where it belongs
+     * costs one comparison and no mutation.
+     */
+    let cursor = rowsBody.firstChild;
     for (const id of target) {
       const tr = present.get(id) ?? createRow(id);
       present.set(id, tr);
-      rowsBody.append(tr);
+      if (tr === cursor) {
+        cursor = cursor.nextSibling;
+      } else {
+        rowsBody.insertBefore(tr, cursor);
+      }
     }
   } else {
     // A new row goes where the sort says. The rows already on screen do not

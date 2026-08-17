@@ -1492,6 +1492,49 @@ test('a permission being waited on reads as idle, not as a tool running', async 
   expect(problems).toEqual([]);
 });
 
+test('a refresh that changes nothing touches nothing, so a click cannot be lost', async ({
+  page,
+}) => {
+  await open(page);
+  // Keeping the list sorted is what made this bite: the ordering is applied on
+  // every pass, and applying it used to re-append every row whether or not the
+  // order had moved.
+  await page.locator('#auto-sort').click();
+  await expect(page.locator('#auto-sort')).toHaveAttribute('aria-pressed', 'true');
+
+  await page.evaluate(() => {
+    const counts = { rowsAddedOrRemoved: 0, textReplaced: 0 };
+    (window as unknown as { counts: typeof counts }).counts = counts;
+    new MutationObserver((records) => {
+      for (const record of records) {
+        // A row taken out and put back is what eats a click: the browser fires
+        // no click when the press and the release do not meet on one element.
+        if (record.type === 'childList' && record.target === document.querySelector('#rows')) {
+          counts.rowsAddedOrRemoved += record.addedNodes.length + record.removedNodes.length;
+        } else if (record.type === 'childList') {
+          counts.textReplaced += record.addedNodes.length + record.removedNodes.length;
+        }
+      }
+    }).observe(document.querySelector('#rows')!, { childList: true, subtree: true });
+  });
+
+  // Nothing about the sessions changed between these two, so nothing in the
+  // table has any reason to move or be rewritten.
+  await page.locator('#refresh').click();
+  await expect(page.locator('#service-state')).toContainText('watching');
+  await page.locator('#refresh').click();
+  await expect(page.locator('#service-state')).toContainText('watching');
+
+  const counts = await page.evaluate(
+    () => (window as unknown as { counts: { rowsAddedOrRemoved: number; textReplaced: number } }).counts,
+  );
+  expect(counts.rowsAddedOrRemoved, JSON.stringify(counts)).toBe(0);
+  expect(counts.textReplaced, JSON.stringify(counts)).toBe(0);
+
+  await page.locator('#auto-sort').click();
+  expect(problems).toEqual([]);
+});
+
 /** The column header cell, which is the only element `aria-sort` is valid on. */
 const header = (page: Page, key: string) => page.locator(`th:has(button.sort[data-key="${key}"])`);
 

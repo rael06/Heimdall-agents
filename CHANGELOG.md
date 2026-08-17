@@ -1,5 +1,45 @@
 # Changelog
 
+## 1.2.1
+
+**A click on a row no longer goes missing**, and the underline under the pointer
+stops flickering.
+
+Both had the same cause, and it was one word. Applying the ordering did this:
+
+```js
+for (const id of target) rowsBody.append(tr);
+```
+
+`append` on a node already in the document does not leave it alone — it detaches
+it and puts it back. So every row was torn out and reinserted on every pass,
+whether or not the order had changed. With the list keeping itself sorted, that
+is every scan.
+
+Two things follow, and both were reported before this was found. **A row
+detached between a mousedown and a mouseup takes the click with it**: the browser
+fires no click at all when the press and the release do not meet on one element,
+so the click simply does nothing. And a link under the pointer loses its hover
+and regains it, which is the flash on the underline.
+
+Rows are now moved only when they are actually out of place — a row where it
+belongs costs one comparison and no mutation.
+
+### And the cells
+
+`updateRow` assigned `textContent` on seven cells every pass. That throws the
+text node away and makes a new one even when the string is identical, which most
+of them are most of the time. They go through the `setText` helper that already
+existed for the live regions.
+
+### Measured
+
+On the three-row fixture, two refreshes that changed nothing used to produce
+**6 rows detached and reinserted** and **32 text nodes replaced**. Both are now
+**0**, and a test counts them with a `MutationObserver` so they stay there. On a
+real list of ten rows scanning every few seconds, that was the whole table being
+rebuilt continuously.
+
 ## 1.2.0
 
 **A session waiting for a permission now says so**, instead of reading as a tool
