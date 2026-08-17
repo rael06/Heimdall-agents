@@ -241,8 +241,13 @@ Open that URL and you get the list, live.
   applies inside each group. A marker can be set automatically when a session starts working, so
   this grouping can want to move a row; the affordance above is what keeps it from doing it under
   your cursor.
-- **Updates are keyed.** Rows are addressed by identifier and their cells are rewritten in place,
-  so focus, selection and scroll survive an update. Never a re-render.
+- **Updates are keyed, and idempotent.** Rows are addressed by identifier and their cells are
+  rewritten in place, so focus, selection and scroll survive an update. Never a re-render — and a
+  pass that changes nothing changes nothing: a row is moved only when it is out of place, and a cell
+  is written only when its text differs. That is not tidiness. Re-appending a row moves it, and a row
+  detached between a mousedown and a mouseup takes the click with it — the browser fires no click
+  when the press and the release do not meet. Measured on three rows: two refreshes that changed
+  nothing used to detach and reinsert six rows and replace thirty-two text nodes.
 - **Watched and starred are markers and filters.** Hollow when unset, filled when set — the shape
   carries it, not only the colour. The two filter chips wear the same accent a set marker wears, so
   they read as markers rather than as disabled buttons among the coloured status chips.
