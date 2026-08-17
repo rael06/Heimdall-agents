@@ -300,6 +300,26 @@ export function createServiceServer(engine: ServiceEngine, options: ServerOption
         sendJson(response, 200, await engine.acknowledge(ids));
         return;
       }
+      if (path === '/api/status') {
+        const body = asObject(await readJsonBody(request));
+        const id = typeof body.id === 'string' ? body.id : '';
+        // `null` is how the interface asks for the inferred status back, so it
+        // is a value here rather than a missing field. Anything that is not one
+        // of the four is refused rather than stored: this file is read back on
+        // every scan, and a status nothing knows how to draw would reach the
+        // table.
+        const wanted = body.status;
+        const status =
+          wanted === null
+            ? null
+            : STATUS_ORDER.find((candidate) => candidate === wanted);
+        if (!id || status === undefined) {
+          sendJson(response, 400, { error: 'An id and one of the four statuses, or null.' });
+          return;
+        }
+        sendJson(response, 200, { sessions: await engine.setStatus(id, status) });
+        return;
+      }
     }
 
     sendJson(response, 404, { error: `No route for ${method} ${path}.` });

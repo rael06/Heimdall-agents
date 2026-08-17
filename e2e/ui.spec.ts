@@ -1774,3 +1774,40 @@ test('acknowledging all settles the rows a filter is hiding too', async ({ page 
   await expect(landing().locator('.status')).toHaveAttribute('data-unseen', 'false');
   expect(problems).toEqual([]);
 });
+
+/*
+ * After the test above and last in the file, for the same reason it is: both
+ * drive the session in the other project, and this one needs it idle to start
+ * with — which is the state the one above leaves it in.
+ */
+test('a status can be set by hand, and the transcript takes it back', async ({ page }) => {
+  await open(page);
+  const status = rows(page).filter({ hasText: 'Rewrite the landing page' }).locator('.status');
+  await expect(status).toHaveAttribute('data-status', 'idle');
+  await expect(status).toHaveAttribute('data-forced', 'false');
+
+  // Right-click, the gesture asked for. `s` on the selected row opens the same
+  // picker, which is why the row is selected as part of opening it.
+  await rows(page).filter({ hasText: 'Rewrite the landing page' }).click({ button: 'right' });
+  const picker = page.locator('#status-picker');
+  await expect(picker).toBeVisible();
+  // What you are about to disagree with is in front of you while you choose.
+  await expect(page.locator('#status-picker-inferred')).toContainText('turn ended');
+
+  await picker.locator('.chip[data-status="failed"]').click();
+  await expect(status).toHaveAttribute('data-status', 'failed');
+  // Asserted rather than observed, and the row says which — a status set by
+  // hand must never be indistinguishable from one that was measured.
+  await expect(status).toHaveAttribute('data-forced', 'true');
+  await expect(status).toHaveAttribute('title', /set by you/i);
+  // Correcting a status counts as having read the row.
+  await expect(status).toHaveAttribute('data-unseen', 'false');
+
+  // The transcript now says something else, so the correction has been overtaken
+  // by events. It is dropped rather than left repeating itself, which is the
+  // whole reason this is not a sticky flag.
+  await startSiteSession(service.home);
+  await expect(status).toHaveAttribute('data-status', 'running', { timeout: 20000 });
+  await expect(status).toHaveAttribute('data-forced', 'false');
+  expect(problems).toEqual([]);
+});

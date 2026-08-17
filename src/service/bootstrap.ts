@@ -3,6 +3,7 @@ import * as path from 'node:path';
 import { MarksStore } from '../core/marksStore';
 import { SessionStore } from '../core/store';
 import { AckStore, acksFilePath } from './acks';
+import { OverrideStore, overridesFilePath } from './statusOverrides';
 import { Desktop } from './desktop';
 import { ServiceEngine } from './engine';
 import { Notifier } from './notifier';
@@ -77,6 +78,9 @@ export async function startService(options: BootstrapOptions): Promise<StartedSe
     // either side is visible on both while they run together.
     new MarksStore(path.join(options.sharedDir, 'marks.json')),
     new AckStore(acksFilePath(options.sharedDir)),
+    // Its own file, like the acknowledgements and for the same reason: the
+    // marks file is rebuilt from the keys the extension knows.
+    new OverrideStore(overridesFilePath(options.sharedDir)),
     preferences,
     {
       roots: options.roots,
