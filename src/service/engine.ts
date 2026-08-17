@@ -9,6 +9,7 @@ import {
   SearchScope,
   SessionStatus,
 } from '../model/types';
+import { overrideReason, releaseOvertaken } from '../core/statusOverride';
 import { AckStore, applyStatusChanges } from './acks';
 import { SessionDelta, computeDelta, isEmptyDelta } from './delta';
 import { Desktop } from './desktop';
@@ -17,6 +18,7 @@ import { NotificationQueue } from './notificationQueue';
 import { NotifyScope, chooseNotifications } from './notifications';
 import { NotificationPreferences, PreferencesStore } from './preferences';
 import { Notifier } from './notifier';
+import { OverrideStore } from './statusOverrides';
 import { ToastAction, soundForStatus } from './toast';
 import { Tracked, trackTransitions } from './transitions';
 import { RootWatcher, WatchFailure } from './watcher';
@@ -102,6 +104,13 @@ export class ServiceEngine {
   private readonly watcher: RootWatcher;
   private fullScan?: ReturnType<typeof setInterval>;
   private previous: SessionView[] = [];
+  /**
+   * The same sessions before any hand-set status is applied.
+   *
+   * Kept apart because it is what releases an override: comparing an entry
+   * against `previous` would compare it against itself and drop it on the spot.
+   */
+  private inferred: SessionView[] = [];
   private tracked = new Map<string, Tracked>();
   private marks: MarksView = NO_MARKS;
   private paused = false;
@@ -124,6 +133,7 @@ export class ServiceEngine {
     private readonly store: SessionStore,
     private readonly marksStore: MarksStore,
     private readonly ackStore: AckStore,
+    private readonly overrideStore: OverrideStore,
     private readonly preferences: PreferencesStore,
     private readonly options: EngineOptions,
   ) {
@@ -276,6 +286,69 @@ export class ServiceEngine {
     return result;
   }
 
+  /**
+   * Replaces the status of the sessions you have corrected, and forgets the
+   * corrections the transcripts have overtaken.
+   *
+   * Written back only when something was actually released, so the common case
+   * — no overrides, or none stale — costs one read and no write.
+   */
+  private async withOverrides(sessions: SessionView[]): Promise<SessionView[]> {
+    const stored = await this.overrideStore.read();
+    if (Object.keys(stored.entries).length === 0) {
+      return sessions;
+    }
+    const inferredById = new Map(sessions.map((session) => [session.id, session.status]));
+    const { kept, released } = releaseOvertaken(stored.entries, inferredById);
+    if (released.length > 0) {
+      await this.overrideStore.update((current) => {
+        for (const id of released) delete current.entries[id];
+      });
+    }
+    return sessions.map((session) => {
+      const override = kept[session.id];
+      if (!override) {
+        return session;
+      }
+      return {
+        ...session,
+        status: override.status,
+        statusReason: overrideReason(override, session.statusReason),
+      };
+    });
+  }
+
+  /**
+   * Sets or clears the status of one session by hand.
+   *
+   * `inferred` is recorded from what the session currently says, because that
+   * is what releases the override later. Setting one counts as having looked at
+   * the row, so it is acknowledged at the same time — you cannot correct a
+   * status without having read it.
+   */
+  async setStatus(id: string, status: SessionStatus | null): Promise<SessionView[]> {
+    // From the inferred view, never from `previous`: what releases the override
+    // later is what the transcript says, not what the row is currently showing.
+    const said = this.inferred.find((candidate) => candidate.id === id)?.status;
+    await this.overrideStore.update((overrides) => {
+      if (status === null) {
+        delete overrides.entries[id];
+        return;
+      }
+      overrides.entries[id] = {
+        status,
+        inferred: said ?? status,
+        at: new Date().toISOString(),
+      };
+    });
+    if (status !== null) {
+      await this.acknowledge([id]);
+    }
+    this.previous = await this.withOverrides(this.inferred);
+    this.emitState();
+    return this.previous;
+  }
+
   async toggleWatched(id: string): Promise<MarksView> {
     const marks = await this.marksStore.update((current) => {
       current.watched = toggle(current.watched, id);
@@ -343,18 +416,26 @@ export class ServiceEngine {
     const { tracked, transitions } = trackTransitions(this.tracked, snapshot.sessions, now);
     this.tracked = tracked;
 
-    const sessions: SessionView[] = snapshot.sessions.map((session) => ({
+    const inferred: SessionView[] = snapshot.sessions.map((session) => ({
       ...session,
       statusChangedAt: new Date(tracked.get(session.id)?.changedAt ?? now).toISOString(),
     }));
 
+    // Applied here and not a line earlier: `trackTransitions` above and
+    // `notify` below must both go on seeing what the transcripts say. A status
+    // you set by hand changes what the row shows, never what the service
+    // believes happened — otherwise correcting a row would either raise a
+    // notification or swallow the next real one.
+    const sessions = await this.withOverrides(inferred);
+
     const delta = computeDelta(this.previous, sessions);
+    this.inferred = inferred;
     this.previous = sessions;
 
     // Marks first: whether a session is watched decides whether it may notify,
     // and a session that just started running has only now become watched.
     await this.updateMarks(snapshot.sessions, transitions);
-    this.notify(transitions, sessions);
+    this.notify(transitions, inferred);
 
     if (!isEmptyDelta(delta)) {
       const event: DeltaEvent = { ...delta, scannedAt: snapshot.scannedAt };

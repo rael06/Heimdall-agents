@@ -499,6 +499,19 @@ td.num { min-width: 5ch; }
  * the only carrier of the meaning.
  */
 .status { position: relative; display: inline-block; padding: 0 .35rem; }
+/*
+ * A status set by hand, marked so it cannot be mistaken for an observed one.
+ *
+ * A ring rather than another colour: the four colours already mean the four
+ * statuses, and a fifth would have to be learned. The ring says "this one is
+ * asserted, not measured" whatever status it surrounds, and it survives a
+ * screenshot in greyscale — which the colour alone would not.
+ */
+.status[data-forced="true"] {
+  outline: 1px dashed var(--muted);
+  outline-offset: 1px;
+  border-radius: 4px;
+}
 .status[data-status="running"] { color: var(--running); }
 .status[data-status="failed"] { color: var(--failed); }
 .status[data-status="idle"] { color: var(--idle); }

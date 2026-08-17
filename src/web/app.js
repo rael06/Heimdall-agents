@@ -567,6 +567,13 @@ function createRow(id) {
     });
   }
   tr.querySelector('.title .link').addEventListener('click', () => open(id, 'session'));
+  // The browser's own menu offers nothing about a session, so the row takes the
+  // gesture. `s` on the selected row does the same thing, for the keyboard.
+  tr.addEventListener('contextmenu', (event) => {
+    event.preventDefault();
+    select(id);
+    openStatusPicker(id);
+  });
   return tr;
 }
 
@@ -579,6 +586,11 @@ function updateRow(tr, session) {
   swapIcon(status, STATUS_ICON[session.status] ?? 'status-unknown');
   status.dataset.status = session.status;
   status.dataset.unseen = String(unseen);
+  // A status set by hand is drawn differently, because a status asserted and a
+  // status observed are two different claims and the table must not mix them
+  // silently. The service says which by the reason it sends.
+  const forced = session.statusReason.startsWith(FORCED_PREFIX);
+  status.dataset.forced = String(forced);
   // An inferred status has to justify itself, and the label carries the meaning
   // for anyone who cannot see the shape.
   const label = statusLabel(session.status);
@@ -1074,6 +1086,15 @@ function statusLabel(status) {
 }
 
 /**
+ * How a hand-set status announces itself in the reason the service sends.
+ *
+ * Matched on rather than carried as a separate field: the reason is already the
+ * one thing every status has to justify itself with, and a second field saying
+ * the same thing is a second field that can disagree with the first.
+ */
+const FORCED_PREFIX = 'Set by you';
+
+/**
  * Puts the status shape inside the chip that filters on it.
  *
  * Marked `aria-hidden`: the word is right beside it, and a screen reader
@@ -1440,6 +1461,51 @@ function syncPalette(settled = false) {
 function currentColours(kind, name) {
   const { colours, inks } = PALETTES[kind].state;
   return { fill: colours[name] ?? paintedTag(kind, name), tone: inks[name] };
+}
+
+/** The session whose status the picker is currently about. */
+let correcting = null;
+
+/**
+ * Opens the status picker on one row.
+ *
+ * The inferred status is shown beside the choices rather than hidden in a
+ * tooltip: you are about to disagree with it, so it is the one thing you need
+ * in front of you while you choose.
+ */
+function openStatusPicker(id) {
+  const session = state.sessions.get(id);
+  if (!session) {
+    return;
+  }
+  correcting = id;
+  setText(el('status-picker-heading'), session.title);
+  setText(el('status-picker-inferred'), `${t('statusPicker.inferred')} ${session.statusReason}`);
+
+  const choices = el('status-picker-choices');
+  choices.textContent = '';
+  for (const status of STATUSES) {
+    const button = document.createElement('button');
+    button.type = 'button';
+    button.className = 'chip';
+    button.dataset.status = status;
+    button.setAttribute('aria-pressed', String(session.status === status));
+    decorate(button, status, statusLabel(status));
+    button.addEventListener('click', () => void chooseStatus(status));
+    choices.append(button);
+  }
+  el('status-picker').showModal();
+}
+
+async function chooseStatus(status) {
+  const id = correcting;
+  if (!id) {
+    return;
+  }
+  el('status-picker').close();
+  const { sessions } = await post('/api/status', { id, status });
+  state.sessions = new Map(sessions.map((session) => [session.id, session]));
+  render();
 }
 
 function openPalette(kind, name) {
@@ -1881,6 +1947,7 @@ function wireControls() {
     localStorage.setItem(CONTROLS, 'open');
     el('controls-toggle').setAttribute('aria-expanded', 'true');
   });
+  el('status-picker-clear').addEventListener('click', () => void chooseStatus(null));
   el('reset').addEventListener('click', resetFilters);
   el('reorder').addEventListener('click', () => render(true));
   el('refresh').addEventListener('click', () => void refreshAll());
@@ -1946,6 +2013,7 @@ function wireControls() {
     else if (event.key === 'r') void refreshAll();
     else if (!state.selected) return;
     else if (event.key === 'e') void acknowledge([state.selected]);
+    else if (event.key === 's') openStatusPicker(state.selected);
     else if (event.key === 'Enter') void open(state.selected, 'session');
     else if (event.key === 't') void open(state.selected, 'transcript');
     else if (event.key === 'w') void open(state.selected, 'workspace');

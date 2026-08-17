@@ -1,5 +1,41 @@
 # Changelog
 
+## 1.3.0
+
+**A status can be set by hand.** Right-click a row, or press `s` on the selected
+one, and pick one of the four. The inference is good and it is not infallible; a
+row you know to be wrong should not stay wrong while you argue with a heuristic.
+
+### Keeping the table honest
+
+The whole promise here is that a row says what the files say, so a status
+*asserted* must never be indistinguishable from one that was *observed*. Two
+things enforce that.
+
+The cell is **ringed** while a status is set by hand — a dashed outline rather
+than a fifth colour, since the four colours already mean the four statuses and a
+ring survives a greyscale screenshot. Its tooltip says *set by you* and what the
+transcript says instead.
+
+And the correction **does not outlive the evidence it was set against**. The
+entry records what the transcript said at the moment you disagreed; the moment
+the transcript says something else, it is dropped. A session you marked *idle*
+that goes back to work says *running* again on its own. Anything else would let
+a row lie indefinitely, which is the one thing this list must not do.
+
+### What it does not touch
+
+Transitions and notifications go on seeing the inferred statuses. Correcting a
+row changes what it shows, never what the service believes happened — otherwise
+a correction would either raise a notification or swallow the next real one.
+Setting one counts as having read the row, so it is acknowledged at the same
+time.
+
+The overrides live in their own file beside the marks and the acknowledgements,
+for the same reason those are separate: the marks file is rebuilt from the keys
+the extension knows, so anything added to it is dropped the next time the other
+side writes.
+
 ## 1.2.1
 
 **A click on a row no longer goes missing**, and the underline under the pointer

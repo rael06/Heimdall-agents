@@ -259,6 +259,35 @@
   the settings are one: it is the element that traps focus, closes on Escape and
   restores focus to what opened it, all without a line of script.
 -->
+<!--
+  Setting a status by hand.
+
+  A dialog rather than a floating menu, like the colour picker beside it: the
+  element manages its own focus trap, its own Escape, and its own backdrop —
+  three things a div would have had to reimplement, and one of them badly.
+
+  Reached by right-click on a row AND by `s` on the selected one. Not only by
+  right-click: a control that exists only under a pointer is one a keyboard
+  never finds, which is the same reason the brush is always drawn.
+-->
+<dialog id="status-picker">
+  <form method="dialog">
+    <h2 id="status-picker-heading"></h2>
+    <p id="status-picker-inferred" class="muted"></p>
+    <div id="status-picker-choices" class="chips" role="group"></div>
+    <div class="bar">
+      <!-- Always offered, even when nothing is set: it is how a row goes back
+           to saying what the transcript says, and hiding it would make that
+           depend on remembering whether you had set one. -->
+      <button id="status-picker-clear" type="button" data-i18n="statusPicker.clear">
+        Back to the inferred status
+      </button>
+      <span class="grow"></span>
+      <button value="cancel" type="submit" data-i18n="settings.close">Close</button>
+    </div>
+  </form>
+</dialog>
+
 <dialog id="palette">
   <form method="dialog">
     <h2 id="palette-heading"></h2>

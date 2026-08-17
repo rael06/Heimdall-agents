@@ -310,7 +310,9 @@ Open that URL and you get the list, live.
   stream that dropped cannot leave the page quietly out of date. It applies a pending reorder
   without asking again — asking for a refresh is the asking — and keeps your search and filters.
 - **Keyboard**: `/` to search, `j` and `k` to move, `Enter` to open, `t` for the transcript, `w` for
-  the workspace, `e` to acknowledge, `r` to refresh, `Escape` to leave a field.
+  the workspace, `e` to acknowledge, `s` to set the status by hand, `r` to refresh, `Escape` to
+  leave a field. `s` reaches the same picker as a right-click, because a control that exists only
+  under a pointer is one a keyboard never finds.
 - **Light and dark**, following the system or forced either way, and a **3 mm frame** in a primary
   colour you pick or take at random. A random pick chooses a hue rather than a colour, and the
   accent derived from it is adjusted until it clears 4.5:1 on the background in use — the frame only
@@ -468,6 +470,18 @@ keep on the other, and this window shows both in one table.
 
 Every one is read from the transcript, never deduced from a delay. `asm status` prints the reason,
 because a status has to justify itself.
+
+**And you can disagree.** Right-click a row — or press `s` on the selected one — and set the status
+by hand. The inference is good, not infallible, and a row you know to be wrong should not stay wrong
+while you argue with a heuristic.
+
+Two things keep that from turning the table into a mixture of measured and asserted facts. The cell
+is **ringed** while a status is set by hand, and its tooltip says *set by you* and what the transcript
+says instead — a status asserted must never look like one that was observed. And the correction
+**does not outlive the evidence it was set against**: it records what the transcript said at the
+moment you disagreed, and the moment the transcript says something else it is dropped. A session you
+marked *idle* that goes back to work says *running* again, on its own. Setting one counts as having
+read the row, so it is acknowledged and raises no notification.
 
 `idle` means *not working* — not *succeeded*. A finished answer and a question left unanswered are
 the same thing here, and that is the point: the model has stopped and the next move is yours. Claude
