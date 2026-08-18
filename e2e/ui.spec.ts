@@ -48,6 +48,14 @@ async function open(
 
 const rows = (page: Page) => page.locator('tbody tr');
 
+/**
+ * How long a session has been in its status: days, hours and minutes, with the
+ * units that are zero left out. The fixture is always minutes old, so these
+ * tests only ever see the last of the three — the arithmetic behind the other
+ * two is pinned by the unit tests of `splitDuration`.
+ */
+const DURATION = /^(\d+d)?(\d+h)?(\d+m)?$/;
+
 /** WCAG contrast between two computed `rgb(...)` colours. */
 function ratio(a: string, b: string): number {
   const channel = (value: number): number => {
@@ -1215,7 +1223,7 @@ test('a session mid-tool is watched on its own, and shows its minutes', async ({
   // a session that starts working is watched without being asked.
   const running = rows(page).filter({ hasText: 'Chase a flaky test' });
   await expect(running.locator('.watched')).toHaveAttribute('aria-pressed', 'true');
-  await expect(running.locator('td.num')).toHaveText(/^\d+m$/);
+  await expect(running.locator('td.num')).toHaveText(DURATION);
 
   // The minutes land in their own cell and nothing else is touched. They used to
   // be written into the transcript cell by the timer that keeps them climbing,
@@ -1234,7 +1242,7 @@ test('marking a session watched shows its minutes, and moves nothing', async ({ 
   await expect(row.locator('td.num')).toHaveText('');
   await row.locator('.watched').click();
   await expect(row.locator('.watched')).toHaveAttribute('aria-pressed', 'true');
-  await expect(row.locator('td.num')).toHaveText(/^\d+m$/);
+  await expect(row.locator('td.num')).toHaveText(DURATION);
 
   // A marker never lifts a row: a position depends on the chosen sort alone.
   expect(await titles()).toEqual(before);

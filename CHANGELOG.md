@@ -1,5 +1,32 @@
 # Changelog
 
+## 1.3.1
+
+**The minutes column says `20h48m` rather than `1248m`.**
+
+Days, hours and minutes, with the units that are zero left out: `6m`, `4h14m`,
+`20h48m`, `1j`, `12j20h48m`. A bare minute count is a number you have to divide
+before it means anything, in a column that is read at a glance or not at all —
+and the list had rows at 1243 and 1248 sitting next to each other, which is two
+divisions to notice they are five minutes apart.
+
+Nothing is dropped past a day. `2j0h0m` would be noise, so a zero unit simply
+does not appear, and `0m` is what nothing looks like.
+
+The unit letters follow the language — `d` in English, `j` in French — so the
+arithmetic lives in the tested pure module and the naming stays with the page,
+which is the only side that knows which language it is in. The column keeps its
+tabular digits and grows from five characters to nine, the width of the longest
+thing it can now say.
+
+### While in there
+
+The half-minute timer that refreshes the column wrote the cell's text
+unconditionally. It fires twice a minute and the value changes once, so half of
+those writes replaced a text node with an identical one — the same churn that
+1.2.1 removed from the redraw, in the one place that redraw does not reach. It
+goes through the same `setText` now.
+
 ## 1.3.0
 
 **A status can be set by hand.** Right-click a row, or press `s` on the selected

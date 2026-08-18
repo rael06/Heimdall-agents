@@ -19,6 +19,7 @@ import {
   readableInk,
   readSlots,
   minutesSince,
+  splitDuration,
   normalizeSort,
   readable,
   splitSort,
@@ -535,6 +536,28 @@ describe('minutesSince', () => {
 
   it('answers zero for a timestamp it cannot read', () => {
     expect(minutesSince('nonsense', now)).toBe(0);
+  });
+});
+
+describe('splitDuration', () => {
+  it('splits a count of minutes into days, hours and minutes', () => {
+    // The two the column actually showed before this existed.
+    expect(splitDuration(254)).toEqual({ days: 0, hours: 4, minutes: 14 });
+    expect(splitDuration(1248)).toEqual({ days: 0, hours: 20, minutes: 48 });
+  });
+
+  it('carries past a day', () => {
+    expect(splitDuration(1440)).toEqual({ days: 1, hours: 0, minutes: 0 });
+    expect(splitDuration(1501)).toEqual({ days: 1, hours: 1, minutes: 1 });
+    expect(splitDuration(18528)).toEqual({ days: 12, hours: 20, minutes: 48 });
+  });
+
+  it('is all zeroes for nothing, and for anything it cannot read', () => {
+    // The page reads this from a subtraction of two timestamps, and one of them
+    // comes from another machine's clock.
+    for (const value of [0, -5, NaN, Infinity, undefined]) {
+      expect(splitDuration(value), String(value)).toEqual({ days: 0, hours: 0, minutes: 0 });
+    }
   });
 });
 

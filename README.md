@@ -256,9 +256,12 @@ Open that URL and you get the list, live.
   with *Acknowledge all* — which settles everything still carrying one, watched or not, including the
   rows a filter is hiding and sessions that have aged out of the window. It used to settle only what
   was on screen, which meant a filtered view left the rest marked and the tray counter up.
-- **Minutes in the current status**, on watched rows only, right-aligned over four characters with
-  tabular digits — and sortable, longest wait first. Every row takes part in that ordering, not only
-  the ones showing a number: the age behind it is a fact about all of them.
+- **How long in the current status**, on watched rows only, right-aligned with tabular digits — and
+  sortable, longest wait first. Every row takes part in that ordering, not only the ones showing a
+  number: the age behind it is a fact about all of them. Written as days, hours and minutes, with the
+  units that are zero left out — `6m`, `4h14m`, `20h48m`, `12j20h48m`. It used to be a bare minute
+  count, and `1248m` is a number you have to divide before it means anything, in a column that is
+  read at a glance or not at all. The unit letters follow the language, `d` and `j`.
 - **Absolute dates**, a shape per status, a tooltip saying why the status was inferred, and the full
   workspace path in a tooltip. The table scrolls sideways rather than squeezing its columns, and a
   long title or folder name is cut with the whole of it in the tooltip — otherwise the widest row

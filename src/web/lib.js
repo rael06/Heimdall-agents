@@ -448,6 +448,23 @@ export function assignSlots(names, stored, count = WORKSPACE_HUES.length, offset
 }
 
 /** `now` is passed in rather than read, so this can be asked about a fixed one. */
+/**
+ * A count of minutes as days, hours and minutes.
+ *
+ * Returned in parts rather than as a string, because the letters that name them
+ * are words: `d` in English and `j` in French. The arithmetic belongs here where
+ * it can be tested without a document; naming the units belongs to the page,
+ * which is the only side that knows the language.
+ */
+export function splitDuration(total) {
+  const safe = Number.isFinite(total) && total > 0 ? Math.floor(total) : 0;
+  return {
+    days: Math.floor(safe / 1440),
+    hours: Math.floor((safe % 1440) / 60),
+    minutes: safe % 60,
+  };
+}
+
 export function minutesSince(iso, now = Date.now()) {
   const started = Date.parse(iso);
   if (Number.isNaN(started)) {
