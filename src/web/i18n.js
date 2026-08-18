@@ -92,6 +92,10 @@ const TRANSLATIONS = {
     'column.minutes': 'Minutes in this status',
     /* Short enough not to set the width of a column of three-digit numbers. */
     'column.minutesShort': 'm.',
+    /* One letter each: they sit against the digits in a narrow column. */
+    'unit.days': 'd',
+    'unit.hours': 'h',
+    'unit.minutes': 'm',
     'column.resize': 'Resize the {name} column',
     'column.resizeHint':
       'Drag to resize {name}. Arrow keys adjust it, Home fits it to its contents, and so does a double-click.',
@@ -268,6 +272,9 @@ const TRANSLATIONS = {
     'column.transcript': 'Transcript',
     'column.minutes': 'Minutes dans ce statut',
     'column.minutesShort': 'm.',
+    'unit.days': 'j',
+    'unit.hours': 'h',
+    'unit.minutes': 'm',
     'column.resize': 'Redimensionner la colonne {name}',
     'column.resizeHint':
       'Faites glisser pour redimensionner {name}. Les flèches ajustent, Origine ajuste au contenu, un double-clic aussi.',

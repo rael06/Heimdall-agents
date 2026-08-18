@@ -628,7 +628,7 @@ function updateRow(tr, session) {
   // selection inside one does not survive it.
   setText(
     tr.querySelector('.num'),
-    watched ? `${minutesSince(session.statusChangedAt)}m` : '',
+    watched ? duration(minutesSince(session.statusChangedAt)) : '',
   );
   setText(tr.querySelector('.created'), at(session.createdAt));
   setText(tr.querySelector('.updated'), at(session.updatedAt));
@@ -1083,6 +1083,23 @@ function resetFilters() {
  */
 function statusLabel(status) {
   return t(`status.${status}`);
+}
+
+/**
+ * How long a session has been in its status, read rather than counted.
+ *
+ * `1248m` is a number you have to divide before it means anything, and the
+ * column is read at a glance or not at all. A unit that is zero is left out
+ * entirely — `2j` rather than `2j0h0m` — so what is shown is only what carries
+ * information, and `0m` is what nothing looks like.
+ */
+function duration(total) {
+  const { days, hours, minutes } = splitDuration(total);
+  const parts = [];
+  if (days) parts.push(`${days}${t('unit.days')}`);
+  if (hours) parts.push(`${hours}${t('unit.hours')}`);
+  if (minutes || parts.length === 0) parts.push(`${minutes}${t('unit.minutes')}`);
+  return parts.join('');
 }
 
 /**
@@ -2204,7 +2221,10 @@ async function boot() {
     for (const tr of rowsBody.children) {
       const session = state.sessions.get(tr.dataset.id);
       if (session && state.marks.watched.includes(session.id)) {
-        tr.querySelector('.num').textContent = `${minutesSince(session.statusChangedAt)}m`;
+        // Through `setText` like the redraw: this fires twice a minute and the
+        // value changes once, so half of these writes replaced a text node with
+        // an identical one.
+        setText(tr.querySelector('.num'), duration(minutesSince(session.statusChangedAt)));
       }
     }
   }, 30000);

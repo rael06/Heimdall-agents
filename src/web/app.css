@@ -449,7 +449,9 @@ td.at { font-variant-numeric: tabular-nums; }
  * still wobbles in a proportional font, because 1 is narrower than 0.
  */
 td.num, th.num { text-align: right; font-variant-numeric: tabular-nums; }
-td.num { min-width: 5ch; }
+/* Room for the longest thing it can now say — `12j20h48m` is nine characters,
+   where the bare minute count needed five. */
+td.num { min-width: 9ch; }
 
 /* The provider is a column value like any other, and was grey only because it
    is drawn as a badge. The shape is the decoration; the word is data. */
