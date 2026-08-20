@@ -117,6 +117,7 @@ const TRANSLATIONS = {
     'row.starredOn': 'Starred — click to remove',
     'row.starredOff': 'Click to star',
     'row.acknowledge': '(click to acknowledge)',
+    'row.unacknowledge': '(click to mark it unseen again)',
     'row.unacknowledged': 'unacknowledged',
     'row.workspaceUnknown': 'workspace unknown',
 
@@ -296,6 +297,7 @@ const TRANSLATIONS = {
     'row.starredOn': 'Favorite — cliquer pour retirer',
     'row.starredOff': 'Cliquer pour mettre en favori',
     'row.acknowledge': '(cliquer pour marquer comme vu)',
+    'row.unacknowledge': '(cliquer pour remarquer comme non vu)',
     'row.unacknowledged': 'non vu',
     'row.workspaceUnknown': 'dossier inconnu',
 

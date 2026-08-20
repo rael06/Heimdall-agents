@@ -368,6 +368,28 @@ export class ServiceEngine {
    * actually see, so a global acknowledgement settles what is on screen and
    * never a hundred rows hidden by a filter.
    */
+  /**
+   * Puts the marker back on, which is the other half of clicking a status.
+   *
+   * It says "there is something here I have not dealt with", and until now that
+   * sentence could only be written by a scan and erased by you. Being able to
+   * write it yourself is what makes it a marker rather than a receipt: the two
+   * beside it have always toggled.
+   *
+   * Nothing special is needed to make it behave: a mark set by hand is cleared
+   * by the same event that clears an automatic one — the session next starting
+   * to work — because {@link applyStatusChanges} looks at the transition and
+   * not at who wrote the mark.
+   */
+  async unacknowledge(ids: readonly string[]): Promise<MarksView> {
+    const acks = await this.ackStore.update((current) => {
+      current.unacknowledged = [...new Set([...current.unacknowledged, ...ids])];
+    });
+    this.marks = { ...this.marks, unacknowledged: acks.unacknowledged };
+    this.emitMarks();
+    return this.marks;
+  }
+
   async acknowledge(ids: readonly string[]): Promise<MarksView> {
     const wanted = new Set(ids);
     const acks = await this.ackStore.update((current) => {

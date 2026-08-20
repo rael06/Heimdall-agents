@@ -252,7 +252,10 @@ Open that URL and you get the list, live.
   carries it, not only the colour. The two filter chips wear the same accent a set marker wears, so
   they read as markers rather than as disabled buttons among the coloured status chips.
 - **An acknowledgement dot** on the corner of the status icon means "this status is new to you". It
-  lights when a session stops, and clears when it starts working again, when you click the icon, or
+  lights when a session stops, and **the icon toggles it** — a click clears it, and a click on a row
+  that carries none puts it back, which is how a row goes back on the pile after you opened it, looked,
+  and decided it still needs you. The two markers beside it have always toggled; this one was one-way,
+  so a dot cleared by mistake could not be recovered. It also clears when the session starts working again, or
   with *Acknowledge all* — which settles everything still carrying one, watched or not, including the
   rows a filter is hiding and sessions that have aged out of the window. It used to settle only what
   was on screen, which meant a filtered view left the rest marked and the tray counter up.
