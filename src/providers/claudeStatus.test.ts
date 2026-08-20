@@ -152,12 +152,15 @@ describe('inferClaudeStatus', () => {
   });
 
   /**
-   * A turn can end while something it started keeps going: the harness runs the
-   * task and wakes the session when it finishes. The transcript said `end_turn`
-   * and the session read as *idle* — "nothing more happens without you" — which
-   * was the one case where that sentence is false.
+   * A turn can end while work it handed out keeps going: the sub-agent reports
+   * back on its own and the session acts on the verdict. The transcript said
+   * `end_turn` and the session read as *idle* — "nothing more happens without
+   * you" — which is the one case where that sentence is false.
+   *
+   * Only work handed to another agent counts. A shell left running is not the
+   * agent working, and the tests below pin both halves of that.
    */
-  describe('a background task outliving the turn that started it', () => {
+  describe('a sub-agent outliving the turn that started it', () => {
     const launch = (id: string, description: string, input: Record<string, unknown> = {}) => ({
       type: 'assistant',
       message: {
@@ -167,8 +170,25 @@ describe('inferClaudeStatus', () => {
           {
             type: 'tool_use',
             id,
+            name: 'Agent',
+            input: { description, ...input },
+          },
+        ],
+      },
+    });
+
+    /** The same shape, for a shell the session parked and walked away from. */
+    const parked = (id: string, command: string) => ({
+      type: 'assistant',
+      message: {
+        role: 'assistant',
+        stop_reason: 'tool_use',
+        content: [
+          {
+            type: 'tool_use',
+            id,
             name: 'Bash',
-            input: { command: 'npm run dist', description, run_in_background: true, ...input },
+            input: { command, description: 'Start the dev server', run_in_background: true },
           },
         ],
       },
@@ -191,19 +211,44 @@ describe('inferClaudeStatus', () => {
       ].join('\n'),
     });
 
-    it('is running, and says which task', () => {
-      const tail = [launch('toolu_1', 'Build the installer'), assistantText('Started the build.')];
+    it('is running, and says which sub-agent', () => {
+      const tail = [launch('toolu_1', 'Sweep the tests'), assistantText('Off it goes.')];
       const verdict = inferClaudeStatus(tail, FRESH, options);
       expect(verdict.status).toBe('running');
-      expect(verdict.reason).toContain('Build the installer');
+      expect(verdict.reason).toContain('Sweep the tests');
+    });
+
+    it('is not woken by a shell the session merely parked', () => {
+      // The status answers whether the agent is doing anything, and a process
+      // left running is not the agent working. A development server kept one
+      // session at *running* for a day with nothing being produced, and on disk
+      // a server and a test run are the same object — a command that has not
+      // reported back. Codex has no background shell at all, so counting one
+      // here made the same situation read differently on the two providers.
+      const tail = [
+        parked('toolu_1', 'bun run dev'),
+        assistantText('The dev server is up on port 8083.'),
+      ];
+      expect(inferClaudeStatus(tail, FRESH, options).status).toBe('idle');
+    });
+
+    it('still reports a sub-agent when a shell was parked alongside it', () => {
+      const tail = [
+        parked('toolu_1', 'bun run dev'),
+        launch('toolu_2', 'Sweep the tests'),
+        assistantText('Both are going.'),
+      ];
+      const verdict = inferClaudeStatus(tail, FRESH, options);
+      expect(verdict.status).toBe('running');
+      expect(verdict.reason).toContain('Sweep the tests');
     });
 
     it('goes idle rather than inconclusive once the file has gone cold', () => {
-      // A task belongs to the process that launched it. Nothing written for a
-      // day says that process is gone, so the turn did end after all. Reading it
-      // as inconclusive would have turned 43 finished sessions on this machine
-      // from idle into unknown, which is why this case is measured, not assumed.
-      const tail = [launch('toolu_1', 'Build the installer'), assistantText('Started the build.')];
+      // A sub-agent belongs to the process that launched it. Nothing written for
+      // a day says that process is gone, so the turn did end after all. Reading
+      // it as inconclusive would have turned 43 finished sessions on this
+      // machine from idle into unknown, which is why this is measured.
+      const tail = [launch('toolu_1', 'Sweep the tests'), assistantText('Off it goes.')];
       expect(inferClaudeStatus(tail, OLD, options).status).toBe('idle');
     });
 
@@ -236,7 +281,9 @@ describe('inferClaudeStatus', () => {
       expect(inferClaudeStatus(tail, FRESH, options).status).toBe('running');
     });
 
-    it('counts an Agent unless it was told not to run in the background', () => {
+    it('ignores an Agent told to answer inside the turn', () => {
+      // Told to answer inline it writes a tool result, never a notification, so
+      // nothing would ever close it and the session would wait on it for good.
       const agent = (background: boolean) => ({
         type: 'assistant',
         message: {

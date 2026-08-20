@@ -1,5 +1,51 @@
 # Changelog
 
+## 1.6.0
+
+**`running` now answers one question only: is the agent doing anything?**
+
+It is doing something when its turn is open — writing an answer, running a tool
+— or when it has handed work to a sub-agent and is waiting on the verdict.
+Nothing else counts, and in particular a process it started and walked away from
+does not.
+
+**This reverses a decision recorded at 1.5.0.** The note there said a turn ending
+on a parked background task should read as running, as a reminder that something
+was still up out there. That reminder was the agent being reported busy while it
+was doing nothing, and it is withdrawn: a development server kept one session at
+*running* for a day, correctly by the old rule and uselessly by any other measure.
+
+Measured across 1 056 transcripts, 14 sessions change verdict, all of them from
+*running* to *idle*.
+
+### Why a shell cannot be judged, and a sub-agent can
+
+A sub-agent exists to return a verdict. It is started by a `tool_use` block and
+ended by a notification carrying the same identifier, so the two pair exactly.
+
+A background shell has no such shape. Across 787 of them here, a development
+server and a test run are the same object — a command that has not reported back
+— and 103 never reported at all: roughly a third servers, the rest test runs and
+watch loops. Only a list of guessed-at command names could separate them, which
+is the guess this project refuses for `needs-action` and refuses here.
+
+The per-task output file was considered and measured rather than assumed. Each
+background task writes `tasks/<id>.output` under the session's temporary
+directory, and the dev server's was **0 bytes with a frozen timestamp**, because
+the command redirects its own output elsewhere. The file says *quiet*, not
+*alive*, and a quiet build is indistinguishable from it. No process identifier is
+recorded anywhere on disk.
+
+### Codex decided it
+
+Codex has no background shell at all, so the same situation — a server left up,
+the turn over — read *running* on one provider and *idle* on the other. Waiting
+on a sub-agent has an equivalent there and keeps its meaning: the call stays open
+on the parent thread until the verdict lands, which already read as running.
+
+One behaviour, whichever agent produced it, is the rule this repository holds
+above any capability one of them happens to offer.
+
 ## 1.5.1
 
 **A session sending images no longer reports itself as inconclusive while the

@@ -15,21 +15,34 @@ import { ScanOptions, StatusVerdict, TurnState, gradeTurnState } from './provide
 const ASKING_TOOLS = new Set(['AskUserQuestion', 'ExitPlanMode']);
 
 /**
- * Tools whose call outlives the turn that made it.
+ * Tools that hand work to another agent and outlive the turn that called them.
  *
  * `Workflow` always does — it returns immediately and reports back later.
  * `Agent` does unless told otherwise, which is why the test is against an
- * explicit `false` rather than for a `true`. Everything else, `Bash` included,
- * only does when asked.
+ * explicit `false` rather than for a `true`: told otherwise, it answers inside
+ * the turn and no notification is ever written to close it with.
+ *
+ * A shell parked with `run_in_background` used to count here too, and that was
+ * the wrong question. The status answers whether the *agent* is doing anything,
+ * and a process it left running is not the agent working — a development server
+ * kept one session at *running* for a day while nothing was being produced. The
+ * two are also indistinguishable on disk: measured across 787 background shells,
+ * a server and a test run are the same object, a command that has not reported
+ * back, and only a list of guessed-at command names could separate them.
+ *
+ * Codex settles it. It has no background shell at all, so the same situation —
+ * a dev server left up, the turn over — read *running* on one provider and
+ * *idle* on the other. Waiting on a sub-agent has an equivalent there and keeps
+ * its meaning: the call sits open on the parent thread until the verdict lands.
  */
-function isBackgroundCall(name: string, input: Json | undefined): boolean {
+function isDelegatedCall(name: string, input: Json | undefined): boolean {
   if (name === 'Workflow') {
     return true;
   }
   if (name === 'Agent') {
     return input?.run_in_background !== false;
   }
-  return input?.run_in_background === true;
+  return false;
 }
 
 /**
@@ -45,7 +58,7 @@ const TASK_NOTIFICATION = '<task-notification>';
 const NOTIFIED_ID = /<tool-use-id>([^<]+)<\/tool-use-id>/;
 const NOTIFIED_STATUS = /<status>([a-z_]+)<\/status>/;
 
-/** Trimmed so a long shell command cannot take over the tooltip. */
+/** Trimmed so a long description cannot take over the tooltip. */
 const DESCRIPTION_LIMIT = 60;
 
 const INTERRUPTION_MARKERS = [
@@ -135,21 +148,21 @@ export function isConversationEntry(entry: Json): boolean {
 }
 
 /**
- * The background task still in flight at the end of these entries, if any,
- * named as the model described it.
+ * The sub-agent still in flight at the end of these entries, if any, named as
+ * the model described it.
  *
- * A task is started by a `tool_use` block and ended by a notification carrying
- * the same identifier, so the two can be paired exactly rather than guessed at.
- * The notification is written as a `queue-operation`, which
- * {@link isConversationEntry} deliberately skips — the reason a session running
- * a background task read as *idle* for as long as it did.
+ * One is started by a `tool_use` block and ended by a notification carrying the
+ * same identifier, so the two can be paired exactly rather than guessed at. The
+ * notification is written as a `queue-operation`, which
+ * {@link isConversationEntry} deliberately skips — the reason a session waiting
+ * on a sub-agent read as *idle* for as long as it did.
  *
  * Given a wider window than the status needs, on purpose: measured over the
  * transcripts on one machine, an unpaired launch sits a median of 173 entries
  * from the end and up to 558, so the 80 the turn state reads would have missed
  * about seven in ten.
  */
-export function pendingBackgroundTask(entries: unknown[]): string | undefined {
+export function pendingSubagent(entries: unknown[]): string | undefined {
   const started = new Map<string, string>();
   for (const raw of entries) {
     const entry = asObject(raw);
@@ -163,7 +176,7 @@ export function pendingBackgroundTask(entries: unknown[]): string | undefined {
         if (block.type !== 'tool_use' || typeof block.id !== 'string') {
           continue;
         }
-        if (isBackgroundCall(name, input)) {
+        if (isDelegatedCall(name, input)) {
           const described = typeof input?.description === 'string' ? input.description.trim() : '';
           started.set(block.id, described.slice(0, DESCRIPTION_LIMIT) || name);
         }
@@ -185,7 +198,7 @@ export function pendingBackgroundTask(entries: unknown[]): string | undefined {
 }
 
 /** What the end of the transcript says, before the clock has its say. */
-export function claudeTurnState(tail: unknown[], background?: string): TurnState {
+export function claudeTurnState(tail: unknown[], delegated?: string): TurnState {
   for (let index = tail.length - 1; index >= 0; index -= 1) {
     const entry = asObject(tail[index]);
     if (!entry || !isConversationEntry(entry)) {
@@ -240,17 +253,17 @@ export function claudeTurnState(tail: unknown[], background?: string): TurnState
       // With nothing stated, the content decides, as it did before the field was
       // read: tool calls mean the turn is open, prose means it is over.
       if (toolUses.length === 0 || (reason !== undefined && reason !== 'tool_use')) {
-        // The turn ended and something it started did not, which is the one
-        // case where "nothing more happens without you" is false: the task
-        // reports back on its own and the session picks the work up again.
-        if (background) {
+        // The turn ended and the work it handed out did not, which is the one
+        // case where "nothing more happens without you" is false: the sub-agent
+        // reports back on its own and the session acts on the verdict.
+        if (delegated) {
           return {
             kind: 'pending',
-            running: `The turn ended, but a background task is still running (${background}).`,
-            unknown: 'The turn ended; a background task was left without an answer.',
-            // Not inconclusive. A task belongs to the process that launched it,
-            // so a transcript this cold says that process is gone — and then the
-            // turn ended after all, which is what it says.
+            running: `The turn ended, but a sub-agent is still working (${delegated}).`,
+            unknown: 'The turn ended; a sub-agent was left without a verdict.',
+            // Not inconclusive. A sub-agent belongs to the process that launched
+            // it, so a transcript this cold says that process is gone — and then
+            // the turn ended after all, which is what it says.
             staleStatus: 'idle',
           };
         }
@@ -319,6 +332,6 @@ export function inferClaudeStatus(
 ): StatusVerdict {
   // One window here, where the caller has only one to give. The provider reads
   // a wider one for the background scan, for the reason given on
-  // {@link pendingBackgroundTask}.
-  return gradeTurnState(claudeTurnState(tail, pendingBackgroundTask(tail)), ageMs, options);
+  // {@link pendingSubagent}.
+  return gradeTurnState(claudeTurnState(tail, pendingSubagent(tail)), ageMs, options);
 }

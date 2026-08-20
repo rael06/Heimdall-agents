@@ -75,11 +75,11 @@ export type TurnState =
        * longer be trusted". Defaults to `unknown`, which is what an open turn
        * deserves: nothing in the transcript says whether it ever ended.
        *
-       * A background task is the case that needed this. It belongs to the
-       * process that launched it, so a transcript that has not moved in the
-       * stale window says that process is gone and the task with it — and then
-       * the turn really did end, which is a conclusion and not an absence of
-       * one.
+       * A sub-agent still in flight is the case that needed this. It belongs to
+       * the process that launched it, so a transcript that has not moved in the
+       * stale window says that process is gone and the sub-agent with it — and
+       * then the turn really did end, which is a conclusion and not an absence
+       * of one.
        */
       staleStatus?: SessionStatus;
     };
