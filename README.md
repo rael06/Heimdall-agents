@@ -127,17 +127,25 @@ and the status is decided exactly as it was. And the two agents write the same s
 directory, so this reads one format and neither of them gets a mechanism the other lacks — the
 difference from `~/.claude/sessions/<pid>.json`, dropped precisely because only one side had it.
 
-**A turn can end while what it started keeps going.** Claude Code runs a task in the background and
-wakes the session when it finishes, so the transcript reads `end_turn` while work is still going on
-— and the session read as *idle*, "nothing more happens without you", which is the one case where
-that sentence is false. A task is now paired with the notification that ends it, by identifier, so a
-session with one still in flight reads as *running* and its tooltip names the task. The notification
-is written as a `queue-operation`, an entry type the conversation walk skips as bookkeeping, which
-is why this went unseen for so long. When such a session goes cold it falls back to *idle* rather
-than *inconclusive*: a task belongs to the process that launched it, so a transcript that has not
-moved says that process is gone and the turn did end after all. Codex reaches the same behaviour by
-its own means — a `wait_agent` call with no output is a pending tool call, which already reads as
-running.
+**A turn can end while work it handed out keeps going.** Claude Code runs a sub-agent and wakes the
+session when it reports back, so the transcript reads `end_turn` while the session is still waiting
+on a verdict — and it read as *idle*, "nothing more happens without you", which is the one case
+where that sentence is false. A sub-agent is now paired with the notification that ends it, by
+identifier, so a session with one still in flight reads as *running* and its tooltip names it. The
+notification is written as a `queue-operation`, an entry type the conversation walk skips as
+bookkeeping, which is why this went unseen for so long. When such a session goes cold it falls back
+to *idle* rather than *inconclusive*: a sub-agent belongs to the process that launched it, so a
+transcript that has not moved says that process is gone and the turn did end after all. Codex
+reaches the same behaviour by its own means — a `wait_agent` call with no output is a pending tool
+call, which already reads as running.
+
+**A shell the session parked does not count**, and that is deliberate. The status answers whether
+the *agent* is doing anything, and a development server left running is not the agent working — one
+kept a session at *running* for a day with nothing being produced. The two cannot be told apart on
+disk either: across 787 background shells here, a server and a test run are the same object, a
+command that has not reported back, and only a list of guessed-at command names could separate them.
+Codex settles it, as it settles most of these: it has no background shell at all, so counting one
+made the same situation read *running* on one provider and *idle* on the other.
 
 A 100 MB installer, 348 MB unpacked. That is what an Electron application costs.
 
@@ -504,11 +512,14 @@ minutes and only 22 exceed an hour. The delay was never wrong about normal work.
 question the files cannot — whether a process is alive — by counting, which is the one thing it can
 do and not the thing being asked.
 
-Two changes made counting the worse of the available answers. A status can now be set by hand, as
-above, and the correction is released the moment the transcript disagrees, so a row you know to be
-wrong no longer has to be guessed right. And a turn that ended
-leaving a background task behind reads as running on purpose — a reminder that something out there
-is still up, which is exactly the signal the delay used to erase on a schedule.
+What made counting the worse of the available answers is that a status can now be set by hand, as
+above, and the correction is released the moment the transcript disagrees — so a row you know to be
+wrong no longer has to be guessed right by a timer.
+
+A second reason was given here and has since been withdrawn: that a turn ending on a parked
+background task should read as running, as a reminder that something was still up. It does not any
+more. That reminder was the agent being reported busy while it was doing nothing, and the reminder
+was not worth the wrong answer.
 
 Set it back to `30` to have it decided for you. The trade is stated plainly in both directions: at
 `0` a session killed mid-turn keeps claiming to run until you say otherwise; at `30` a long quiet
