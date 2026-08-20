@@ -1,5 +1,44 @@
 # Changelog
 
+## 1.5.0
+
+**The stale delay is off by default.** *Stop believing an open turn after* now
+accepts `0`, meaning never, and `0` is what a fresh installation starts with. An
+open turn stays running until the transcript itself says otherwise.
+
+This reverses *Three hours becomes thirty minutes*, recorded here at 0.25.0, and
+the measurement that decision rested on is still correct: across 68 782 silences
+inside an open turn, 99.9 % last under ten minutes. Thirty was never wrong about
+normal work, and it stays the value to type for anyone who wants it.
+
+What changed is that the delay was answering a question the files cannot answer —
+whether a process is still alive — by counting, which is the only thing it can do
+and not the thing being asked. Two later additions made counting the worse of the
+options available. A status can be set by hand since 1.3.0, and the correction is
+released the moment the transcript disagrees, so a row known to be wrong no longer
+has to be guessed right by a timer. And a turn that ends leaving a background task
+behind reads as running deliberately — a reminder that something is still up out
+there, which is precisely the signal the delay used to erase on a schedule.
+
+The cost is stated rather than hidden, in the setting and in the README: at `0` a
+session killed mid-turn keeps claiming to run until you say otherwise. Typing `30`
+brings the old behaviour back, and the floor on the field moved from 1 to 0 so
+that both ends of the choice are reachable.
+
+**An existing installation keeps the value it has.** Only a setting that was never
+written takes the new default; nothing rewrites a delay that was chosen.
+
+### The sentinel had one way to go wrong
+
+Read as a delay rather than as a value of its own, `0` says every age is past it —
+and the setting would have done the exact opposite of what it offers: not one
+session believed, ever. `pendingVerdict` tests the sentinel before it compares
+anything, and a test pins that a 400-day-old open turn still reads as running.
+
+The sanitiser used to clamp `0` up to one minute, back when the floor was 1 and a
+zero could only be a mistake. It is the default now, and a sanitiser quietly
+rewriting it would have turned the setting off for everyone who had it on.
+
 ## 1.4.0
 
 **Clicking a status now toggles the acknowledgement instead of only clearing

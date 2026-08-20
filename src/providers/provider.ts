@@ -3,7 +3,7 @@ import { AgentSession, ProviderId, ProviderState, SessionStatus } from '../model
 export interface ScanOptions {
   /** Reference timestamp of the scan (ms). */
   now: number;
-  /** Delay after which a session still mid-turn becomes unknown (ms). */
+  /** Delay after which a session still mid-turn becomes unknown (ms). 0 means never. */
   staleAfterMs: number;
   /** History window based on the last activity (ms). 0 means unlimited. */
   historyMs: number;
@@ -146,7 +146,11 @@ export function pendingVerdict(
   options: ScanOptions,
   labels: { running: string; unknown: string; staleStatus?: SessionStatus },
 ): StatusVerdict {
-  return ageMs < options.staleAfterMs
-    ? { status: 'running', reason: labels.running }
-    : { status: labels.staleStatus ?? 'unknown', reason: labels.unknown };
+  // Zero means never, as it already does for the history window. The clock is
+  // then out of it entirely: an open turn stays open until the transcript says
+  // otherwise, and nothing but the file decides.
+  if (options.staleAfterMs === 0 || ageMs < options.staleAfterMs) {
+    return { status: 'running', reason: labels.running };
+  }
+  return { status: labels.staleStatus ?? 'unknown', reason: labels.unknown };
 }

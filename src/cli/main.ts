@@ -42,7 +42,7 @@ Scanning (every command)
   --history-days <n>           history window, 0 for everything (default: 30)
   --max <n>                    sessions loaded per provider (default: 300)
   --stale-after <minutes>      before an open turn stops being believed and
-                               becomes unknown (default: 30)
+                               becomes unknown, 0 for never (default: 0)
   --auto-watch=false           stop marking a session watched when it starts working
   --shared-dir <path>          marks and resolved titles; defaults to
                                ~/.heimdall-agents

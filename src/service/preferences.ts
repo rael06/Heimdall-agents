@@ -125,19 +125,36 @@ export const SCAN_BOUNDS: Readonly<Record<string, { min: number; max: number }>>
   maxSessions: { min: 10, max: 5000 },
   // 0 means everything, which is why the floor is not 1.
   historyDays: { min: 0, max: 3650 },
-  staleAfterMinutes: { min: 1, max: 10080 },
+  // 0 means never, like the history window above, which is why the floor is not
+  // 1: the value has to be reachable to be a setting at all.
+  staleAfterMinutes: { min: 0, max: 10080 },
   handoffDelaySeconds: { min: 0, max: 30 },
 };
 
 export const DEFAULT_SCAN: ScanPreferences = {
   maxSessions: 300,
   historyDays: 30,
-  // Measured over 68 782 silences inside an open turn: 99.9 % last under ten
-  // minutes and only 22 exceed an hour — and those turned out to be turns
-  // abandoned and picked up the next day, where *inconclusive* was the truthful
-  // label anyway. Thirty minutes clears normal work three times over while
-  // cutting the window a dead session spends claiming to run.
-  staleAfterMinutes: 30,
+  /*
+   * Never, by default.
+   *
+   * It was thirty minutes, on a measurement that still holds: over 68 782
+   * silences inside an open turn, 99.9 % last under ten minutes and only 22
+   * exceed an hour. The delay was never about normal work — it was about the
+   * window a session killed mid-turn spends claiming to run, since nothing is
+   * written when a process dies.
+   *
+   * What changed is that guessing on its behalf is no longer the only option.
+   * A row that is wrong can be corrected by hand, and the correction is
+   * released as soon as the transcript disagrees — so the clock no longer has
+   * to answer a question the files cannot. Left to itself the delay also erased
+   * a signal worth keeping: a session that left a server running reads as
+   * running, which is a true and useful thing to be reminded of, and ageing it
+   * out hid exactly that.
+   *
+   * The delay is still there for anyone who wants it, and its old value is one
+   * field away.
+   */
+  staleAfterMinutes: 0,
   includeSubagents: false,
   autoWatch: true,
   handoffDelaySeconds: 2,

@@ -378,8 +378,11 @@
         <span class="muted" data-i18n="settings.historyHint">(0 for everything)</span></span>
         <input id="set-history" type="number" min="0" max="3650">
       </label>
-      <label class="field"><span data-i18n="settings.stale">Inconclusive after, in minutes</span>
-        <input id="set-stale" type="number" min="1" max="10080">
+      <label class="field"><span><span data-i18n="settings.stale">Inconclusive after, in minutes</span>
+        <span class="muted" data-i18n="settings.staleHint">(0 for never)</span></span>
+        <!-- The floor is 0, which means never, so the value the field defaults
+             to has to be typable in it. -->
+        <input id="set-stale" type="number" min="0" max="10080">
       </label>
       <p class="muted" data-i18n="settings.staleHelp"></p>
       <label class="check"><input id="set-subagents" type="checkbox">
