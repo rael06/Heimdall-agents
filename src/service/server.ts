@@ -300,6 +300,18 @@ export function createServiceServer(engine: ServiceEngine, options: ServerOption
         sendJson(response, 200, await engine.acknowledge(ids));
         return;
       }
+      // Its own route rather than a flag on the one above: that one is also
+      // reached by a toast button, through a URI that carries an identifier and
+      // nothing else, and a route that means two things depending on a field is
+      // a route that will one day mean the wrong one.
+      if (path === '/api/unacknowledge') {
+        const body = asObject(await readJsonBody(request));
+        const ids = Array.isArray(body.ids)
+          ? body.ids.filter((id): id is string => typeof id === 'string')
+          : [];
+        sendJson(response, 200, await engine.unacknowledge(ids));
+        return;
+      }
       if (path === '/api/status') {
         const body = asObject(await readJsonBody(request));
         const id = typeof body.id === 'string' ? body.id : '';

@@ -549,7 +549,9 @@ function createRow(id) {
     '<button class="link tag" type="button"></button></td>' +
     '<td class="title"><button class="link text" type="button"></button>' +
     '<span class="matched"></span></td>';
-  tr.querySelector('.status').addEventListener('click', () => acknowledge([id]));
+  tr.querySelector('.status').addEventListener('click', () =>
+    state.marks.unacknowledged.includes(id) ? acknowledge([id]) : unacknowledge([id]),
+  );
   tr.querySelector('.watched').addEventListener('click', () => toggleMark('watched', id));
   tr.querySelector('.favorite').addEventListener('click', () => toggleMark('favorite', id));
   // A click lands on the thing it means, never on the row: a stray click in the
@@ -595,7 +597,12 @@ function updateRow(tr, session) {
   // for anyone who cannot see the shape.
   const label = statusLabel(session.status);
   status.setAttribute('aria-label', unseen ? `${label}, ${t('row.unacknowledged')}` : label);
-  status.title = `${label} — ${session.statusReason}` + (unseen ? `\n${t('row.acknowledge')}` : '');
+  // The tooltip names what the click will do, in both directions. It used to
+  // appear only on an unseen row, which left the other half of the toggle with
+  // nothing saying it was there at all.
+  status.title =
+    `${label} — ${session.statusReason}\n` +
+    t(unseen ? 'row.acknowledge' : 'row.unacknowledge');
 
   // An outline when unset and a filled one when set. Drawing both the same and
   // colouring the difference makes every row look marked at a glance, and leaves
@@ -954,6 +961,21 @@ async function toggleMark(kind, id) {
 async function acknowledge(ids) {
   if (!ids.length) return;
   state.marks = await post('/api/acknowledge', { ids });
+  render();
+}
+
+/**
+ * The other direction: puts the marker back on.
+ *
+ * Clicking a status now says "I have dealt with this" or "I have not", by
+ * toggling, which is what the two markers beside it have always done. One-way
+ * meant a marker cleared by mistake — or cleared by opening the session to look
+ * — could not be put back, and the row lost the only thing saying it still
+ * needed you.
+ */
+async function unacknowledge(ids) {
+  if (!ids.length) return;
+  state.marks = await post('/api/unacknowledge', { ids });
   render();
 }
 

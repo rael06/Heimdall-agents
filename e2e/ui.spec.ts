@@ -1543,6 +1543,31 @@ test('a refresh that changes nothing touches nothing, so a click cannot be lost'
   expect(problems).toEqual([]);
 });
 
+test('the status marker toggles, so a row can be put back on the pile', async ({ page }) => {
+  await open(page);
+  const status = rows(page).filter({ hasText: 'Refactor the importer' }).locator('.status');
+  await expect(status).toHaveAttribute('data-unseen', 'false');
+
+  // The half that did not exist: saying "I have not dealt with this after all".
+  // One-way meant a marker cleared by mistake, or cleared by opening the session
+  // to look, could not be put back.
+  await status.click();
+  await expect(status).toHaveAttribute('data-unseen', 'true');
+  await expect(status).toHaveAttribute('title', /acknowledge/i);
+
+  await status.click();
+  await expect(status).toHaveAttribute('data-unseen', 'false');
+  // The tooltip names what the next click does, in both directions — it used to
+  // appear on an unseen row only.
+  await expect(status).toHaveAttribute('title', /unseen/i);
+
+  // And it survives a round trip through the service rather than living in the
+  // page, which is the whole point of a marker.
+  await page.locator('#refresh').click();
+  await expect(status).toHaveAttribute('data-unseen', 'false');
+  expect(problems).toEqual([]);
+});
+
 /** The column header cell, which is the only element `aria-sort` is valid on. */
 const header = (page: Page, key: string) => page.locator(`th:has(button.sort[data-key="${key}"])`);
 

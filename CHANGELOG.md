@@ -1,5 +1,35 @@
 # Changelog
 
+## 1.4.0
+
+**Clicking a status now toggles the acknowledgement instead of only clearing
+it.** A click on a row that carries the dot clears it, as before. A click on a
+row that carries none puts it back.
+
+That is how a row goes back on the pile: you open a session, look at it, decide
+it still needs you — and until now there was no way to say so. The mark could be
+written by a scan and erased by you, never the other way round, so one cleared by
+mistake was gone and the row lost the only thing saying it still wanted
+attention.
+
+The two markers sitting beside it — watched and starred — have always toggled.
+This one was the odd one out, and it is a marker, not a receipt.
+
+### Nothing special was needed to make it behave
+
+A mark set by hand is cleared by the same event that clears an automatic one:
+the session next starting to work. `applyStatusChanges` looks at the transition
+and not at who wrote the mark, so the two kinds cannot drift apart.
+
+The tooltip now names what the click will do in **both** directions. It used to
+appear on an unseen row only, which left the other half of the toggle with
+nothing at all saying it was there.
+
+Its own route rather than a flag on the existing one: `/api/acknowledge` is also
+reached by a toast button, through a URI carrying an identifier and nothing else,
+and a route that means two things depending on a field is a route that will one
+day mean the wrong one.
+
 ## 1.3.1
 
 **The minutes column says `20h48m` rather than `1248m`.**
