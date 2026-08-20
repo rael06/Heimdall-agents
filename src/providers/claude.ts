@@ -414,7 +414,10 @@ export class ClaudeSessionProvider implements SessionProvider {
     try {
       const [head, tail] = await Promise.all([
         readHeadLines(candidate.filePath, HEAD_LINES),
-        readTailLines(candidate.filePath, TAIL_LINES),
+        // The status window is the floor, not the title window: a rename that
+        // has scrolled away is a title falling back to the prompt, while a
+        // status decided on nothing is a session reported as inconclusive.
+        readTailLines(candidate.filePath, TAIL_LINES, { minLines: STATUS_LINES }),
       ]);
       headEntries = head.map((line) => asObject(line.value)).filter((e): e is Json => Boolean(e));
       tailEntries = tail.map((line) => asObject(line.value)).filter((e): e is Json => Boolean(e));

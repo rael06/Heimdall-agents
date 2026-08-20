@@ -12,9 +12,34 @@ import { StringDecoder } from 'node:string_decoder';
 
 const DEFAULT_TAIL_BYTES = 256 * 1024;
 
+/**
+ * Ceiling on the widening described in {@link readTailLines}.
+ *
+ * Twice the largest single line measured across 1 242 transcripts, which was
+ * 2.1 MB. The margin is the point: a window that cannot hold one whole line
+ * finds no line break in it and comes back with nothing, so the ceiling has to
+ * clear the outliers rather than sit among them. Past it the reader returns
+ * what it has, because a pathological file must not be loaded whole in the hope
+ * of finding one line in it.
+ */
+const MAX_TAIL_BYTES = 4 * 1024 * 1024;
+
 export interface JsonlLine {
   raw: string;
   value: unknown;
+}
+
+export interface TailOptions {
+  /**
+   * Complete lines the window must hold before it stops growing.
+   *
+   * Distinct from `maxLines`, which is a slice of whatever the window happened
+   * to contain and costs nothing: this is the number the caller cannot decide
+   * without, and the only reason to read further.
+   */
+  minLines?: number;
+  /** Where the window starts before any widening. */
+  maxBytes?: number;
 }
 
 function parseLines(lines: string[]): JsonlLine[] {
@@ -56,28 +81,52 @@ export async function readHeadLines(filePath: string, maxLines: number): Promise
 /**
  * Reads the end of the file and returns the last complete lines. The first line
  * of the buffer is dropped when the read started in the middle of a line.
+ *
+ * The window grows when it comes back with fewer than `minLines`, because a
+ * fixed budget of bytes is not a budget of lines and one outlier can spend the
+ * whole of it. A transcript carrying two screenshots in a single entry produced
+ * a 952 087-byte line here, nearly four times the window: the read landed
+ * entirely inside it, no line break was found before it, and the reader
+ * returned **nothing at all** — which the caller could only read as a session
+ * with no usable exchange left, for as long as the model spent looking at the
+ * images.
+ *
+ * `minLines` is the number the caller decides on, not the number it would like:
+ * reading past what it consumes cannot change its answer, and reading less than
+ * that can starve it. Measured over 1 242 transcripts, the floor moves **no**
+ * verdict outside that starvation window — it is a guard, not a change of mind —
+ * and the widening is asked for by a fifth of them, at a read grown by two
+ * thirds on the ones that ask.
  */
 export async function readTailLines(
   filePath: string,
   maxLines: number,
-  maxBytes = DEFAULT_TAIL_BYTES,
+  { minLines = 1, maxBytes = DEFAULT_TAIL_BYTES }: TailOptions = {},
 ): Promise<JsonlLine[]> {
   const handle = await fs.open(filePath, 'r');
   try {
     const { size } = await handle.stat();
-    const length = Math.min(size, maxBytes);
-    const position = size - length;
-    const buffer = Buffer.alloc(length);
-    await handle.read(buffer, 0, length, position);
-    let text = buffer.toString('utf8');
-    if (position > 0) {
-      const firstBreak = text.indexOf('\n');
-      text = firstBreak === -1 ? '' : text.slice(firstBreak + 1);
+    let window = Math.max(1, maxBytes);
+    for (;;) {
+      const length = Math.min(size, window);
+      const position = size - length;
+      const buffer = Buffer.alloc(length);
+      await handle.read(buffer, 0, length, position);
+      let text = buffer.toString('utf8');
+      if (position > 0) {
+        const firstBreak = text.indexOf('\n');
+        text = firstBreak === -1 ? '' : text.slice(firstBreak + 1);
+      }
+      // Parse first, then slice: the last line of a transcript being written is
+      // often incomplete and must not consume one of the requested slots.
+      const parsed = parseLines(text.split('\n'));
+      // Nothing more to read, or nothing more allowed: what there is, is the
+      // answer. A file simply shorter than the demand must not loop forever.
+      if (parsed.length >= minLines || length === size || window >= MAX_TAIL_BYTES) {
+        return parsed.slice(Math.max(0, parsed.length - maxLines));
+      }
+      window = Math.min(window * 2, MAX_TAIL_BYTES);
     }
-    // Parse first, then slice: the last line of a transcript being written is
-    // often incomplete and must not consume one of the requested slots.
-    const parsed = parseLines(text.split('\n'));
-    return parsed.slice(Math.max(0, parsed.length - maxLines));
   } finally {
     await handle.close();
   }

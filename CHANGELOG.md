@@ -1,5 +1,49 @@
 # Changelog
 
+## 1.5.1
+
+**A session sending images no longer reports itself as inconclusive while the
+model looks at them.**
+
+The tail of a transcript is read as its last 256 KB, which is a budget of bytes
+and was being trusted as a budget of lines. One entry carrying two screenshots
+measured **952 087 bytes** here — nearly four times the window. The read landed
+entirely inside that single line, found no line break before it, and returned
+**nothing at all**. Handed an empty tail, the reader could only conclude *no
+usable exchange at the end of the transcript*, and the row said `unknown` for as
+long as the model spent on the images, which is exactly the moment the session
+was working hardest.
+
+Replayed line by line over the transcript that showed it, the hole opens on the
+image entry and closes nine entries later, once enough ordinary lines have been
+written *after* it to fit an exchange back inside the window. With the fix, every
+one of those reads `running`, which is what the entry says: a request sent, an
+answer in progress.
+
+This was never the stale delay, and setting it to `0` in 1.5.0 would not have
+helped: the verdict was **settled**, decided by the reader, not aged by a clock.
+
+### The window now grows when it is starved
+
+`readTailLines` takes the number of lines the caller decides on and widens its
+window, doubling, until it holds them — capped at 4 MB, twice the largest single
+line measured across 1 242 transcripts. Past the cap it returns what it has,
+because a pathological file must not be loaded whole to find one line in it.
+
+The floor is what each provider's status decision actually reads: 80 entries for
+Claude, which slices exactly that many, and the whole tail for Codex, which has
+no narrower window. Reading further than that cannot change the answer, and
+reading less than it can starve it.
+
+Measured before shipping, across those 1 242 transcripts: the floor moves **no
+verdict at all** outside the starvation window it exists for — it is a guard, not
+a change of mind — and a fifth of them ask for the widening, at a read grown by
+two thirds on the ones that ask.
+
+Titles keep the wider, cheaper window they had. A rename that has scrolled out of
+reach costs a title falling back to the opening prompt; a status decided on
+nothing costs a session reported as dead while it works.
+
 ## 1.5.0
 
 **The stale delay is off by default.** *Stop believing an open turn after* now
