@@ -373,7 +373,9 @@ export class CodexSessionProvider implements SessionProvider {
     try {
       const [head, tail] = await Promise.all([
         readHeadLines(thread.primary.filePath, HEAD_LINES),
-        readTailLines(thread.primary.filePath, TAIL_LINES),
+        // No narrower window here: the status is decided on this whole tail, so
+        // the floor and the demand are the same number.
+        readTailLines(thread.primary.filePath, TAIL_LINES, { minLines: TAIL_LINES }),
       ]);
       headEntries = head.map((line) => asObject(line.value)).filter((e): e is Json => Boolean(e));
       tailEntries = tail.map((line) => asObject(line.value)).filter((e): e is Json => Boolean(e));

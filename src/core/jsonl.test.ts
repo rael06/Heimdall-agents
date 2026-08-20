@@ -74,6 +74,50 @@ describe('readTailLines', () => {
     const tail = await readTailLines(small, 10);
     expect(tail.map((line) => (line.value as { a: number }).a)).toEqual([1, 2]);
   });
+
+  describe('when one line is larger than the window', () => {
+    /** A transcript ending on an entry too big for the starting window. */
+    const withGiantLast = async (name: string, size: number) => {
+      const file = path.join(dir, name);
+      const small = Array.from({ length: 40 }, (_, i) => JSON.stringify({ index: i }));
+      const giant = JSON.stringify({ index: 40, image: 'x'.repeat(size) });
+      await fs.writeFile(file, `${[...small, giant].join('\n')}\n`, 'utf8');
+      return file;
+    };
+
+    it('never comes back empty from a file that has lines', async () => {
+      // It used to, and that is the whole bug: the window landed inside a single
+      // entry, found no line break before it and dropped everything. A session
+      // showed exactly this while the model was looking at two screenshots, and
+      // "no line" is what the caller can only read as "no usable exchange".
+      const file = await withGiantLast('giant-default.jsonl', 4096);
+      const tail = await readTailLines(file, 10, { maxBytes: 1024 });
+      expect(tail.length).toBeGreaterThan(0);
+      expect((tail.at(-1)?.value as { index: number }).index).toBe(40);
+    });
+
+    it('grows the window until the floor is met', async () => {
+      const file = await withGiantLast('giant-floor.jsonl', 4096);
+      const tail = await readTailLines(file, 10, { maxBytes: 1024, minLines: 5 });
+      const indexes = tail.map((line) => (line.value as { index: number }).index);
+      expect(indexes).toEqual([31, 32, 33, 34, 35, 36, 37, 38, 39, 40]);
+    });
+
+    it('gives back what it has rather than reading forever', async () => {
+      // Four lines exist and twenty are demanded: the widening has to stop on
+      // the whole file being read, not on the floor it can never reach.
+      const short = path.join(dir, 'short.jsonl');
+      await fs.writeFile(short, '{"a":1}\n{"a":2}\n{"a":3}\n{"a":4}\n', 'utf8');
+      const tail = await readTailLines(short, 50, { maxBytes: 8, minLines: 20 });
+      expect(tail.map((line) => (line.value as { a: number }).a)).toEqual([1, 2, 3, 4]);
+    });
+
+    it('leaves a window that already meets the floor alone', async () => {
+      const tail = await readTailLines(filePath, 5, { minLines: 5 });
+      const indexes = tail.map((line) => (line.value as { index: number }).index);
+      expect(indexes).toEqual([495, 496, 497, 498, 499]);
+    });
+  });
 });
 
 describe('forEachLine', () => {
