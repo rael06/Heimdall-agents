@@ -58,3 +58,25 @@ describe('verdictFor', () => {
     expect((await verdictFor(open, session, reporting(undefined))).status).toBe('unknown');
   });
 });
+
+describe('a delay of zero, which means never', () => {
+  const never: ScanOptions = { ...base, staleAfterMs: 0 };
+
+  it('leaves an open turn running however old the file is', async () => {
+    // Read as a delay rather than as a sentinel, zero says *every* age is past
+    // it, and the setting would do the exact opposite of what it offers: not
+    // one session believed, ever. That is the mistake this test exists for.
+    const ancient = { ...session, updatedAtMs: NOW - 400 * 24 * 60 * 60 * 1000 };
+    const verdict = await verdictFor(open, ancient, never);
+    expect(verdict.status).toBe('running');
+    expect(verdict.reason).toBe('A tool is running.');
+  });
+
+  it('still lets the transcript and the hooks have the last word', async () => {
+    const ended: TurnState = { kind: 'settled', status: 'idle', reason: 'It ended.' };
+    expect((await verdictFor(ended, session, never)).status).toBe('idle');
+    expect(
+      (await verdictFor(open, session, { ...never, waitingSince: async () => ASKED })).status,
+    ).toBe('idle');
+  });
+});

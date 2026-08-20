@@ -157,14 +157,18 @@ const TRANSLATIONS = {
     'settings.history': 'History in days',
     'settings.historyHint': '(0 for everything)',
     'settings.stale': 'Stop believing an open turn after, in minutes',
+    'settings.staleHint': '(0 for never)',
     'settings.staleHelp':
       'A turn stays open until the provider closes it, and a session killed ' +
       'mid-turn never closes its own — nothing is written to say so. Past this ' +
       'delay the session is called inconclusive rather than running, which is ' +
       'the only honest thing left to say about a file that has not moved. ' +
-      'Measured here: 99.9% of the silences inside a real turn last under ten ' +
-      'minutes, so 30 leaves a wide margin. Raise it if your agents go quiet ' +
-      'for longer; lower it to spot abandoned sessions sooner.',
+      'At 0 the clock never intervenes: an open turn stays running until the ' +
+      'transcript itself says otherwise, and a row you know to be wrong is ' +
+      'yours to correct by right-clicking it. That is the default, because a ' +
+      'session that left something running is worth being reminded of rather ' +
+      'than quietly aged away. Set 30 to have it decided for you — measured ' +
+      'here, 99.9% of the silences inside a real turn last under ten minutes.',
     'settings.subagents': 'List orphan Codex sub-agent transcripts as sessions',
     'settings.behaviourLegend': 'Behaviour',
     'settings.autowatch': 'Watch a session when it starts working',
@@ -338,15 +342,19 @@ const TRANSLATIONS = {
     'settings.history': 'Historique en jours',
     'settings.historyHint': '(0 pour tout)',
     'settings.stale': 'Cesser de croire un tour ouvert après, en minutes',
+    'settings.staleHint': '(0 pour jamais)',
     'settings.staleHelp':
       'Un tour reste ouvert tant que le fournisseur ne le ferme pas, et une ' +
       'session tuée en plein tour ne ferme jamais le sien — rien n’est écrit ' +
       'pour le dire. Passé ce délai, la session est dite indéterminée plutôt ' +
       'qu’en cours, ce qui est la seule chose honnête à dire d’un fichier qui ' +
-      'ne bouge plus. Mesuré ici : 99,9 % des silences à l’intérieur d’un vrai ' +
-      'tour durent moins de dix minutes, 30 laisse donc une large marge. ' +
-      'Augmentez-le si vos agents se taisent plus longtemps, baissez-le pour ' +
-      'repérer plus tôt les sessions abandonnées.',
+      'ne bouge plus. À 0, l’horloge n’intervient jamais : un tour ouvert reste ' +
+      'en cours tant que le transcript ne dit pas le contraire, et une ligne que ' +
+      'vous savez fausse se corrige d’un clic droit. C’est la valeur par ' +
+      'défaut, parce qu’une session qui a laissé tourner quelque chose mérite ' +
+      'de vous le rappeler plutôt que de vieillir en silence. Mettez 30 pour ' +
+      'que ce soit tranché à votre place — mesuré ici, 99,9 % des silences à ' +
+      'l’intérieur d’un vrai tour durent moins de dix minutes.',
     'settings.subagents': 'Lister les transcripts de sous-agents Codex orphelins',
 
     'settings.behaviourLegend': 'Comportement',

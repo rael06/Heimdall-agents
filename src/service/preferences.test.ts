@@ -180,8 +180,16 @@ describe('sanitizePreferences, on the numbers', () => {
     expect(scanOf({ maxSessions: -4 }).maxSessions).toBe(10);
     expect(scanOf({ historyDays: -1 }).historyDays).toBe(0);
     expect(scanOf({ historyDays: 99_999 }).historyDays).toBe(3650);
-    expect(scanOf({ staleAfterMinutes: 0 }).staleAfterMinutes).toBe(1);
+    expect(scanOf({ staleAfterMinutes: -5 }).staleAfterMinutes).toBe(0);
+    expect(scanOf({ staleAfterMinutes: 99_999 }).staleAfterMinutes).toBe(10080);
     expect(scanOf({ handoffDelaySeconds: 600 }).handoffDelaySeconds).toBe(30);
+  });
+
+  it('keeps the zero that means never rather than clamping it away', () => {
+    // It used to be clamped to one minute, back when the floor was 1 and zero
+    // could only be a mistake. It is the default now, and a sanitiser that
+    // quietly rewrote it would turn the setting off for everyone.
+    expect(scanOf({ staleAfterMinutes: 0 }).staleAfterMinutes).toBe(0);
   });
 
   it('rounds, because every one of these counts something', () => {

@@ -22,6 +22,7 @@ export interface Settings {
   claudeHome: string;
   codexHome: string;
   includeSubagentSessions: boolean;
+  /** 0 means never: the clock leaves an open turn alone. */
   staleAfterMs: number;
   /** 0 means unlimited. */
   historyMs: number;
@@ -99,7 +100,8 @@ export function settingsFrom(args: ParsedArgs): Settings {
     claudeHome: home(args, 'claude-home', '.claude'),
     codexHome: home(args, 'codex-home', '.codex'),
     includeSubagentSessions: flag(args, 'include-subagents'),
-    staleAfterMs: number(args, 'stale-after', 30) * 60 * 1000,
+    // 0 means never, like `--history-days`.
+    staleAfterMs: number(args, 'stale-after', 0) * 60 * 1000,
     historyMs: historyDays > 0 ? historyDays * 24 * 60 * 60 * 1000 : 0,
     maxSessions: number(args, 'max', 300),
     autoWatch: flag(args, 'auto-watch', true),

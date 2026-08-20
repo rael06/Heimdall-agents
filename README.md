@@ -493,15 +493,26 @@ read the row, so it is acknowledged and raises no notification.
 the same thing here, and that is the point: the model has stopped and the next move is yours. Claude
 Code uses `idle_prompt` for the same notion in its own notification events.
 
-The clock does one job: `--stale-after` (default **30 minutes**) is when an open turn stops being
-believed at all. It never changes *what* a session is, only *whether the file is still worth
-reading*. It is not optional decoration — no provider writes "I died", so without it a session
-killed mid-turn claims to run forever: 46 of 426 real sessions here, sorted to the top of the list.
+The clock does one job: `--stale-after` is when an open turn stops being believed at all. It never
+changes *what* a session is, only *whether the file is still worth reading*. It answers a real
+problem — no provider writes "I died", so a session killed mid-turn claims to run forever: 46 of 426
+real sessions here, sorted to the top of the list.
 
-Thirty is measured, not guessed. Across 68 782 silences inside an open turn, 99.9 % last under ten
-minutes and only 22 exceed an hour — and those were turns abandoned and picked up the next day,
-where *inconclusive* was the truthful label at the time. What it cannot do is check whether anything
-is still alive; it counts, and nothing more.
+**It is off by default** (`0`, meaning never), and that is a reversal. It ran at thirty minutes,
+on a measurement that still holds: across 68 782 silences inside an open turn, 99.9 % last under ten
+minutes and only 22 exceed an hour. The delay was never wrong about normal work. It was answering a
+question the files cannot — whether a process is alive — by counting, which is the one thing it can
+do and not the thing being asked.
+
+Two changes made counting the worse of the available answers. A status can now be set by hand, as
+above, and the correction is released the moment the transcript disagrees, so a row you know to be
+wrong no longer has to be guessed right. And a turn that ended
+leaving a background task behind reads as running on purpose — a reminder that something out there
+is still up, which is exactly the signal the delay used to erase on a schedule.
+
+Set it back to `30` to have it decided for you. The trade is stated plainly in both directions: at
+`0` a session killed mid-turn keeps claiming to run until you say otherwise; at `30` a long quiet
+tool is called inconclusive while it is still working.
 
 **There is no `needs-action`, deliberately.** Neither provider writes a pending permission anywhere —
 measured, 41 seconds passed between a tool starting and a rejection with not one byte written in
