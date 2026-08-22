@@ -190,12 +190,61 @@ export const DEFAULT_APP: AppPreferences = {
   language: 'auto',
 };
 
+/**
+ * What the page owns about itself: its theme, its accent, the colours handed to
+ * each workspace, the column widths, the sort and the filters.
+ *
+ * These lived in `localStorage`, which is keyed by *origin* — and the origin
+ * carries the port. The port is asked for, not owned: Windows reserves blocks of
+ * the dynamic range and redraws them on every boot, so the day 27600 came back
+ * refused the service took another one and the page opened on an empty store.
+ * Nothing was lost, and nothing was reachable either, which to the reader is the
+ * same thing.
+ *
+ * So they are held here, beside every other setting, and travel with the file
+ * rather than with the port. Free-form on purpose: the service does not know
+ * what a palette or a column width is and has no business knowing. It stores
+ * strings, bounds them, and hands them back.
+ */
+export type ViewPreferences = Record<string, string>;
+
+/** Bounds on a store the page fills by itself, so it cannot fill the disk. */
+export const VIEW_BOUNDS = { keys: 64, keyLength: 64, valueLength: 64 * 1024 };
+
 export interface Preferences {
   version: number;
   notifications: NotificationPreferences;
   providers: ProviderPreferences;
   scan: ScanPreferences;
   app: AppPreferences;
+  view: ViewPreferences;
+}
+
+/**
+ * Keeps what is a string and short enough, drops the rest.
+ *
+ * The page is behind the token, so this is not a way in — it is what keeps a
+ * loop in the interface from writing a megabyte of colours on every drag and
+ * leaving the file unreadable to everything else.
+ */
+export function sanitizeView(value: unknown): ViewPreferences {
+  if (typeof value !== 'object' || value === null) {
+    return {};
+  }
+  const view: ViewPreferences = {};
+  for (const [key, stored] of Object.entries(value as Record<string, unknown>)) {
+    if (Object.keys(view).length >= VIEW_BOUNDS.keys) {
+      break;
+    }
+    if (typeof stored !== 'string' || !key || key.length > VIEW_BOUNDS.keyLength) {
+      continue;
+    }
+    if (stored.length > VIEW_BOUNDS.valueLength) {
+      continue;
+    }
+    view[key] = stored;
+  }
+  return view;
 }
 
 export const NO_PROVIDER_PATHS: ProviderPreferences = { claudeHome: '', codexHome: '' };
@@ -254,6 +303,7 @@ export function sanitizePreferences(value: unknown, fallback: NotificationPrefer
 
   return {
     version: storedVersion,
+    view: sanitizeView(raw.view),
     providers: {
       claudeHome: providerPath(providers.claudeHome),
       codexHome: providerPath(providers.codexHome),
@@ -341,6 +391,7 @@ export class PreferencesStore {
         providers: NO_PROVIDER_PATHS,
         scan: DEFAULT_SCAN,
         app: DEFAULT_APP,
+        view: {},
       };
     }
   }
@@ -369,6 +420,27 @@ export class PreferencesStore {
     await this.update((current) => ({ ...current, app: { ...current.app, ...appPreferences } }));
   }
 
+  /**
+   * Merges a patch into what the page holds. A `null` removes that key.
+   *
+   * Merged rather than replaced because the page sends what changed, not what
+   * it has: a colour assigned while another window had the settings open must
+   * not take the rest of the store with it.
+   */
+  async writeView(patch: Record<string, string | null>): Promise<void> {
+    await this.update((current) => {
+      const view = { ...current.view };
+      for (const [key, value] of Object.entries(patch)) {
+        if (value === null) {
+          delete view[key];
+        } else {
+          view[key] = value;
+        }
+      }
+      return { ...current, view: sanitizeView(view) };
+    });
+  }
+
   /** Read, change, write back: one half must never drop the other. */
   private async update(mutate: (current: Preferences) => Preferences): Promise<void> {
     await withFileLock(this.filePath, async () => {
@@ -378,6 +450,7 @@ export class PreferencesStore {
         providers: NO_PROVIDER_PATHS,
         scan: DEFAULT_SCAN,
         app: DEFAULT_APP,
+        view: {},
       };
       try {
         current = sanitizePreferences(

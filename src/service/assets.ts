@@ -25,6 +25,16 @@ const SCRIPT = '<!--{{script}}-->';
  * from it.
  */
 const ICONS = '<!--{{icons}}-->';
+/**
+ * Where what the page owns goes back into the page.
+ *
+ * Written into the document rather than fetched, because the theme and the
+ * accent decide the first paint: a request for them, however quick, is a flash
+ * of the wrong colours on every open. That immediacy is what `localStorage` was
+ * being used for, and inlining keeps it while the values live in the
+ * preferences file — see {@link ViewPreferences} for why they had to leave.
+ */
+const VIEW = '<!--{{view}}-->';
 
 /**
  * `lib.js` and `app.js` go into the *same* module script, in that order.
@@ -40,15 +50,37 @@ function moduleScript(lib: string, app: string): string {
   return `<script type="module">\n${lib}\n${app}\n</script>`;
 }
 
+/**
+ * The stored view, as a global the page can read before it paints anything.
+ *
+ * `<` is escaped because a value the page wrote is being put back inside a
+ * script element: a workspace named `</script>` would otherwise end the element
+ * early and the rest of the document would be read as markup. Nothing here is
+ * hostile — it is all the reader's own — but a name is not a place to find out.
+ */
+function viewScript(view: Readonly<Record<string, string>>): string {
+  const json = JSON.stringify(view).replace(/</g, '\\u003c');
+  return `<script>window.__view = ${json};</script>`;
+}
+
 export class AssetReader {
-  private page?: string;
+  private template?: string;
 
   /** `dist/web`, beside the compiled service. */
   constructor(private readonly directory = path.join(__dirname, '..', 'web')) {}
 
-  async read(): Promise<string> {
-    if (this.page !== undefined) {
-      return this.page;
+  /**
+   * The files cannot change while the service runs and the view can, so one is
+   * cached and the other substituted on every request. Serving a cached page
+   * would have handed the reader whatever the view was when the window opened.
+   */
+  async read(view: Readonly<Record<string, string>> = {}): Promise<string> {
+    return (await this.load()).replace(VIEW, viewScript(view));
+  }
+
+  private async load(): Promise<string> {
+    if (this.template !== undefined) {
+      return this.template;
     }
     const file = (name: string): Promise<string> =>
       fs.readFile(path.join(this.directory, name), 'utf8');
@@ -60,14 +92,13 @@ export class AssetReader {
       file('app.js'),
       file('icons.svg'),
     ]);
-    // The files cannot change while the service runs, so one read is enough.
     // The dictionary goes in as a classic script so the module can read it as a
     // global: there is one document and no route to import a second file from.
-    this.page = html
+    this.template = html
       .replace(STYLES, `<style>\n${css}\n</style>`)
       .replace(I18N, `<script>\n${i18n}\n</script>`)
       .replace(ICONS, icons)
       .replace(SCRIPT, moduleScript(lib, js));
-    return this.page;
+    return this.template;
   }
 }

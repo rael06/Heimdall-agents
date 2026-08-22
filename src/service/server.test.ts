@@ -57,6 +57,8 @@ function fakeSettings() {
     detect: vi.fn(async () => [{ provider: 'claude', candidates: [], best: undefined }]),
     save: vi.fn(async (request: unknown) => ({ saved: request, restartRequired: false })),
     restart: vi.fn(() => true),
+    readView: vi.fn(async () => ({ theme: 'dark' })),
+    saveView: vi.fn(async (_patch: Record<string, string | null>) => undefined),
   };
 }
 
@@ -186,6 +188,18 @@ describe('what the routes answer', () => {
     expect(html).toContain('<script type="module">');
     expect(html).not.toContain('{{styles}}');
     expect(html).not.toContain('{{script}}');
+    // The stored view rides in the document rather than being fetched: the
+    // theme decides the first paint and cannot wait for a round trip.
+    expect(html).toContain('window.__view = {"theme":"dark"}');
+    expect(html).not.toContain('{{view}}');
+  });
+
+  it('saves what the page keeps, and drops a key on null', async () => {
+    const response = await post('/api/view', { primary: '#fa1f19', columns: null, bogus: 7 });
+    expect(response.status).toBe(200);
+    // The number is not refused, it is left out: a value the interface cannot
+    // have written is not worth failing a column drag over.
+    expect(settings.saveView).toHaveBeenCalledWith({ primary: '#fa1f19', columns: null });
   });
 
   it('carries the same two headers on an API answer', async () => {
