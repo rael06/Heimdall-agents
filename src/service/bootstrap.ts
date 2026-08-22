@@ -143,12 +143,34 @@ export async function startService(options: BootstrapOptions): Promise<StartedSe
   };
 }
 
+/**
+ * Codes that mean this port cannot be had, whoever is to blame.
+ *
+ * `EADDRINUSE` is the obvious one: something holds it. `EACCES` on a loopback
+ * port above 1024 is the Windows one, and it is not a permission problem in any
+ * useful sense — Hyper-V and WSL reserve blocks of the dynamic range, the blocks
+ * are drawn afresh on each boot, and a port inside one is refused although
+ * nothing is listening on it. Measured here: a machine restarted overnight came
+ * back with 27520-27619 excluded, which covers the port this application asks
+ * for first.
+ *
+ * Both mean the same thing to a caller that only wants somewhere to listen, and
+ * treating the second as fatal is what turned a reboot into an application that
+ * would not start.
+ */
+const UNAVAILABLE = new Set(['EADDRINUSE', 'EACCES']);
+
+/** Whether a `listen` failure means to go and ask for a different port. */
+export function portUnavailable(code: string | undefined): boolean {
+  return UNAVAILABLE.has(code ?? '');
+}
+
 function listen(server: Server, host: string, port: number): Promise<void> {
   return new Promise((resolve, reject) => {
     server.once('error', (error: NodeJS.ErrnoException) => {
       reject(
-        error.code === 'EADDRINUSE'
-          ? new PortInUseError(`Port ${port} is taken by something that is not this service.`)
+        portUnavailable(error.code)
+          ? new PortInUseError(`Port ${port} cannot be listened on (${error.code}).`)
           : error,
       );
     });

@@ -1,5 +1,37 @@
 # Changelog
 
+## 1.6.1
+
+**A restart could leave the application unable to start, with no window, no tray
+icon and nothing said.**
+
+Windows reserves blocks of the dynamic port range for Hyper-V and WSL, and
+redraws them on every boot. A machine restarted overnight came back with
+**27520-27619** excluded, which covers 27600 — the port this application asks for
+first. Nothing was listening on it; the system simply refused it, with `EACCES`.
+
+There was already a fallback for a port that cannot be had, and it only
+recognised `EADDRINUSE`. `EACCES` was read as a real permission failure and taken
+as fatal, so the start threw. Both now mean the same thing to a caller that only
+wants somewhere to listen, and the application takes another port — measured on
+the machine that showed this, it came up on 13008.
+
+### Failing silently was the worse half
+
+The window, the tray icon and the menu are all built *after* the service is up,
+so the throw left three processes alive owning nothing at all. No window. No
+icon. No message. And because they held the single-instance lock, every further
+launch was handed straight to an instance with nothing to show — clicking the
+shortcut did nothing, which is exactly how it was reported.
+
+An application that cannot be told apart from one that never ran is worse than
+one that stops with a reason. A start that fails now says so in a dialog, names
+the underlying error, and exits.
+
+It cost an hour of looking for a cause the machine could have named in a
+sentence. The first place it was named was `asm serve`, which had always printed
+it: `Port 27600 cannot be listened on (EACCES).`
+
 ## 1.6.0
 
 **`running` now answers one question only: is the agent doing anything?**

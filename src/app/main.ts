@@ -608,7 +608,7 @@ if (!app.requestSingleInstanceLock()) {
 } else {
   app.on('second-instance', (_event, argv) => handle(requestFromArgv(argv)));
 
-  app.whenReady().then(async () => {
+  const starting = app.whenReady().then(async () => {
     // In development the executable is Electron itself, so the scheme has to
     // name what to run as well as where.
     if (app.isPackaged) {
@@ -642,6 +642,32 @@ if (!app.requestSingleInstanceLock()) {
     // start waits on. Unreferenced so it cannot hold a quit open either.
     setTimeout(() => void checkForUpdatesAtLaunch(), LAUNCH_CHECK_DELAY_MS).unref();
   });
+
+  /*
+   * A start that fails has to say so.
+   *
+   * Everything visible is built after the service is up — the window, the tray,
+   * the menu — so a rejection above left three processes alive owning nothing at
+   * all: no window, no icon, no message, and a second launch handed straight to
+   * an instance with nothing to show. That is not an application failing to
+   * start, it is one that cannot be told apart from an application that never
+   * ran, and it cost an hour of looking for a cause the machine could have
+   * named in a sentence.
+   *
+   * Chained onto the same promise as the start, not onto a second
+   * `app.whenReady()`: the rejection happens inside that callback, and a catch
+   * on a fresh chain would never see it.
+   */
+  starting.catch(async (error: unknown) => {
+    await dialog.showMessageBox({
+      type: 'error',
+      title: say('start.failedTitle'),
+      message: say('start.failedMessage'),
+      detail: error instanceof Error ? error.message : String(error),
+    });
+    app.exit(1);
+  });
+
 
   app.on('before-quit', () => {
     quitting = true;
