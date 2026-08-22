@@ -54,6 +54,9 @@ const EN: Strings = {
   'update.later': 'Not now',
   'update.install': 'Download and install',
 
+  'start.failedTitle': '{app} could not start',
+  'start.failedMessage': 'The service behind the window did not come up, so there is nothing to show.',
+
   'update.errorTitle': 'Could not check for updates',
   'update.errorMessage': 'GitHub could not be reached.',
 
@@ -134,6 +137,10 @@ const FR: Strings = {
   'update.skip': 'Ignorer cette version',
   'update.later': 'Pas maintenant',
   'update.install': 'Télécharger et installer',
+
+  'start.failedTitle': '{app} n’a pas pu démarrer',
+  'start.failedMessage':
+    'Le service derrière la fenêtre n’est pas monté, il n’y a donc rien à afficher.',
 
   'update.errorTitle': 'Impossible de vérifier les mises à jour',
   'update.errorMessage': 'GitHub n’a pas pu être joint.',

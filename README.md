@@ -37,6 +37,11 @@ The installer is self-contained. On a machine that has never seen this, it needs
 at all**: it finds `~/.claude` and `~/.codex` on its own, picks its own port, mints its own token,
 and lists whatever is there. Nothing is read from this repository at runtime.
 
+It asks for 27600 and takes another if it cannot have it — held by something else, or refused
+outright, which on Windows is neither rare nor a permission problem: Hyper-V and WSL reserve blocks
+of the dynamic range and redraw them on every boot, so a port that worked yesterday can come back
+`EACCES` with nothing listening on it.
+
 Two things worth saying to whoever you hand it to:
 
 - **Windows will warn on first run.** The installer is not code-signed — SmartScreen shows *Windows
