@@ -4,7 +4,9 @@ import {
   DEFAULT_SCAN,
   MAX_NOTIFY_DELAY_SECONDS,
   MIN_NOTIFY_DELAY_SECONDS,
+  VIEW_BOUNDS,
   sanitizePreferences,
+  sanitizeView,
 } from './preferences';
 
 const fallback = DEFAULT_NOTIFICATIONS;
@@ -208,5 +210,43 @@ describe('sanitizePreferences, on the numbers', () => {
       maxSessions: 300,
       historyDays: 30,
     });
+  });
+});
+
+describe('sanitizeView', () => {
+  it('keeps the strings the page wrote, whatever they are called', () => {
+    const view = sanitizeView({ theme: 'dark', primary: '#fa1f19', columns: '{"v":2}' });
+    expect(view).toEqual({ theme: 'dark', primary: '#fa1f19', columns: '{"v":2}' });
+  });
+
+  it('drops anything that is not a string', () => {
+    // The page keeps colours and widths as JSON text; a number or an object
+    // here is a caller that has not read the contract, not a value to coerce.
+    expect(sanitizeView({ good: 'yes', width: 42, nested: { a: 1 }, gone: null })).toEqual({
+      good: 'yes',
+    });
+  });
+
+  it('refuses a value long enough to make the file unreadable', () => {
+    const huge = 'x'.repeat(VIEW_BOUNDS.valueLength + 1);
+    expect(sanitizeView({ ok: 'x', huge })).toEqual({ ok: 'x' });
+  });
+
+  it('stops at the key count rather than growing without end', () => {
+    const many = Object.fromEntries(
+      Array.from({ length: VIEW_BOUNDS.keys + 10 }, (_, i) => [`k${i}`, 'v']),
+    );
+    expect(Object.keys(sanitizeView(many))).toHaveLength(VIEW_BOUNDS.keys);
+  });
+
+  it('answers an empty store for anything that is not an object', () => {
+    expect(sanitizeView(undefined)).toEqual({});
+    expect(sanitizeView('theme=dark')).toEqual({});
+    expect(sanitizeView(null)).toEqual({});
+  });
+
+  it('is carried through a whole preferences file', () => {
+    const preferences = sanitizePreferences({ view: { theme: 'dark', n: 1 } }, fallback);
+    expect(preferences.view).toEqual({ theme: 'dark' });
   });
 });

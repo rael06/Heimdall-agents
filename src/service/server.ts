@@ -141,7 +141,10 @@ export function createServiceServer(engine: ServiceEngine, options: ServerOption
 
     if (method === 'GET') {
       if (path === '/') {
-        sendPage(response, await assets.read());
+        // Without a settings API there is nowhere to have kept a view, and the
+        // page falls back to what it can see for itself — which is what it did
+        // before any of this was stored at all.
+        sendPage(response, await assets.read(await options.settings?.readView()));
         return;
       }
       if (path === '/api/state') {
@@ -310,6 +313,31 @@ export function createServiceServer(engine: ServiceEngine, options: ServerOption
           ? body.ids.filter((id): id is string => typeof id === 'string')
           : [];
         sendJson(response, 200, await engine.unacknowledge(ids));
+        return;
+      }
+      /*
+       * What the page owns about itself: theme, accent, colours, widths, sort.
+       *
+       * A patch of what changed rather than the whole store, so two windows
+       * editing different things do not undo one another. A string sets a key
+       * and `null` removes it; anything else is dropped by the sanitiser rather
+       * than refused, because a colour the interface cannot write is not worth
+       * failing a drag over.
+       */
+      if (path === '/api/view') {
+        if (!options.settings) {
+          sendJson(response, 404, { error: 'This service has nowhere to keep a view.' });
+          return;
+        }
+        const body = asObject(await readJsonBody(request));
+        const patch: Record<string, string | null> = {};
+        for (const [key, value] of Object.entries(body)) {
+          if (typeof value === 'string' || value === null) {
+            patch[key] = value;
+          }
+        }
+        await options.settings.saveView(patch);
+        sendJson(response, 200, { saved: true });
         return;
       }
       if (path === '/api/status') {

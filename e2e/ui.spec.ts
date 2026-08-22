@@ -27,15 +27,65 @@ test.afterAll(async () => {
  * through the same stored setting the summary writes. `'default'` is for the
  * one test that has to see the fold as a new window gets it.
  */
+/**
+ * Everything the page keeps for itself.
+ *
+ * Listed rather than discovered because the store lives in the service now and
+ * outlives a browser context: what one test writes, the next used to be spared
+ * by a fresh `localStorage` and would now inherit. Every one is cleared before
+ * each test, so a run is the same whatever order it takes.
+ */
+const VIEW_KEYS = [
+  'theme',
+  'primary',
+  'language',
+  'dateLocale',
+  'view',
+  'columns',
+  'autoSort',
+  'controls',
+  'workspaceColours',
+  'providerColours',
+];
+
+/**
+ * Opens the page again on the bare address, keeping whatever it kept.
+ *
+ * `open` clears the store first, which is what makes a run independent of its
+ * order — and exactly wrong for a test about what survives an opening. This is
+ * that second door, and the reason it has to exist at all.
+ */
+async function reopen(page: Page, query = ''): Promise<void> {
+  await page.goto(service.url + query);
+  await expect(page.locator('tbody tr')).not.toHaveCount(0);
+}
+
+/** The store the page writes to, reached the way the page reaches it. */
+async function setView(patch: Record<string, string | null>): Promise<void> {
+  const url = new URL(service.url);
+  const response = await fetch(
+    `${url.origin}/api/view?token=${encodeURIComponent(url.searchParams.get('token') ?? '')}`,
+    {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(patch),
+    },
+  );
+  if (!response.ok) {
+    throw new Error(`${response.status} on /api/view`);
+  }
+}
+
 async function open(
   page: Page,
   query = '',
   controls: 'open' | 'default' = 'open',
 ): Promise<void> {
   problems.length = 0;
-  if (controls === 'open') {
-    await page.addInitScript(() => localStorage.setItem('controls', 'open'));
-  }
+  await setView({
+    ...Object.fromEntries(VIEW_KEYS.map((key) => [key, null])),
+    ...(controls === 'open' ? { controls: 'open' } : {}),
+  });
   // A page that throws on its first line still renders a header and would pass
   // every check below, so nothing the console reports is ignored.
   page.on('console', (message) => {
@@ -175,9 +225,6 @@ test('a random primary stays readable as text, whatever it is', async ({ page })
     expect(ratio(accent, background)).toBeGreaterThanOrEqual(4.5);
   }
 
-  await page.evaluate(() => localStorage.removeItem('primary'));
-  await page.locator('#theme').click();
-  await page.locator('#theme').click();
 });
 
 test('the workspace chip stays readable at every hue, in both themes', async ({ page }) => {
@@ -355,7 +402,7 @@ test('a width the reader chose survives a reload, and a fresh one does not', asy
 
   // Nothing is stored until a column is actually dragged: a reader who never
   // touches the handles keeps the table that sizes itself.
-  await page.evaluate(() => localStorage.removeItem('columns'));
+  await setView({ columns: null });
   await page.reload();
   await expect(page.locator('tbody tr')).not.toHaveCount(0);
   await expect(page.locator('#sessions')).not.toHaveAttribute('data-sized', /.*/);
@@ -660,7 +707,7 @@ test('the workspace column starts at a readable width, not at its floor', async 
 
   // A set written before the widths were drawn correctly is thrown away rather
   // than applied for the first time by the fix that made them work.
-  await page.evaluate(() => localStorage.setItem('columns', '{"workspace":24,"title":300}'));
+  await setView({ columns: '{"workspace":24,"title":300}' });
   await page.reload();
   await expect(rows(page)).not.toHaveCount(0);
   await expect(page.locator('#sessions')).not.toHaveAttribute('data-sized', /.*/);
@@ -703,11 +750,6 @@ test('the interface and the dates follow the chosen language', async ({ page }) 
   await page.reload();
   await expect(page.locator('#reset')).toHaveText('Réinitialiser');
 
-  // Left as it was found.
-  await page.evaluate(() => {
-    localStorage.removeItem('language');
-    localStorage.removeItem('dateLocale');
-  });
 });
 
 test('the minutes column claims the ordering, and opens on the longest wait', async ({ page }) => {
@@ -824,10 +866,11 @@ test('the language reaches the service, not only the page', async ({ page }) => 
   await page.locator('#set-language').selectOption('fr');
   await expect(page.locator('#reset')).toHaveText('Réinitialiser');
 
-  // The page draws itself from `localStorage`, which it can read on every
-  // string. The menus, the dialogs and the toast buttons are written by a
-  // process that cannot see that storage at all, so the choice has to reach the
-  // service — and asserting on the page alone would pass while it never did.
+  // The page draws itself from the store the service wrote into the document,
+  // which it can read on every string. The menus, the dialogs and the toast
+  // buttons are written by a process that reads the preferences file instead,
+  // so the choice has to reach the service under its own key — and asserting on
+  // the page alone would pass while it never did.
   const stored = await page.evaluate(async () => {
     const token = new URLSearchParams(location.search).get('token');
     return (await (await fetch(`/api/settings?token=${token}`)).json()).app.language;
@@ -836,7 +879,6 @@ test('the language reaches the service, not only the page', async ({ page }) => 
 
   await page.locator('#set-language').selectOption('auto');
   await page.keyboard.press('Escape');
-  await page.evaluate(() => localStorage.removeItem('language'));
   expect(problems).toEqual([]);
 });
 
@@ -1199,19 +1241,19 @@ test('the view you left is the view you get back, unless the address says otherw
 
   // Not a reload: the bare address, which is what a start gives you. The window
   // opens this every time, so this is the case the URL alone never covered.
-  await open(page);
+  await reopen(page);
   await expect(page.locator('#sort')).toHaveValue('title-asc');
   await expect(page.locator('#watched-only')).toHaveAttribute('aria-pressed', 'true');
 
   // An address carrying a view wins, and replaces the stored one rather than
   // merging with it: a link is a whole view.
-  await open(page, '&sort=title-desc');
+  await reopen(page, '&sort=title-desc');
   await expect(page.locator('#sort')).toHaveValue('title-desc');
   await expect(page.locator('#watched-only')).toHaveAttribute('aria-pressed', 'false');
 
   // And Reset clears what was kept, so the next start opens on the default.
   await page.locator('#reset').click();
-  await open(page);
+  await reopen(page);
   await expect(page.locator('#sort')).toHaveValue('created-desc');
   await expect(page.locator('#watched-only')).toHaveAttribute('aria-pressed', 'false');
   expect(problems).toEqual([]);
@@ -1709,7 +1751,6 @@ test('the notification switch shows its state, and can be turned back on', async
   await notify.click();
   await expect(notify).toHaveAttribute('aria-pressed', 'false');
   await expect(notify).toHaveAttribute('title', /off/);
-  await page.evaluate(() => localStorage.removeItem('language'));
 });
 
 test('the statuses that notify are chosen from the interface, and remembered', async ({ page }) => {

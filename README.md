@@ -289,6 +289,14 @@ Open that URL and you get the list, live.
   also why the first drag records every column at once: a fixed layout shares leftover space between
   the columns that have no width instead of fitting them to what they hold. Widths are kept per
   machine, beside the theme, rather than in the address bar that carries the view.
+
+  Kept in the **preferences file**, not in the browser. All of it — theme, accent, colours, widths,
+  sort, filters, fold — used to sit in `localStorage`, which is keyed by origin, and the origin
+  carries the port. The port is asked for, not owned: the day Windows refused the usual one the
+  service took another and the page opened on an empty store, having lost nothing and reaching
+  none of it. The service writes the stored view into the document it already assembles, so the
+  first paint still knows the theme without waiting for a request; changes go back as a patch on
+  `POST /api/view`. A store left under an old address is adopted once, on first open.
 - **A colour per workspace and per provider**, so a long list separates into projects before a
   single name is read. The colours are handed out rather than computed from the name, and
   remembered: six projects drawn from a palette of ten by a hash collide 85% of the time, which is

@@ -1,7 +1,12 @@
 import { ProviderId, SessionStatus } from '../model/types';
 import { Detection, detect } from './detect';
 import { NotifyScope } from './notifications';
-import { PreferencesStore, ProviderPreferences, ScanPreferences } from './preferences';
+import {
+  PreferencesStore,
+  ProviderPreferences,
+  ScanPreferences,
+  ViewPreferences,
+} from './preferences';
 
 /**
  * What only the desktop application can do.
@@ -94,6 +99,21 @@ export class SettingsApi {
    */
   get hasNativeMenu(): boolean {
     return Boolean(this.host);
+  }
+
+  /**
+   * What the page owns about itself, on its way back into the document.
+   *
+   * Read here rather than straight from the store because there is one owner of
+   * that file and this is it: a second reader is a second idea of what is in it.
+   */
+  async readView(): Promise<ViewPreferences> {
+    return (await this.preferences.read()).view;
+  }
+
+  /** A patch of what changed; `null` drops a key. */
+  async saveView(patch: Record<string, string | null>): Promise<void> {
+    await this.preferences.writeView(patch);
   }
 
   async read(): Promise<SettingsView> {

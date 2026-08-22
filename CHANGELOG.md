@@ -1,5 +1,54 @@
 # Changelog
 
+## 1.7.0
+
+**What the page keeps for itself no longer belongs to the port.** The theme, the
+accent, the colour each workspace and provider wears, the column widths, the
+sort, the filters and the fold now live in the preferences file beside every
+other setting.
+
+They lived in `localStorage`, which is keyed by *origin* — and the origin carries
+the port. 1.6.1 made the service take another port when Windows refuses the usual
+one, which was the right fix and had a cost nobody had priced: the page opened on
+an empty store and the reader lost their table. Nothing had been deleted; nothing
+was reachable either, which from where the reader sits is the same thing.
+
+**A store written under the old address is carried over on first open**, so an
+upgrade keeps what it finds rather than starting the loss over. It is only
+adopted when the service holds nothing: once the service has the answer it *is*
+the answer, and a stale copy must never overwrite it.
+
+### Written into the document, not fetched
+
+The theme and the accent decide the first paint, so a request for them — however
+quick — is a flash of the wrong colours on every open. That immediacy is what
+`localStorage` was really buying. The service already assembles the page as one
+document, so the stored view goes in with it and reads stay synchronous.
+
+Writes go back on their own route, `POST /api/view`, as a patch of what changed
+rather than the whole store: two windows editing different things must not undo
+one another.
+
+### The timer was wrong and the tests said so
+
+A debounce was the obvious way to survive a column drag, which writes on every
+mouse move. It lost the change: set the theme, reload, and the request had not
+left yet. **Eleven end-to-end tests failed on it**, and they were right about the
+application rather than about themselves — a reader who closes the window on the
+change they just made would have lost it the same way.
+
+So a change goes out at once, and anything written while that request is in
+flight waits for it and travels with the next. A drag costs one request per round
+trip instead of one per frame, and nothing is held back on a clock a reload can
+outrun. A `pagehide` beacon still covers the very last write.
+
+### One thing to know about the suite
+
+The store outlives a browser context now, where `localStorage` did not, so what
+one test wrote the next would inherit. The helper that opens the page clears it
+first, and the test about what survives an opening got a second door that does
+not. Three end-of-test cleanups became dead code and are gone.
+
 ## 1.6.1
 
 **A restart could leave the application unable to start, with no window, no tray

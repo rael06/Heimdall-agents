@@ -3,6 +3,128 @@ const token = new URLSearchParams(location.search).get('token') ?? '';
 const el = (id) => document.getElementById(id);
 const rowsBody = el('rows');
 
+/*
+ * ------------------------------------------------------------------- storage
+ *
+ * The theme, the accent, the colours handed to each workspace, the column
+ * widths, the sort and the filters. All of it used to live in `localStorage`,
+ * which is keyed by origin — and the origin carries the port.
+ *
+ * The port is asked for, not owned. Windows reserves blocks of the dynamic
+ * range for Hyper-V and WSL and redraws them on every boot, so the morning the
+ * usual port came back refused, the service took another one and the page
+ * opened on an empty store. Nothing had been lost; nothing was reachable
+ * either, which to the reader is the same thing.
+ *
+ * So the values live in the preferences file now, beside every other setting,
+ * and the service writes them into this document before it paints. Reads stay
+ * synchronous — the theme decides the first frame and cannot await a request —
+ * and writes go back debounced.
+ */
+
+/** What the service inlined, and the copy every read below answers from. */
+const view = window.__view ?? {};
+
+let pendingView = {};
+let viewInFlight = false;
+
+/*
+ * Sent at once, and coalesced rather than delayed.
+ *
+ * A timer was the obvious way to survive a column drag, which writes on every
+ * mouse move — and it lost the change: set the theme, reload, and the request
+ * had not left yet. Eleven end-to-end tests said so, and they were right about
+ * the application rather than about themselves.
+ *
+ * So a change goes out immediately, and anything written while that request is
+ * in flight waits for it and goes out together. A drag still costs one request
+ * per round trip instead of one per frame, and nothing is ever held back on a
+ * clock that a reload can outrun.
+ */
+function flushView() {
+  if (viewInFlight || !Object.keys(pendingView).length) {
+    return;
+  }
+  const patch = pendingView;
+  pendingView = {};
+  viewInFlight = true;
+  post('/api/view', patch)
+    .catch(() => undefined)
+    .finally(() => {
+      viewInFlight = false;
+      flushView();
+    });
+}
+
+const store = {
+  get: (key) => (key in view ? view[key] : null),
+  set(key, value) {
+    const text = String(value);
+    if (view[key] === text) {
+      return;
+    }
+    view[key] = text;
+    pendingView[key] = text;
+    flushView();
+  },
+  remove(key) {
+    if (!(key in view)) {
+      return;
+    }
+    delete view[key];
+    pendingView[key] = null;
+    flushView();
+  },
+};
+
+/*
+ * A window closing must not take the last change with it.
+ *
+ * `pagehide` rather than `beforeunload`, which a hidden window is not
+ * guaranteed to get, and `sendBeacon` rather than `fetch`, which is cancelled
+ * with the document. The token rides in the query string exactly as it does for
+ * every other route, so the beacon needs no headers — which it could not set
+ * anyway.
+ */
+addEventListener('pagehide', () => {
+  if (!Object.keys(pendingView).length) {
+    return;
+  }
+  const body = new Blob([JSON.stringify(pendingView)], { type: 'application/json' });
+  navigator.sendBeacon(`/api/view?token=${encodeURIComponent(token)}`, body);
+  pendingView = {};
+});
+
+/**
+ * Carries a store written under the old, port-shaped origin into the new home.
+ *
+ * Only when the service has nothing: once it holds the answer it is the answer,
+ * and a stale copy in this origin must never overwrite it. Reading is wrapped
+ * because a browser told to refuse site data throws on the property itself.
+ */
+function adoptPreviousStorage() {
+  if (Object.keys(view).length) {
+    return;
+  }
+  const carried = {};
+  try {
+    for (let index = 0; index < localStorage.length; index += 1) {
+      const key = localStorage.key(index);
+      const value = key === null ? null : localStorage.getItem(key);
+      if (key && typeof value === 'string') {
+        view[key] = value;
+        carried[key] = value;
+      }
+    }
+  } catch {
+    return;
+  }
+  if (Object.keys(carried).length) {
+    pendingView = { ...pendingView, ...carried };
+    flushView();
+  }
+}
+
 /**
  * Writes text only when it actually changed.
  *
@@ -108,8 +230,8 @@ function fillSettings(view) {
   el('set-notify-delay').value = String(view.notifications.delaySeconds);
   // Language and dates belong to the view, not to the service: they are stored
   // here like the theme, and take effect without a restart.
-  el('set-language').value = localStorage.getItem('language') ?? 'auto';
-  el('set-date-locale').value = localStorage.getItem('dateLocale') ?? 'auto';
+  el('set-language').value = store.get('language') ?? 'auto';
+  el('set-date-locale').value = store.get('dateLocale') ?? 'auto';
 
   // A bare service has no window to start at login and no tray to show, so the
   // section is not offered rather than offered and ignored.
@@ -221,14 +343,14 @@ function paintedAccent() {
 }
 
 function applyAppearance() {
-  const theme = localStorage.getItem('theme') ?? 'auto';
+  const theme = store.get('theme') ?? 'auto';
   const root = document.documentElement;
   if (theme === 'auto') root.removeAttribute('data-theme');
   else root.dataset.theme = theme;
   el('theme').textContent = `${t('bar.theme')}: ${theme}`;
   el('theme').title = t('bar.themeTitle');
 
-  const primary = localStorage.getItem('primary');
+  const primary = store.get('primary');
   if (primary) {
     root.style.setProperty('--primary', primary);
     // Read after the theme is applied: the background it must stand out from
@@ -261,11 +383,15 @@ async function api(path, options) {
 const post = (path, body) =>
   api(path, { method: 'POST', body: JSON.stringify(body ?? {}) });
 
+// Here rather than beside its definition: it sends what it carries straight
+// away, and `post` above is the thing it sends with.
+adoptPreviousStorage();
+
 // ------------------------------------------------------------------ format
 
 /** The language in force, resolved once per render pass. */
 function language() {
-  return resolveLanguage(localStorage.getItem('language') ?? 'auto', navigator.languages);
+  return resolveLanguage(store.get('language') ?? 'auto', navigator.languages);
 }
 
 function t(key, values) {
@@ -279,7 +405,7 @@ function t(key, values) {
  * list of dates is exactly where that matters.
  */
 function dateLocale() {
-  const stored = localStorage.getItem('dateLocale') ?? 'auto';
+  const stored = store.get('dateLocale') ?? 'auto';
   if (stored === 'iso') return 'iso';
   if (stored !== 'auto') return stored;
   return language() === 'fr' ? 'fr-FR' : 'iso';
@@ -388,7 +514,7 @@ function readUrl() {
    * would be neither of the two.
    */
   if (!VIEW_KEYS.some((key) => query.has(key))) {
-    query = new URLSearchParams(localStorage.getItem(VIEW) ?? '');
+    query = new URLSearchParams(store.get(VIEW) ?? '');
   }
   const set = (name) => new Set((query.get(name) ?? '').split(',').filter(Boolean));
   filters.q = query.get('q') ?? '';
@@ -429,7 +555,7 @@ function writeUrl() {
   // is minted every time the service starts, so a stored one would restore a
   // view that cannot talk to it. Reset writes an empty view through here too,
   // which is what makes it clear the stored one as well.
-  localStorage.setItem(VIEW, query.toString());
+  store.set(VIEW, query.toString());
   // The token stays in the URL: without it a reload cannot talk to the service.
   query.set('token', token);
   history.replaceState(null, '', `${location.pathname}?${query}`);
@@ -764,7 +890,7 @@ function syncRows(target, applyOrder) {
  * screen under them would be a strange thing to send.
  */
 const AUTO_SORT = 'autoSort';
-const autoSorting = () => localStorage.getItem(AUTO_SORT) === 'on';
+const autoSorting = () => store.get(AUTO_SORT) === 'on';
 
 /**
  * Whether the fold over the settings and the filters is open, kept where the
@@ -791,7 +917,7 @@ function showControls(open) {
 }
 
 function syncControlsFold() {
-  showControls(localStorage.getItem(CONTROLS) === 'open');
+  showControls(store.get(CONTROLS) === 'open');
 }
 
 /** The switch says which of the two it is doing, in its state and its icon. */
@@ -1290,7 +1416,7 @@ function syncColours() {
     const next = assignSlots(namesOf(kind), palette.state, WORKSPACE_HUES.length, palette.offset);
     if (JSON.stringify(next) === JSON.stringify(palette.state)) continue;
     palette.state = next;
-    localStorage.setItem(palette.store, JSON.stringify(next));
+    store.set(palette.store, JSON.stringify(next));
   }
 }
 
@@ -1594,7 +1720,7 @@ function chooseColour(kind, name, colour, tone) {
 
 /** Written once the reader has settled on something, not on every pixel. */
 function storeColours(kind) {
-  localStorage.setItem(PALETTES[kind].store, JSON.stringify(PALETTES[kind].state));
+  store.set(PALETTES[kind].store, JSON.stringify(PALETTES[kind].state));
 }
 
 // ----------------------------------------------------------- column widths
@@ -1665,9 +1791,9 @@ function applyColumnWidths() {
 
 function storeColumnWidths() {
   if (Object.keys(columnWidths).length) {
-    localStorage.setItem(COLUMN_STORE, JSON.stringify({ v: COLUMN_FORMAT, widths: columnWidths }));
+    store.set(COLUMN_STORE, JSON.stringify({ v: COLUMN_FORMAT, widths: columnWidths }));
   } else {
-    localStorage.removeItem(COLUMN_STORE);
+    store.remove(COLUMN_STORE);
   }
 }
 
@@ -1772,7 +1898,7 @@ function buildColumns() {
   table.querySelector('caption').after(group);
 
   columnWidths = readColumnWidths(
-    localStorage.getItem(COLUMN_STORE),
+    store.get(COLUMN_STORE),
     headerCells().map((th) => th.dataset.column),
   );
   applyColumnWidths();
@@ -1931,23 +2057,23 @@ function wireControls() {
     // well, because the menus, the dialogs and the toast buttons are written by
     // a process that cannot see this storage. One control, two readers, each
     // holding the answer where it can reach it.
-    localStorage.setItem('language', chosen);
+    store.set('language', chosen);
     redrawEverything();
     void post('/api/settings', { app: { language: chosen } }).catch(() => undefined);
   });
   el('set-date-locale').addEventListener('change', (event) => {
-    localStorage.setItem('dateLocale', event.target.value);
+    store.set('dateLocale', event.target.value);
     redrawEverything();
   });
   el('save-settings').addEventListener('click', () => void saveSettings());
   el('detect').addEventListener('click', () => void detectProviders());
   el('theme').addEventListener('click', () => {
-    const current = localStorage.getItem('theme') ?? 'auto';
-    localStorage.setItem('theme', THEMES[(THEMES.indexOf(current) + 1) % THEMES.length]);
+    const current = store.get('theme') ?? 'auto';
+    store.set('theme', THEMES[(THEMES.indexOf(current) + 1) % THEMES.length]);
     applyAppearance();
   });
   el('primary').addEventListener('input', (event) => {
-    localStorage.setItem('primary', event.target.value);
+    store.set('primary', event.target.value);
     applyAppearance();
   });
   el('primary-random').addEventListener('click', () => {
@@ -1959,16 +2085,16 @@ function wireControls() {
     document.body.append(probe);
     const chosen = toHex(parseRgb(getComputedStyle(probe).color));
     probe.remove();
-    localStorage.setItem('primary', chosen);
+    store.set('primary', chosen);
     applyAppearance();
   });
   // Following the system means following it as it changes, not only at load.
   window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', () => {
-    if ((localStorage.getItem('theme') ?? 'auto') === 'auto') applyAppearance();
+    if ((store.get('theme') ?? 'auto') === 'auto') applyAppearance();
   });
   el('auto-sort').addEventListener('click', () => {
     const next = !autoSorting();
-    localStorage.setItem(AUTO_SORT, next ? 'on' : 'off');
+    store.set(AUTO_SORT, next ? 'on' : 'off');
     syncAutoSort();
     // Straight away rather than at the next scan: switching it on is itself the
     // asking, exactly as pressing the reorder offer is.
@@ -1976,14 +2102,14 @@ function wireControls() {
   });
   el('controls-toggle').addEventListener('click', () => {
     const open = el('controls-toggle').getAttribute('aria-expanded') !== 'true';
-    localStorage.setItem(CONTROLS, open ? 'open' : 'closed');
+    store.set(CONTROLS, open ? 'open' : 'closed');
     showControls(open);
   });
   // Find-in-page reveals `hidden="until-found"` content by itself, and this is
   // the only warning it gives. Without it the panel would be on screen with its
   // switch still dark, and the next click would "open" what is already open.
   el('controls').addEventListener('beforematch', () => {
-    localStorage.setItem(CONTROLS, 'open');
+    store.set(CONTROLS, 'open');
     el('controls-toggle').setAttribute('aria-expanded', 'true');
   });
   el('status-picker-clear').addEventListener('click', () => void chooseStatus(null));
@@ -2181,14 +2307,14 @@ async function boot() {
   // choice, and it lives here. Sent on every start rather than migrated once:
   // it costs a request nobody waits on, and there is no flag to get wrong. A
   // reader who never picked one leaves this at `auto` and nothing is sent.
-  const chosenLanguage = localStorage.getItem('language');
+  const chosenLanguage = store.get('language');
   if (chosenLanguage && chosenLanguage !== 'auto') {
     void post('/api/settings', { app: { language: chosenLanguage } }).catch(() => undefined);
   }
   // Before the language pass, which is what names the handles it builds.
   buildColumns();
   for (const palette of Object.values(PALETTES)) {
-    palette.state = readSlots(localStorage.getItem(palette.store));
+    palette.state = readSlots(store.get(palette.store));
   }
   applyLanguage();
   syncControls();
