@@ -1,5 +1,40 @@
 # Changelog
 
+## 1.10.0
+
+**A band can answer to its own markers.** Each carries the same eye and star the
+bar at the top does, and pressing one narrows that group to what is watched or
+starred there — whatever the bar is set to. Pressing it again gives the band
+back to the bar, so there is always a way to follow it again without deleting
+the group.
+
+It overrides the one narrowing it is about and no other: the search, the
+statuses and the dates still apply. A band showing fewer rows than it holds says
+so — `0 of 6 shown` rather than a bare zero, because a group that appears to
+have lost its rows and a group that is hiding them are not the same thing.
+
+### The row menu is a menu
+
+It was a modal dialog wearing a menu's clothes: a paragraph of prose at the top,
+a row of wide buttons, and a label lifted straight off a tooltip — *(click to
+acknowledge)*, in parentheses, as an instruction. It is a desktop context menu
+now, narrow, with the actions gathered into four sections that open to the side:
+**Open**, **Status**, **Colour**, **Group**. The title is one line, ellipsised;
+the status and its reason stay on the row's own marker, a hover away.
+
+The statuses are set straight from the menu rather than through a second window
+— a choice from a short list is what a menu is for. `s` still opens the picker
+on its own.
+
+### What the picture showed that the tests could not
+
+The sections were laid out at the right size in the right place and never
+painted. The user-agent stylesheet gives every `[popover]` `overflow: auto`,
+which clips anything positioned outside it; the only trace was the scrollbar the
+clipping put down the menu's edge. Nothing in the suite could have caught it —
+the flyout reported itself visible, with six children and a bounding box. It
+took rendering the menu and looking at it.
+
 ## 1.9.0
 
 Six things the groups needed once they were in front of a reader.

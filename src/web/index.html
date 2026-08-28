@@ -308,15 +308,41 @@
   the one that gets written badly.
 -->
 <div id="row-menu" popover class="menu">
-  <p id="row-menu-heading" class="menu-heading"></p>
-  <p id="row-menu-status" class="menu-note muted"></p>
+  <!-- One line, ellipsised. A context menu names what it is about and then
+       stops: the status and its reason are on the row's own marker, a hover
+       away, and a paragraph of prose at the top of a menu is what made this
+       read as a dialog wearing a menu's clothes. -->
+  <p id="row-menu-heading" class="menu-title"></p>
+  <hr class="menu-sep">
   <button id="row-menu-ack" class="menu-item" type="button"></button>
-  <button id="row-menu-status-set" class="menu-item" type="button" data-i18n="rowMenu.status">Set the status…</button>
-  <button id="row-menu-transcript" class="menu-item" type="button" data-i18n="rowMenu.transcript">Show the transcript</button>
-  <button id="row-menu-provider" class="menu-item" type="button" data-i18n="rowMenu.provider">Provider colour…</button>
-  <button id="row-menu-workspace" class="menu-item" type="button" data-i18n="rowMenu.workspace">Workspace colour…</button>
-  <p class="menu-heading" data-i18n="rowMenu.group">Group</p>
-  <div id="row-menu-groups"></div>
+  <hr class="menu-sep">
+  <!-- Sections open to the side, the way a desktop menu does. Each is a
+       `menu-sub` holding the item you point at and the flyout it opens; the
+       flyout is a child so it inherits the popover's top layer, and CSS opens
+       it on hover and on focus-within so a keyboard reaches it too. -->
+  <div class="menu-sub">
+    <button class="menu-item has-sub" type="button" aria-haspopup="true" data-i18n="rowMenu.open">Open</button>
+    <div class="menu-flyout">
+      <button id="row-menu-session" class="menu-item" type="button" data-i18n="rowMenu.session">Session in VS Code</button>
+      <button id="row-menu-workspace-open" class="menu-item" type="button" data-i18n="rowMenu.workspaceOpen">Workspace</button>
+      <button id="row-menu-transcript" class="menu-item" type="button" data-i18n="rowMenu.transcript">Raw transcript</button>
+    </div>
+  </div>
+  <div class="menu-sub">
+    <button class="menu-item has-sub" type="button" aria-haspopup="true" data-i18n="rowMenu.status">Status</button>
+    <div id="row-menu-statuses" class="menu-flyout"></div>
+  </div>
+  <div class="menu-sub">
+    <button class="menu-item has-sub" type="button" aria-haspopup="true" data-i18n="rowMenu.colour">Colour</button>
+    <div class="menu-flyout">
+      <button id="row-menu-provider" class="menu-item" type="button" data-i18n="rowMenu.provider">Provider…</button>
+      <button id="row-menu-workspace" class="menu-item" type="button" data-i18n="rowMenu.workspace">Workspace…</button>
+    </div>
+  </div>
+  <div class="menu-sub">
+    <button class="menu-item has-sub" type="button" aria-haspopup="true" data-i18n="rowMenu.group">Group</button>
+    <div id="row-menu-groups" class="menu-flyout"></div>
+  </div>
 </div>
 
 <!--

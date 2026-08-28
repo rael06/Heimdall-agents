@@ -563,7 +563,15 @@ function writeUrl() {
 
 // ------------------------------------------------------------- selection
 
-function passes(session) {
+/**
+ * Whether a session survives the filters, optionally under a band's own markers.
+ *
+ * `markers` replaces the two marker filters and nothing else. A group that says
+ * *watched* shows its watched rows whatever the bar at the top is narrowed to,
+ * and every other filter — the search, the statuses, the dates — still applies:
+ * the band overrides the one narrowing it is about, not the whole question.
+ */
+function passes(session, markers = filters) {
   const marks = state.marks;
   // A search is answered by the service, which reads the transcripts. It always
   // narrows, whatever the match mode: widening it would return sessions that do
@@ -574,8 +582,8 @@ function passes(session) {
   // rather than "true", which is what lets "any" mean "one of the things I
   // asked for" instead of "everything".
   const verdicts = [];
-  if (filters.watchedOnly) verdicts.push(marks.watched.includes(session.id));
-  if (filters.favoritesOnly) verdicts.push(marks.favorites.includes(session.id));
+  if (markers.watchedOnly) verdicts.push(marks.watched.includes(session.id));
+  if (markers.favoritesOnly) verdicts.push(marks.favorites.includes(session.id));
   if (filters.statuses.size) verdicts.push(filters.statuses.has(session.status));
   if (filters.providers.size) verdicts.push(filters.providers.has(session.provider));
   if (filters.workspaces.size) {
@@ -707,6 +715,9 @@ function readGroups() {
       id: group.id,
       name: group.name,
       collapsed: group.collapsed === true,
+      // Empty means "follow the bar at the top", which is what a band does
+      // until it is told otherwise.
+      only: group.only === 'watched' || group.only === 'starred' ? group.only : '',
       members: Array.isArray(group.members)
         ? group.members.filter((id) => typeof id === 'string')
         : [],
@@ -747,25 +758,23 @@ function assignToGroup(sessionId, groupId) {
  * how much is being held back.
  */
 function targetOrder() {
-  const passing = [...state.sessions.values()].filter(passes);
   const order = comparator(filters.sort);
-  const grouped = new Set();
   const entries = [];
+  // Everything any band claims, whether or not that band is showing it: a row
+  // in a group must never also appear in the pool, and a band narrowed to its
+  // watched rows is still the owner of the ones it is hiding.
+  const claimed = new Set(groups.flatMap((group) => group.members));
 
   for (const group of groups) {
     entries.push(bandKey(group));
-    const held = passing.filter((session) => group.members.includes(session.id));
-    for (const session of held) {
-      grouped.add(session.id);
-    }
     if (!group.collapsed) {
-      entries.push(...held.sort(order).map((session) => session.id));
+      entries.push(...held(group).sort(order).map((session) => session.id));
     }
   }
 
   entries.push(
-    ...passing
-      .filter((session) => !grouped.has(session.id))
+    ...[...state.sessions.values()]
+      .filter((session) => !claimed.has(session.id) && passes(session))
       .sort(order)
       .map((session) => session.id),
   );
@@ -775,10 +784,16 @@ function targetOrder() {
 /** How many of those entries are sessions, which is what the counter counts. */
 const sessionsIn = (entries) => entries.filter((key) => !isBand(key)).length;
 
+/** The marker filters a band answers to: its own when it has any. */
+const markersOf = (group) =>
+  group.only
+    ? { watchedOnly: group.only === 'watched', favoritesOnly: group.only === 'starred' }
+    : filters;
+
 /** What a group holds that the filters let through, collapsed or not. */
 const held = (group) =>
   [...state.sessions.values()].filter(
-    (session) => group.members.includes(session.id) && passes(session),
+    (session) => group.members.includes(session.id) && passes(session, markersOf(group)),
   );
 
 // ---------------------------------------------------------------- rendering
@@ -817,7 +832,27 @@ function createBand(key) {
     '<span class="band-grip" aria-hidden="true"></span>' +
     '<span class="band-name"></span>' +
     '<span class="band-count muted"></span>' +
+    // The band's own answer to the two marker filters at the top of the window.
+    // Same two shapes, so a filter that narrows to a marker looks like the
+    // marker it narrows to here exactly as it does up there.
+    '<button class="band-only" type="button" data-only="watched" aria-pressed="false"></button>' +
+    '<button class="band-only" type="button" data-only="starred" aria-pressed="false"></button>' +
     '</td>';
+
+  for (const chip of tr.querySelectorAll('.band-only')) {
+    prependIcon(chip, chip.dataset.only === 'watched' ? 'eye' : 'star');
+    chip.addEventListener('click', () => {
+      const group = groupById(id);
+      if (!group) {
+        return;
+      }
+      // A third press puts the band back on the bar's own filter, so there is
+      // always a way back to following it without deleting the group.
+      group.only = group.only === chip.dataset.only ? '' : chip.dataset.only;
+      saveGroups();
+      render(true);
+    });
+  }
 
   const fold = tr.querySelector('.band-fold');
   prependIcon(fold, 'caret-down');
@@ -944,12 +979,23 @@ function clearDropMarks() {
 }
 
 /** Name, count and fold, written only when they changed. */
-function updateBand(tr, group, held) {
+function updateBand(tr, group, shown, total) {
   setText(tr.querySelector('.band-name'), group.name);
-  setText(tr.querySelector('.band-count'), t('group.count', { count: held }));
+  // Both numbers when they differ, because the difference is the whole story: a
+  // band narrowed to its watched rows keeps the ones it is hiding, and a bare
+  // "0 shown" on a group holding six looks like a group that lost them.
+  setText(
+    tr.querySelector('.band-count'),
+    shown === total ? t('group.count', { count: shown }) : t('group.countOf', { shown, total }),
+  );
   tr.querySelector('.band-fold').setAttribute('aria-expanded', String(!group.collapsed));
   tr.dataset.collapsed = String(group.collapsed);
   tr.querySelector('.band-fold').title = t(group.collapsed ? 'group.expand' : 'group.collapse');
+  for (const chip of tr.querySelectorAll('.band-only')) {
+    const on = group.only === chip.dataset.only;
+    chip.setAttribute('aria-pressed', String(on));
+    chip.title = t(on ? 'group.onlyOff' : `group.only.${chip.dataset.only}`);
+  }
 }
 
 function createRow(id) {
@@ -1167,7 +1213,7 @@ function syncRows(target, applyOrder) {
       // What the band says it holds is what passed the filters, not what it was
       // given: a count of rows nobody can see would be the one number here that
       // does not answer "where did my session go".
-      if (group) updateBand(tr, group, held(group).length);
+      if (group) updateBand(tr, group, held(group).length, group.members.length);
       continue;
     }
     const session = state.sessions.get(id);
@@ -1969,7 +2015,14 @@ function placeMenu(menu, at) {
   const top = Math.max(margin, Math.min(at.clientY, innerHeight - box.height - margin));
   menu.style.left = `${left}px`;
   menu.style.top = `${top}px`;
+  // A flyout grows to the right by default and would go off the window when the
+  // menu opened near the edge. Decided here, where the position is finally
+  // known, rather than guessed at by the stylesheet.
+  menu.dataset.flip = String(left + box.width + FLYOUT_WIDTH > innerWidth);
 }
+
+/** Enough room for a section to open into, in pixels; matches `.menu-flyout`. */
+const FLYOUT_WIDTH = 176;
 
 function openRowMenu(id, at) {
   const session = state.sessions.get(id);
@@ -1978,11 +2031,11 @@ function openRowMenu(id, at) {
   }
   const dialog = el('row-menu');
   setText(el('row-menu-heading'), session.title);
-  setText(el('row-menu-status'), `${statusLabel(session.status)} — ${session.statusReason}`);
+  el('row-menu-heading').title = session.title;
 
   const unseen = state.marks.unacknowledged.includes(id);
   const ack = el('row-menu-ack');
-  setText(ack, t(unseen ? 'row.acknowledge' : 'row.unacknowledge'));
+  setText(ack, t(unseen ? 'rowMenu.ack' : 'rowMenu.unack'));
   ack.onclick = () => {
     dialog.hidePopover();
     void (unseen ? acknowledge([id]) : unacknowledge([id]));
@@ -1994,13 +2047,45 @@ function openRowMenu(id, at) {
       run();
     };
   };
-  act(el('row-menu-status-set'), () => openStatusPicker(id));
+  act(el('row-menu-session'), () => void open(id, 'session'));
+  act(el('row-menu-workspace-open'), () => void open(id, 'workspace'));
   act(el('row-menu-transcript'), () => void open(id, 'transcript'));
   act(el('row-menu-provider'), () => openPalette('provider', session.provider));
   act(el('row-menu-workspace'), () => {
     const name = session.cwd && folder(session.cwd);
     if (name) openPalette('workspace', name);
   });
+
+  // The four statuses, and the way back to the one the transcript infers. Set
+  // straight from the menu rather than through a second window: a status is a
+  // choice from a short list, which is what a menu is for.
+  const statuses = el('row-menu-statuses');
+  statuses.textContent = '';
+  const forced = session.statusReason.startsWith(FORCED_PREFIX);
+  for (const status of STATUSES) {
+    const button = document.createElement('button');
+    button.type = 'button';
+    button.className = 'menu-item';
+    button.setAttribute('aria-pressed', String(forced && session.status === status));
+    setText(button, statusLabel(status));
+    button.addEventListener('click', () => {
+      dialog.hidePopover();
+      correcting = id;
+      void chooseStatus(status);
+    });
+    statuses.append(button);
+  }
+  const clear = document.createElement('button');
+  clear.type = 'button';
+  clear.className = 'menu-item';
+  setText(clear, t('statusPicker.clear'));
+  clear.addEventListener('click', () => {
+    dialog.hidePopover();
+    correcting = id;
+    void chooseStatus(null);
+  });
+  statuses.append(document.createElement('hr'), clear);
+  statuses.lastElementChild.previousElementSibling.className = 'menu-sep';
 
   const current = groupOf(id);
   const choices = el('row-menu-groups');
