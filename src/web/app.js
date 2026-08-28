@@ -806,7 +806,191 @@ const held = (group) =>
  * would leave every band one cell short, which is a layout that looks like a
  * rendering bug and is a missed edit.
  */
-const COLUMN_COUNT = document.querySelectorAll('#sessions thead th[data-column]').length;
+// ------------------------------------------------------- the columns you keep
+
+/*
+ * Which columns are shown, and in what order.
+ *
+ * The table carries ten and no reader needs all ten: which ones matter depends
+ * on what is being looked for, and the answer changes from one afternoon to the
+ * next. The order does too — a column is easier to read against the one beside
+ * it, and which one that should be is not something this can decide.
+ *
+ * Held with the rest of the view, so it survives a restart and a port change.
+ * Applied to the markup rather than to a copy of it: the header row is the only
+ * list of columns there has ever been here, the `col` elements are built from
+ * it and now the cells are put in step with it, so a column cannot be added in
+ * one place and forgotten in another.
+ */
+const COLUMN_LAYOUT = 'columnLayout';
+
+/** Every column the table knows, in the order the markup declares them. */
+const declaredColumns = () =>
+  [...document.querySelectorAll('#sessions thead th[data-column]')].map((th) => th.dataset.column);
+
+let layout = { order: [], hidden: [] };
+
+function readLayout() {
+  const known = declaredColumns();
+  let stored;
+  try {
+    stored = JSON.parse(store.get(COLUMN_LAYOUT) ?? '{}');
+  } catch {
+    stored = {};
+  }
+  const kept = (list) =>
+    Array.isArray(list) ? list.filter((key) => known.includes(key)) : [];
+  // A column the store has never heard of is appended rather than dropped: a
+  // release that adds one must not need the reader to go and find it, and a
+  // release that removes one must not leave a name behind that nothing draws.
+  const order = [...new Set(kept(stored.order))];
+  return { order: [...order, ...known.filter((key) => !order.includes(key))], hidden: kept(stored.hidden) };
+}
+
+const saveLayout = () => store.set(COLUMN_LAYOUT, JSON.stringify(layout));
+const shownColumns = () => layout.order.filter((key) => !layout.hidden.includes(key));
+
+/** How far a band has to reach: the columns actually on screen. */
+const COLUMN_COUNT = () => shownColumns().length;
+
+/**
+ * Applies a change and writes it, which is the whole of what saving means here.
+ *
+ * The rows are thrown away rather than reordered in place. A reorder touches
+ * every cell of every row, and rebuilding them is what `syncRows` does anyway —
+ * doing it twice, once by hand and once by the reconciler, is how the two ideas
+ * of the order drift apart.
+ */
+function changeLayout(mutate) {
+  mutate();
+  saveLayout();
+  applyColumnLayout();
+  buildColumns();
+  rowsBody.textContent = '';
+  render(true);
+  fillColumnsMenu();
+}
+
+/** The name a column is known by, which is the one its header wears. */
+const columnName = (key) => t(`column.${key}`);
+
+function fillColumnsMenu() {
+  const shown = el('columns-visible');
+  const order = el('columns-order');
+  shown.textContent = '';
+  order.textContent = '';
+
+  for (const key of layout.order) {
+    const on = !layout.hidden.includes(key);
+    const toggle = document.createElement('button');
+    toggle.type = 'button';
+    toggle.className = 'menu-item';
+    toggle.setAttribute('aria-pressed', String(on));
+    setText(toggle, columnName(key));
+    toggle.addEventListener('click', () => {
+      // The last one standing is not offered: a table with no columns is a
+      // window with nothing in it and no obvious way back.
+      if (on && shownColumns().length === 1) {
+        return;
+      }
+      changeLayout(() => {
+        layout.hidden = on
+          ? [...layout.hidden, key]
+          : layout.hidden.filter((hidden) => hidden !== key);
+      });
+    });
+    shown.append(toggle);
+
+    const row = document.createElement('div');
+    row.className = 'menu-item order-item';
+    row.draggable = true;
+    row.dataset.column = key;
+    const grip = document.createElement('span');
+    grip.className = 'order-grip';
+    grip.setAttribute('aria-hidden', 'true');
+    prependIcon(grip, 'grip');
+    row.append(grip, document.createTextNode(columnName(key)));
+    bindColumnDrag(row, key);
+    order.append(row);
+  }
+}
+
+/** Picking a column up and dropping it above or below another, as bands do. */
+let draggingColumn = null;
+
+function bindColumnDrag(row, key) {
+  row.addEventListener('dragstart', (event) => {
+    draggingColumn = key;
+    row.classList.add('dragged');
+    event.dataTransfer.effectAllowed = 'move';
+    event.dataTransfer.setData('text/plain', key);
+  });
+  row.addEventListener('dragend', () => {
+    draggingColumn = null;
+    row.classList.remove('dragged');
+    for (const other of el('columns-order').children) delete other.dataset.drop;
+  });
+  row.addEventListener('dragover', (event) => {
+    if (draggingColumn === null || draggingColumn === key) {
+      return;
+    }
+    event.preventDefault();
+    event.dataTransfer.dropEffect = 'move';
+    for (const other of el('columns-order').children) delete other.dataset.drop;
+    const box = row.getBoundingClientRect();
+    row.dataset.drop = event.clientY < box.top + box.height / 2 ? 'above' : 'below';
+  });
+  row.addEventListener('dragleave', () => delete row.dataset.drop);
+  row.addEventListener('drop', (event) => {
+    event.preventDefault();
+    const where = row.dataset.drop;
+    const moved = draggingColumn;
+    draggingColumn = null;
+    if (!moved || moved === key || !where) {
+      return;
+    }
+    changeLayout(() => {
+      const rest = layout.order.filter((candidate) => candidate !== moved);
+      const at = rest.indexOf(key);
+      rest.splice(where === 'above' ? at : at + 1, 0, moved);
+      layout.order = rest;
+    });
+  });
+}
+
+/** Puts one row's cells into the reader's order, by name and never by index. */
+function orderCells(tr) {
+  for (const key of layout.order) {
+    const cell = tr.querySelector(`td[data-column="${key}"]`);
+    if (cell) tr.append(cell);
+  }
+}
+
+/**
+ * Writes the order and the hiding into the document.
+ *
+ * The hiding is one stylesheet rather than an attribute per cell: five hundred
+ * rows of ten cells is five thousand writes for a change one selector makes,
+ * and the header and the `col` carry the same name, so the same rule reaches
+ * all three.
+ */
+function applyColumnLayout() {
+  const head = document.querySelector('#sessions thead tr');
+  for (const key of layout.order) {
+    const th = head.querySelector(`th[data-column="${key}"]`);
+    if (th) head.append(th);
+  }
+  for (const tr of rowsBody.querySelectorAll('tr:not(.band)')) {
+    orderCells(tr);
+  }
+  const sheet = el('column-hiding');
+  sheet.textContent = layout.hidden
+    .map((key) => `#sessions [data-column="${key}"] { display: none; }`)
+    .join('\n');
+  for (const band of rowsBody.querySelectorAll('tr.band > td')) {
+    band.colSpan = COLUMN_COUNT();
+  }
+}
 
 /** Either a band or a session row, told apart by the key the order carries. */
 function createEntry(key) {
@@ -827,7 +1011,7 @@ function createBand(key) {
   tr.className = 'band';
   tr.draggable = true;
   tr.innerHTML =
-    `<td colspan="${COLUMN_COUNT}">` +
+    `<td colspan="${COLUMN_COUNT()}">` +
     '<button class="band-fold" type="button" aria-expanded="true"></button>' +
     '<span class="band-grip" aria-hidden="true"></span>' +
     '<span class="band-name"></span>' +
@@ -1002,19 +1186,25 @@ function updateBand(tr, group, shown, total) {
 function createRow(id) {
   const tr = document.createElement('tr');
   tr.dataset.id = id;
+  // Every cell names its column, exactly as the header does. That is what lets
+  // one rule hide a column everywhere at once, and what lets the cells be put
+  // back in the reader's order without counting positions.
   tr.innerHTML =
-    '<td><button class="marker status" type="button"></button></td>' +
-    '<td><button class="marker watched" type="button" aria-pressed="false"></button></td>' +
-    '<td><button class="marker favorite" type="button" aria-pressed="false"></button></td>' +
-    '<td class="num"></td><td class="at created"></td><td class="at updated"></td>' +
-    '<td class="at watched-at"></td>' +
+    '<td data-column="status"><button class="marker status" type="button"></button></td>' +
+    '<td data-column="watched"><button class="marker watched" type="button" aria-pressed="false"></button></td>' +
+    '<td data-column="starred"><button class="marker favorite" type="button" aria-pressed="false"></button></td>' +
+    '<td class="num" data-column="minutes"></td>' +
+    '<td class="at created" data-column="created"></td>' +
+    '<td class="at updated" data-column="updated"></td>' +
+    '<td class="at watched-at" data-column="watchedAt"></td>' +
     // No brush before either value any more: recolouring lives in the row's
     // menu with everything else, and two buttons per row bought one gesture
     // each at the price of the width the names are read in.
-    '<td class="provider"><span class="badge tag"></span></td>' +
-    '<td class="ws"><button class="link tag" type="button"></button></td>' +
-    '<td class="title"><button class="link text" type="button"></button>' +
+    '<td class="provider" data-column="provider"><span class="badge tag"></span></td>' +
+    '<td class="ws" data-column="workspace"><button class="link tag" type="button"></button></td>' +
+    '<td class="title" data-column="title"><button class="link text" type="button"></button>' +
     '<span class="matched"></span></td>';
+  orderCells(tr);
   tr.querySelector('.status').addEventListener('click', () =>
     state.marks.unacknowledged.includes(id) ? acknowledge([id]) : unacknowledge([id]),
   );
@@ -2450,8 +2640,18 @@ function wireResizer(handle, key) {
 
 function buildColumns() {
   const table = el('sessions');
+  // Built again whenever the layout changes, so what the last pass left has to
+  // go first: a second run would otherwise hang a second handle on every
+  // header, and two resizers on one edge fight over the same drag.
+  table.querySelector('colgroup')?.remove();
+  for (const handle of table.querySelectorAll('.resizer')) {
+    handle.remove();
+  }
   const group = document.createElement('colgroup');
-  for (const th of headerCells()) {
+  // Only the columns on screen get a `col`. A hidden one whose `col` stayed
+  // would leave the width it was given behind as a gap, which reads as a
+  // rendering fault rather than as a column that was put away.
+  for (const th of headerCells().filter((th) => !layout.hidden.includes(th.dataset.column))) {
     const key = th.dataset.column;
     const col = document.createElement('col');
     col.dataset.column = key;
@@ -2896,8 +3096,14 @@ async function boot() {
   if (chosenLanguage && chosenLanguage !== 'auto') {
     void post('/api/settings', { app: { language: chosenLanguage } }).catch(() => undefined);
   }
+  // The order and the hiding first: the `col` elements and the handles are
+  // built from the header row, so the header has to be in the reader's order
+  // before anything is built from it.
+  layout = readLayout();
+  applyColumnLayout();
   // Before the language pass, which is what names the handles it builds.
   buildColumns();
+  fillColumnsMenu();
   for (const palette of Object.values(PALETTES)) {
     palette.state = readSlots(store.get(palette.store));
   }

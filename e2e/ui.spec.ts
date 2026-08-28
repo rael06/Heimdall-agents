@@ -42,6 +42,7 @@ const VIEW_KEYS = [
   'dateLocale',
   'view',
   'columns',
+  'columnLayout',
   'autoSort',
   'controls',
   'groups',
@@ -2096,5 +2097,44 @@ test('a row lit only by its menu goes dark again when the menu closes', async ({
   await target.click({ button: 'right' });
   await page.keyboard.press('Escape');
   await expect(target).toHaveClass(/selected/);
+  expect(problems).toEqual([]);
+});
+
+test('the columns are the reader\'s: hidden, reordered, and kept', async ({ page }) => {
+  await open(page);
+  const heads = () =>
+    page
+      .locator('#sessions thead th[data-column]')
+      .evaluateAll((all) => all.map((th) => (th as HTMLElement).dataset.column));
+  expect((await heads())[0]).toBe('status');
+
+  await page.locator('#columns-menu-open').click();
+  await expect(page.locator('#columns-menu')).toBeVisible();
+
+  // Hiding reaches the header, the cells and the `col` together — one name, one
+  // rule. A `col` left behind would hold the width open as a gap.
+  const created = page.locator('#columns-visible .menu-item').filter({ hasText: 'created' });
+  await created.click();
+  await expect(page.locator('#sessions thead th[data-column="created"]')).toBeHidden();
+  await expect(page.locator('tbody tr td[data-column="created"]').first()).toBeHidden();
+  await expect(page.locator('#sessions colgroup col')).toHaveCount(9);
+
+  // Dragging a column above another moves the header and every row's cells with
+  // it, because the cells are put in order by name and never by position.
+  const items = page.locator('#columns-order .order-item');
+  await items.filter({ hasText: 'title' }).dragTo(items.first(), { targetPosition: { x: 40, y: 2 } });
+  await expect.poll(async () => (await heads())[0]).toBe('title');
+  const cells = await page
+    .locator('tbody tr')
+    .first()
+    .locator('td')
+    .evaluateAll((all) => all.map((td) => (td as HTMLElement).dataset.column));
+  expect(cells[0]).toBe('title');
+
+  // No Save: it was written as it was done, and it is still there on the next
+  // opening — like the theme and the widths it sits beside.
+  await reopen(page);
+  expect((await heads())[0]).toBe('title');
+  await expect(page.locator('#sessions thead th[data-column="created"]')).toBeHidden();
   expect(problems).toEqual([]);
 });

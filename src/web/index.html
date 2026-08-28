@@ -8,6 +8,9 @@
      are read from it on the first line the script runs. -->
 <!--{{view}}-->
 <!--{{styles}}-->
+<!-- Where the hidden columns are written, one rule each. Empty until a reader
+     hides something, and rewritten whole whenever they do. -->
+<style id="column-hiding"></style>
 </head>
 <body>
 <!--{{icons}}-->
@@ -174,6 +177,10 @@
     <button id="new-group" type="button" data-i18n-title="group.newTitle">
       <span class="chip-label" data-i18n="group.new">New group</span>
     </button>
+    <button id="columns-menu-open" type="button" popovertarget="columns-menu"
+            data-i18n-title="columns.title">
+      <span class="chip-label" data-i18n="columns.button">Columns</span>
+    </button>
     <!-- Both change for the same reason — the list moved — so they are announced
          together rather than as two unrelated interruptions. And they are out of
          the fold on purpose: a live region inside a closed `details` announces
@@ -307,6 +314,29 @@
   a floating div would have had to carry, and one of those behaviours is always
   the one that gets written badly.
 -->
+<!--
+  Which columns are shown, and in what order.
+
+  Two lists side by side rather than one that does both: ticking a box and
+  picking a row up are different gestures, and a handle that also toggles is a
+  handle that toggles by accident. There is no Save — every change is written as
+  it is made, like the theme and the widths beside it — and no Reset: hiding a
+  column and putting it back are the same two clicks, so a third control to undo
+  them earns nothing.
+-->
+<div id="columns-menu" popover class="menu columns-menu" anchor="columns-menu-open">
+  <div class="columns-lists">
+    <div>
+      <p class="menu-heading" data-i18n="columns.show">Show or hide</p>
+      <div id="columns-visible"></div>
+    </div>
+    <div>
+      <p class="menu-heading" data-i18n="columns.reorder">Drag to reorder</p>
+      <div id="columns-order"></div>
+    </div>
+  </div>
+</div>
+
 <div id="row-menu" popover class="menu">
   <!-- One line, ellipsised. A context menu names what it is about and then
        stops: the status and its reason are on the row's own marker, a hover
