@@ -239,7 +239,10 @@
               <span class="sr-only" data-i18n="column.starred">Starred</span>
             </button>
           </th>
-          <th scope="col" data-column="transcript"><span class="sr-only" data-i18n="column.transcript">Transcript</span></th>
+          <!-- The transcript had a column of its own, holding one button. It is
+               in the row's menu now, with everything else a row can do, and a
+               column that exists to carry a single icon is a column spent. -->
+
           <!-- A visible label, unlike the three marker columns beside it. Those
                carry an icon and hide their word; this one carried nothing at
                all, which made the header empty to look at and about six pixels
@@ -293,25 +296,28 @@
   to look when you cannot remember which pixel it was, and it is where a row
   joins a group.
 -->
-<dialog id="row-menu">
-  <form method="dialog">
-    <h2 id="row-menu-heading"></h2>
-    <p id="row-menu-status" class="muted"></p>
-    <div class="bar wrap">
-      <button id="row-menu-ack" type="button"></button>
-      <button id="row-menu-status-set" type="button" data-i18n="rowMenu.status">Set the status…</button>
-      <button id="row-menu-transcript" type="button" data-i18n="rowMenu.transcript">Show the transcript</button>
-      <button id="row-menu-provider" type="button" data-i18n="rowMenu.provider">Provider colour…</button>
-      <button id="row-menu-workspace" type="button" data-i18n="rowMenu.workspace">Workspace colour…</button>
-    </div>
-    <h3 data-i18n="rowMenu.group">Group</h3>
-    <div id="row-menu-groups" class="chips" role="group"></div>
-    <div class="bar">
-      <span class="grow"></span>
-      <button value="cancel" type="submit" data-i18n="settings.close">Close</button>
-    </div>
-  </form>
-</dialog>
+<!--
+  `popover` rather than a modal dialog, and rather than a floating div.
+
+  A menu on a row is not a decision the rest of the window has to wait for, and
+  a modal said it was: it dimmed the table the menu is about and took the focus
+  away from the row it was opened on. The popover is the platform's own answer —
+  it closes on a click outside and on Escape, returns focus by itself, and sits
+  in the top layer so no stacking context can bury it. All of that was a script
+  a floating div would have had to carry, and one of those behaviours is always
+  the one that gets written badly.
+-->
+<div id="row-menu" popover class="menu">
+  <p id="row-menu-heading" class="menu-heading"></p>
+  <p id="row-menu-status" class="menu-note muted"></p>
+  <button id="row-menu-ack" class="menu-item" type="button"></button>
+  <button id="row-menu-status-set" class="menu-item" type="button" data-i18n="rowMenu.status">Set the status…</button>
+  <button id="row-menu-transcript" class="menu-item" type="button" data-i18n="rowMenu.transcript">Show the transcript</button>
+  <button id="row-menu-provider" class="menu-item" type="button" data-i18n="rowMenu.provider">Provider colour…</button>
+  <button id="row-menu-workspace" class="menu-item" type="button" data-i18n="rowMenu.workspace">Workspace colour…</button>
+  <p class="menu-heading" data-i18n="rowMenu.group">Group</p>
+  <div id="row-menu-groups"></div>
+</div>
 
 <!--
   Naming a group, and renaming one.
@@ -324,12 +330,17 @@
   <form method="dialog">
     <h2 id="group-name-heading"></h2>
     <label class="field"><span data-i18n="group.nameLabel">Name</span>
-      <input id="group-name-input" type="text" maxlength="60" required>
+      <input id="group-name-input" type="text" maxlength="60" required autofocus>
     </label>
     <div class="bar">
       <span class="grow"></span>
-      <button value="cancel" type="submit" data-i18n="group.cancel">Cancel</button>
+      <!-- Save first, and not for the Windows convention: the browser submits a
+           form on Enter with the *first* submit button in tree order, so with
+           Cancel written first, typing a name and pressing Enter threw it away.
+           `autofocus` on the field is what makes Enter the obvious gesture, and
+           it has to reach the obvious answer. -->
       <button id="group-name-save" value="save" type="submit" data-i18n="group.save">Save</button>
+      <button value="cancel" type="submit" data-i18n="group.cancel">Cancel</button>
     </div>
   </form>
 </dialog>
@@ -341,17 +352,11 @@
   pool and the sort has them again — and a confirmation on an action that
   destroys no data is a click that teaches the reader to click through them.
 -->
-<dialog id="group-menu">
-  <form method="dialog">
-    <h2 id="group-menu-heading"></h2>
-    <div class="bar">
-      <button id="group-menu-rename" type="button" data-i18n="group.rename">Rename</button>
-      <button id="group-menu-delete" type="button" data-i18n="group.delete">Delete</button>
-      <span class="grow"></span>
-      <button value="cancel" type="submit" data-i18n="settings.close">Close</button>
-    </div>
-  </form>
-</dialog>
+<div id="group-menu" popover class="menu">
+  <p id="group-menu-heading" class="menu-heading"></p>
+  <button id="group-menu-rename" class="menu-item" type="button" data-i18n="group.rename">Rename</button>
+  <button id="group-menu-delete" class="menu-item" type="button" data-i18n="group.delete">Delete</button>
+</div>
 
 <dialog id="status-picker">
   <form method="dialog">

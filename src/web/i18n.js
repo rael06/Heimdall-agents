@@ -109,7 +109,6 @@ const TRANSLATIONS = {
     'column.title': 'title',
     'column.watched': 'Watched',
     'column.starred': 'Starred',
-    'column.transcript': 'Transcript',
     'column.minutes': 'Minutes in this status',
     /* Short enough not to set the width of a column of three-digit numbers. */
     'column.minutesShort': 'm.',
@@ -121,7 +120,6 @@ const TRANSLATIONS = {
     'column.resizeHint':
       'Drag to resize {name}. Arrow keys adjust it, Home fits it to its contents, and so does a double-click.',
 
-    'row.recolour': 'Change the colour of {name}',
     'palette.heading': 'Colour for {name}',
     'palette.pick': 'Pick a colour',
     'palette.hex': 'Colour, in hex',
@@ -131,7 +129,6 @@ const TRANSLATIONS = {
     'palette.auto': 'Choose for me',
 
     'row.openSession': 'Open this session in VS Code',
-    'row.openTranscript': 'Open the raw transcript',
     'row.openWorkspace': 'Open',
     'row.watchedOn': 'Watched — click to remove',
     'row.watchedOff': 'Click to watch',
@@ -319,7 +316,6 @@ const TRANSLATIONS = {
     'column.title': 'titre',
     'column.watched': 'Suivie',
     'column.starred': 'Favorite',
-    'column.transcript': 'Transcript',
     'column.minutes': 'Minutes dans ce statut',
     'column.minutesShort': 'm.',
     'unit.days': 'j',
@@ -329,7 +325,6 @@ const TRANSLATIONS = {
     'column.resizeHint':
       'Faites glisser pour redimensionner {name}. Les flèches ajustent, Origine ajuste au contenu, un double-clic aussi.',
 
-    'row.recolour': 'Changer la couleur de {name}',
     'palette.heading': 'Couleur de {name}',
     'palette.pick': 'Choisir une couleur',
     'palette.hex': 'Couleur, en hexadécimal',
@@ -339,7 +334,6 @@ const TRANSLATIONS = {
     'palette.auto': 'Choisir pour moi',
 
     'row.openSession': 'Ouvrir cette session dans VS Code',
-    'row.openTranscript': 'Ouvrir le transcript brut',
     'row.openWorkspace': 'Ouvrir',
     'row.watchedOn': 'Suivie — cliquer pour retirer',
     'row.watchedOff': 'Cliquer pour suivre',
