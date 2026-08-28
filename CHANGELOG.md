@@ -1,5 +1,26 @@
 # Changelog
 
+## 1.10.1
+
+**A marker filter says its state with its icon.** An outline in the dim colour
+for off, the filled weight in the accent for on — exactly what the same eye and
+the same star do on every row under it.
+
+They used to be accent-coloured in both states, with a lit background saying
+which. That made them the only two controls in the window whose state the reader
+had to learn a second language for, when the drawing was already an on/off pair
+everywhere else. The background goes; the icon does the saying. The label is
+untouched.
+
+The two on each band get the same treatment, and room to breathe: they were
+touching, which read as one control with two halves rather than as two switches.
+
+**A row lit only by its menu goes dark again when the menu closes.** Right-click
+selects the row so the menu is about something visible, and the highlight then
+outlived the menu by however long it took to notice. A row selected before the
+menu — by `j`, `k`, or the menu's own earlier visit — keeps its highlight, since
+the menu is not what lit it.
+
 ## 1.10.0
 
 **A band can answer to its own markers.** Each carries the same eye and star the

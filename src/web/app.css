@@ -223,15 +223,18 @@ button:hover { border-color: var(--accent); }
 .chip:disabled .chip-glyph { opacity: .55; }
 
 /*
- * The two marker filters, in the colour a set marker wears on a row.
+ * The two marker filters say their state the way every row does: an outline in
+ * the dim colour for off, the filled weight in the accent for on.
  *
- * They sit at the end of a row of four status chips that each carry their own
- * colour, so a grey eye and a grey star read as unavailable rather than as
- * markers. Coloured whatever the chip's own state, like the status glyphs
- * beside them: the colour says which marker this is about, not whether the
- * filter is on — the pressed border and fill already say that.
+ * The lit background they used to wear said the same thing in a second
+ * language, and these were the only two controls here that spoke it — the eye
+ * and the star are already an on/off pair, drawn at two weights, everywhere
+ * else in the window. So the chip stops changing and the icon does the saying.
  */
-.chip-marker .icon { color: var(--accent); }
+.chip-marker[aria-pressed="false"] .icon { color: var(--faint); }
+.chip-marker[aria-pressed="true"] .icon { color: var(--accent); }
+.chip-marker[aria-pressed="true"] { border-color: var(--edge); background: none; }
+.chip-marker:hover .icon { color: var(--fg); }
 
 /*
  * The switch for the fold, lit while what it opens is on screen.
@@ -450,6 +453,26 @@ tbody tr.band:hover { background: var(--hover); }
 tbody tr.band > td { padding: .35rem .5rem; }
 .band-name { font-weight: 600; }
 .band-count { margin-left: .5rem; }
+/*
+ * The band's own two marker filters, drawn as the markers they are: no frame,
+ * an outline for off and the filled weight for on, exactly like the same two
+ * shapes on every row under them.
+ *
+ * Set apart from the count and from each other, because they were touching and
+ * read as one control with two halves rather than as two switches.
+ */
+.band-only {
+  border: 0;
+  background: none;
+  padding: .1rem .2rem;
+  margin-left: .55rem;
+  color: var(--faint);
+  cursor: pointer;
+  vertical-align: middle;
+}
+.band-only + .band-only { margin-left: .35rem; }
+.band-only[aria-pressed="true"] { color: var(--accent); }
+.band-only:hover { color: var(--fg); }
 .band-grip { display: inline-flex; opacity: .55; cursor: grab; vertical-align: middle; }
 tbody tr.band.dragged { opacity: .5; }
 /* The fold turns rather than swapping drawing: one control, two positions. */
