@@ -306,10 +306,15 @@ Open that URL and you get the list, live.
   are deleted from their right-click menu — which returns their rows to the sorted pool and asks
   nothing back, because nothing is lost by it. A group outranks the watched and starred pinning: a
   row that jumped out of its band the moment it was watched would make the band a lie about what it
-  holds. A band whose rows are all filtered out stays and says `0 shown`.
-- **One menu for the row**, on right-click or `m`: acknowledge, set the status by hand, open the
-  transcript, recolour the provider or the workspace, and join a group. A popover rather than a
-  modal, opened where the pointer asked and anchored to the selected row when a key asked instead —
+  holds. Each band carries the same eye and star the bar at the top does, and pressing one narrows
+  that group to what is watched or starred *there*, whatever the bar is set to — it overrides the
+  one narrowing it is about and no other, and a third press gives the band back to the bar. A band
+  showing fewer rows than it holds says `0 of 6 shown` rather than a bare zero: a group that lost
+  its rows and a group that is hiding them are not the same thing.
+- **One menu for the row**, on right-click or `m`, in four sections that open to the side:
+  **Open**, **Status**, **Colour**, **Group**, above the one item that is not a section —
+  acknowledging. A popover rather than a modal, opened where the pointer asked and anchored to the
+  selected row when a key asked instead —
   a menu about one row is not a decision the rest of the window has to wait for. The two markers
   stay on the row, because a click on the eye is faster than any menu; the transcript's own column
   and the two brushes are gone, since carrying them twice cost a column and the width the names are

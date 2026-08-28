@@ -808,41 +808,92 @@ dialog::backdrop { background: rgb(0 0 0 / .5); }
   position: fixed;
   margin: 0;
   inset: auto;
-  min-width: 14rem;
-  max-width: 22rem;
-  padding: .3rem;
+  /*
+   * Narrow on purpose. A context menu is read down its left edge in one glance,
+   * and the previous one was as wide as a dialog because it held a sentence.
+   * Nothing in here is longer than a label now, so nothing has to be.
+   */
+  min-width: 11rem;
+  padding: .25rem;
   color: var(--fg);
   background: var(--bg);
   border: 1px solid var(--edge);
-  border-radius: 8px;
-  box-shadow: 0 8px 24px rgb(0 0 0 / .18);
+  border-radius: 6px;
+  box-shadow: 0 6px 20px rgb(0 0 0 / .22);
+  /* Its own stacking context, so a flyout is above the items it covers. */
+  isolation: isolate;
+  /*
+   * The user-agent stylesheet gives every `[popover]` `overflow: auto`, which
+   * clips anything positioned outside it. A section's flyout was laid out at
+   * the right size and in the right place and simply never painted — the only
+   * trace of it was the scrollbar the clipping put down the menu's edge.
+   */
+  overflow: visible;
 }
-.menu-heading {
-  margin: .25rem .5rem;
-  font-weight: 600;
-  /* A title is what the menu is about, not something to pick: it must not read
-     as the first item of the list under it. */
-  font-size: .85rem;
+/* What the menu is about: one line, cut rather than wrapped. */
+.menu-title {
+  margin: 0;
+  padding: .3rem .6rem .35rem;
+  max-width: 17rem;
+  font-size: .78rem;
   color: var(--muted);
-  overflow-wrap: anywhere;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
-.menu-note { margin: 0 .5rem .35rem; font-size: .8rem; overflow-wrap: anywhere; }
+.menu-sep { border: 0; border-top: 1px solid var(--line); margin: .2rem .35rem; }
 .menu-item {
   display: block;
   width: 100%;
   text-align: left;
   border: 0;
-  border-radius: 5px;
+  border-radius: 4px;
   background: none;
-  padding: .35rem .5rem;
+  /* Left padding leaves the column a tick lives in, so an item that carries one
+     and an item that does not still start their words in the same place. */
+  padding: .22rem .75rem .22rem 1.35rem;
   color: inherit;
   font: inherit;
+  font-size: .85rem;
+  line-height: 1.45;
+  white-space: nowrap;
   cursor: pointer;
+  position: relative;
 }
 .menu-item:hover, .menu-item:focus-visible { background: var(--hover); }
-/* The group a row is already in, marked where a checkbox would be. */
-.menu-item[aria-pressed="true"]::before { content: "✓ "; color: var(--accent); }
-.menu-item[aria-pressed="false"]::before { content: ""; }
+/* The choice already in force, marked in the column left for it. */
+.menu-item[aria-pressed="true"]::before {
+  content: "✓";
+  position: absolute;
+  left: .45rem;
+  color: var(--accent);
+}
+/* A section that opens to the side says so, the way every desktop menu does. */
+.menu-item.has-sub::after { content: "›"; float: right; color: var(--muted); }
+
+.menu-sub { position: relative; }
+.menu-flyout {
+  display: none;
+  position: absolute;
+  left: 100%;
+  top: -.25rem;
+  min-width: 11rem;
+  padding: .25rem;
+  background: var(--bg);
+  border: 1px solid var(--edge);
+  border-radius: 6px;
+  box-shadow: 0 6px 20px rgb(0 0 0 / .22);
+  z-index: 1;
+}
+/*
+ * Opened by hover *and* by focus, which is what makes the section reachable
+ * with a keyboard: tabbing into the flyout keeps `focus-within` true on the
+ * section holding it, so it does not close under the caret.
+ */
+.menu-sub:hover > .menu-flyout,
+.menu-sub:focus-within > .menu-flyout { display: block; }
+/* Flipped when the menu opened too near the right edge to grow that way. */
+.menu[data-flip="true"] .menu-flyout { left: auto; right: 100%; }
 dialog h2 { font-size: 1rem; margin: 0 0 .75rem; }
 dialog fieldset {
   border: 1px solid var(--line);

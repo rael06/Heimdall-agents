@@ -1,4 +1,4 @@
-import { Page, expect, test } from '@playwright/test';
+import { Locator, Page, expect, test } from '@playwright/test';
 import {
   RunningService,
   clearWaiting,
@@ -70,7 +70,27 @@ async function reopen(page: Page, query = ''): Promise<void> {
  */
 async function openRowPalette(page: Page, kind: 'provider' | 'workspace'): Promise<void> {
   await rows(page).first().click({ button: 'right' });
+  await openSection(page, 'rowMenu.colour');
   await page.locator(`#row-menu-${kind}`).click();
+}
+
+/**
+ * Opens one of the menu's sections, which only exist to the side.
+ *
+ * They open on hover and on focus, so a pointer has to be put on the item that
+ * carries them before anything inside can be clicked — the same gesture a
+ * reader makes, and the reason this is a helper rather than a raw click.
+ */
+async function openSection(page: Page, key: string): Promise<void> {
+  await page.locator(`#row-menu .has-sub[data-i18n="${key}"]`).hover();
+  await page.locator(`#row-menu .has-sub[data-i18n="${key}"] + .menu-flyout`).waitFor();
+}
+
+/** Puts the row under the pointer into the named group, through its menu. */
+async function putInGroup(page: Page, row: Locator, name: string): Promise<void> {
+  await row.click({ button: 'right' });
+  await openSection(page, 'rowMenu.group');
+  await page.locator('#row-menu-groups .menu-item').filter({ hasText: name }).first().click();
 }
 
 /** The store the page writes to, reached the way the page reaches it. */
@@ -1880,7 +1900,17 @@ test('a status can be set by hand, and the transcript takes it back', async ({ p
   // the row is selected as part of opening either.
   await rows(page).filter({ hasText: 'Rewrite the landing page' }).click({ button: 'right' });
   await expect(page.locator('#row-menu')).toBeVisible();
-  await page.locator('#row-menu-status-set').click();
+  // The four statuses are a section of the menu now, set straight from it: a
+  // choice from a short list is what a menu is for, and the picker it used to
+  // open is still there for `s`.
+  await openSection(page, 'rowMenu.status');
+  await page.locator('#row-menu-statuses .menu-item').filter({ hasText: 'failed' }).click();
+  const status2 = rows(page).filter({ hasText: 'Rewrite the landing page' }).locator('.status');
+  await expect(status2).toHaveAttribute('data-status', 'failed');
+
+  // And `s` still opens the picker on its own.
+  await rows(page).filter({ hasText: 'Rewrite the landing page' }).click();
+  await page.keyboard.press('s');
   const picker = page.locator('#status-picker');
   await expect(picker).toBeVisible();
   // What you are about to disagree with is in front of you while you choose.
@@ -1919,8 +1949,7 @@ test('a group holds the rows put in it, and gives them back when it goes', async
   await expect(band.locator('.band-count')).toContainText('0');
 
   const target = rows(page).filter({ hasText: 'Rewrite the landing page' });
-  await target.click({ button: 'right' });
-  await page.locator('#row-menu-groups .menu-item', { hasText: 'Recettes' }).click();
+  await putInGroup(page, target, 'Recettes');
 
   // The band is first and the row it holds comes straight after it, whatever
   // the sort would have done with that row on its own.
@@ -1970,8 +1999,7 @@ test('a group closes under its last row rather than running into the pool', asyn
   await page.locator('#group-name-save').click();
 
   const target = rows(page).filter({ hasText: 'Rewrite the landing page' });
-  await target.click({ button: 'right' });
-  await page.locator('#row-menu-groups .menu-item', { hasText: 'Bande' }).click();
+  await putInGroup(page, target, 'Bande');
 
   // The one row in the group is marked as belonging and as the last of them;
   // everything below it is not, which is what draws the end of the band.
@@ -1980,5 +2008,41 @@ test('a group closes under its last row rather than running into the pool', asyn
   await expect(rows(page).filter({ hasNotText: 'Rewrite the landing page' }).first()).not.toHaveClass(
     /member/,
   );
+  expect(problems).toEqual([]);
+});
+
+test('a band answers to its own markers, whatever the bar above says', async ({ page }) => {
+  await open(page);
+  await page.locator('#new-group').click();
+  await page.locator('#group-name-input').fill('À moi');
+  await page.locator('#group-name-input').press('Enter');
+
+  const target = rows(page).filter({ hasText: 'Rewrite the landing page' });
+  await putInGroup(page, target, 'À moi');
+  const band = page.locator('tbody tr.band');
+  await expect(band.locator('.band-count')).toContainText('1');
+
+  // Narrowed to what is starred, and nothing is: the band keeps the row it was
+  // given and says so, rather than dropping to a bare zero that reads as a loss.
+  await band.locator('.band-only[data-only="starred"]').click();
+  await expect(band.locator('.band-only[data-only="starred"]')).toHaveAttribute(
+    'aria-pressed',
+    'true',
+  );
+  await expect(target).toHaveCount(0);
+  await expect(band.locator('.band-count')).toContainText('0');
+  await expect(band.locator('.band-count')).toContainText('1');
+
+  // Star it, and the band's own filter lets it back through — while the bar at
+  // the top was never touched.
+  await expect(page.locator('#favorites-only')).toHaveAttribute('aria-pressed', 'false');
+  // Pressing it a third time gives the band back to the bar above, which is how
+  // the row becomes reachable again in order to be starred.
+  await band.locator('.band-only[data-only="starred"]').click();
+  await expect(target).toHaveCount(1);
+  await target.locator('.favorite').click();
+  await band.locator('.band-only[data-only="starred"]').click();
+  await expect(target).toHaveCount(1);
+  await expect(band.locator('.band-count')).toHaveText('1 shown');
   expect(problems).toEqual([]);
 });
