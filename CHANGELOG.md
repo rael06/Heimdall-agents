@@ -1,5 +1,45 @@
 # Changelog
 
+## 1.9.0
+
+Six things the groups needed once they were in front of a reader.
+
+**A group now closes.** The band said where one started and nothing said where
+it stopped, so the rows under the last member read as part of it — which is the
+whole point of a group, got wrong. Members carry a rule down their left edge and
+sit indented against it; the last of them draws the line that ends it. Two marks
+rather than a tint, because a background would compete with the hover and the
+selection, which are the two colours this table already answers with.
+
+**Enter saves the name.** The browser submits a form through the *first* submit
+button in tree order, and Cancel was written first — so typing a name and
+pressing Enter threw it away. Save comes first now, which is also the Windows
+order, and the field takes the focus so Enter is the obvious gesture.
+
+**The menus are menus.** They were modal dialogs holding a row of buttons: the
+table the menu was about got dimmed, and the focus left the row it was opened
+on. They are popovers now, opened where the pointer asked — the platform's own
+answer, which closes on a click outside and on Escape, returns focus by itself,
+and sits in the top layer where no stacking context can bury it. Opened with the
+keyboard they anchor to the selected row rather than to a corner of the window.
+
+**A row can be dragged onto a band** to join that group. The band lights up whole
+rather than at one edge: a row landing on a group goes *into* it, so there is no
+above or below to choose. The menu remains the way that works from the keyboard
+and the way that scales — dragging a row five hundred places up to a band is a
+gesture this table is the wrong shape for.
+
+### Two columns and two buttons per row, gone
+
+The transcript had a column of its own holding a single icon, and each of the
+two colour columns carried a brush. All three are in the row's menu, so the row
+carried them twice — and a column that exists for one icon is a column spent,
+while the brushes were paid for out of the width the names are read in.
+
+The `brush` icon left the sprite with them, and three strings left the
+dictionaries: an icon nothing draws and a translation nothing reads are the kind
+of dead weight that survives precisely because nobody trips over it.
+
 ## 1.8.0
 
 **Rows can be put into groups you name, and the sort works inside them.**

@@ -299,16 +299,21 @@ Open that URL and you get the list, live.
   `POST /api/view`. A store left under an old address is adopted once, on first open.
 - **Groups you name, and drag into the order you want.** A sort answers *which of these needs me
   first*; it cannot answer *these six belong together*, because nothing in a transcript says so.
-  *New group* makes a band, the row's own menu puts rows into it, and the sort works inside it.
+  *New group* makes a band; a row joins it from the row's own menu or by being dragged onto the
+  band, and the sort works inside it. Members are indented against a rule that the last of them
+  closes, so a group ends where it ends rather than running into the pool below.
   Bands fold, are dragged above or below one another on an insertion point rather than a swap, and
   are deleted from their right-click menu — which returns their rows to the sorted pool and asks
   nothing back, because nothing is lost by it. A group outranks the watched and starred pinning: a
   row that jumped out of its band the moment it was watched would make the band a lie about what it
   holds. A band whose rows are all filtered out stays and says `0 shown`.
 - **One menu for the row**, on right-click or `m`: acknowledge, set the status by hand, open the
-  transcript, recolour the provider or the workspace, and join a group. The markers on the row keep
-  working — a click on the eye is faster than any menu — so this is a second door rather than a
-  relocation.
+  transcript, recolour the provider or the workspace, and join a group. A popover rather than a
+  modal, opened where the pointer asked and anchored to the selected row when a key asked instead —
+  a menu about one row is not a decision the rest of the window has to wait for. The two markers
+  stay on the row, because a click on the eye is faster than any menu; the transcript's own column
+  and the two brushes are gone, since carrying them twice cost a column and the width the names are
+  read in.
 - **A colour per workspace and per provider**, so a long list separates into projects before a
   single name is read. The colours are handed out rather than computed from the name, and
   remembered: six projects drawn from a palette of ten by a hash collide 85% of the time, which is

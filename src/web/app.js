@@ -833,7 +833,7 @@ function createBand(key) {
   });
   tr.addEventListener('contextmenu', (event) => {
     event.preventDefault();
-    openGroupMenu(id);
+    openGroupMenu(id, event);
   });
   bindBandDrag(tr, id);
   return tr;
@@ -852,6 +852,31 @@ function createBand(key) {
  * outside the table, on itself — leaves the groups exactly as they were.
  */
 let dragging = null;
+/** What is being dragged: a band being reordered, or a row looking for one. */
+let draggingRow = null;
+
+/**
+ * A row dropped on a band joins that group.
+ *
+ * The menu remains the way that works from the keyboard and the way that scales
+ * — dragging a row five hundred places up to a band is a gesture this table is
+ * the wrong shape for. This is the short way for the row already beside the
+ * band it belongs in.
+ */
+function bindRowDrag(tr, id) {
+  tr.draggable = true;
+  tr.addEventListener('dragstart', (event) => {
+    draggingRow = id;
+    tr.classList.add('dragged');
+    event.dataTransfer.effectAllowed = 'move';
+    event.dataTransfer.setData('text/plain', id);
+  });
+  tr.addEventListener('dragend', () => {
+    draggingRow = null;
+    tr.classList.remove('dragged');
+    clearDropMarks();
+  });
+}
 
 function bindBandDrag(tr, id) {
   tr.addEventListener('dragstart', (event) => {
@@ -868,13 +893,21 @@ function bindBandDrag(tr, id) {
     clearDropMarks();
   });
   tr.addEventListener('dragover', (event) => {
+    clearDropMarks();
+    // A row landing on a band goes *into* it, so there is no above or below to
+    // choose: the whole band lights up rather than one of its edges.
+    if (draggingRow !== null) {
+      event.preventDefault();
+      event.dataTransfer.dropEffect = 'move';
+      tr.dataset.drop = 'into';
+      return;
+    }
     if (dragging === null || dragging === id) {
       return;
     }
     event.preventDefault();
     event.dataTransfer.dropEffect = 'move';
     const box = tr.getBoundingClientRect();
-    clearDropMarks();
     tr.dataset.drop = event.clientY < box.top + box.height / 2 ? 'above' : 'below';
   });
   tr.addEventListener('dragleave', () => delete tr.dataset.drop);
@@ -882,6 +915,12 @@ function bindBandDrag(tr, id) {
     event.preventDefault();
     const where = tr.dataset.drop;
     clearDropMarks();
+    if (draggingRow !== null) {
+      const row = draggingRow;
+      draggingRow = null;
+      assignToGroup(row, id);
+      return;
+    }
     if (dragging === null || dragging === id || !where) {
       return;
     }
@@ -920,14 +959,13 @@ function createRow(id) {
     '<td><button class="marker status" type="button"></button></td>' +
     '<td><button class="marker watched" type="button" aria-pressed="false"></button></td>' +
     '<td><button class="marker favorite" type="button" aria-pressed="false"></button></td>' +
-    '<td><button class="marker transcript" type="button">▤</button></td>' +
     '<td class="num"></td><td class="at created"></td><td class="at updated"></td>' +
     '<td class="at watched-at"></td>' +
-    // The brush sits before the value it paints, in both columns that carry one.
-    '<td class="provider"><button class="brush" type="button"></button>' +
-    '<span class="badge tag"></span></td>' +
-    '<td class="ws"><button class="brush" type="button"></button>' +
-    '<button class="link tag" type="button"></button></td>' +
+    // No brush before either value any more: recolouring lives in the row's
+    // menu with everything else, and two buttons per row bought one gesture
+    // each at the price of the width the names are read in.
+    '<td class="provider"><span class="badge tag"></span></td>' +
+    '<td class="ws"><button class="link tag" type="button"></button></td>' +
     '<td class="title"><button class="link text" type="button"></button>' +
     '<span class="matched"></span></td>';
   tr.querySelector('.status').addEventListener('click', () =>
@@ -937,25 +975,15 @@ function createRow(id) {
   tr.querySelector('.favorite').addEventListener('click', () => toggleMark('favorite', id));
   // A click lands on the thing it means, never on the row: a stray click in the
   // margin opens nothing.
-  tr.querySelector('.transcript').addEventListener('click', () => open(id, 'transcript'));
   tr.querySelector('.ws .link').addEventListener('click', () => open(id, 'workspace'));
-  for (const [selector, kind] of [
-    ['.ws .brush', 'workspace'],
-    ['.provider .brush', 'provider'],
-  ]) {
-    tr.querySelector(selector).addEventListener('click', () => {
-      const session = state.sessions.get(id);
-      const name = kind === 'workspace' ? folder(session.cwd) : session.provider;
-      if (session.cwd || kind === 'provider') openPalette(kind, name);
-    });
-  }
   tr.querySelector('.title .link').addEventListener('click', () => open(id, 'session'));
+  bindRowDrag(tr, id);
   // The browser's own menu offers nothing about a session, so the row takes the
   // gesture. `m` on the selected row does the same thing, for the keyboard.
   tr.addEventListener('contextmenu', (event) => {
     event.preventDefault();
     select(id);
-    openRowMenu(id);
+    openRowMenu(id, event);
   });
   return tr;
 }
@@ -997,11 +1025,6 @@ function updateRow(tr, session) {
   const favorite = state.marks.favorites.includes(session.id);
   markWithIcon(tr.querySelector('.watched'), watched, 'eye', 'row.watchedOn', 'row.watchedOff');
   markWithIcon(tr.querySelector('.favorite'), favorite, 'star', 'row.starredOn', 'row.starredOff');
-  // Set here rather than in the markup, so it follows the language like the rest.
-  const transcript = tr.querySelector('.transcript');
-  transcript.title = t('row.openTranscript');
-  transcript.setAttribute('aria-label', t('row.openTranscript'));
-
   // Every cell is addressed by name rather than by position. An index has to be
   // kept in step with the markup by hand, and one of them was not: the minute
   // timer wrote into the transcript cell, destroyed the button it held, and the
@@ -1045,20 +1068,6 @@ function updateRow(tr, session) {
   ws.classList.toggle('tag', Boolean(session.cwd));
   if (session.cwd) paintTag(ws, 'workspace', workspace);
   else for (const p of ['--hue', 'background', 'color', 'border-color']) ws.style.removeProperty(p);
-  // A brush on a row with no workspace would open a picker for a dash.
-  const brush = tr.querySelector('.ws .brush');
-  brush.hidden = !session.cwd;
-  for (const [node, name] of [
-    [brush, workspace],
-    [tr.querySelector('.provider .brush'), session.provider],
-  ]) {
-    // Not `markWithIcon`, which is for the two markers: it writes `aria-pressed`,
-    // and a brush that opens a picker has no pressed state to report.
-    prependIcon(node, 'brush');
-    const label = t('row.recolour', { name });
-    node.setAttribute('aria-label', label);
-    node.title = label;
-  }
   ws.title = session.cwd ? `${t('row.openWorkspace')} ${session.cwd}` : t('row.workspaceUnknown');
   const title = tr.querySelector('.title .link');
   setText(title, session.title);
@@ -1130,6 +1139,24 @@ function syncRows(target, applyOrder) {
       rowsBody.insertBefore(tr, anchor);
       present.set(id, tr);
     }
+  }
+
+  /*
+   * Which rows belong to a band, and which of those is the last one.
+   *
+   * Read from the membership rather than from "have we passed a band yet",
+   * which was wrong in the one place it mattered: every group is emitted before
+   * the ungrouped pool, so a walk carrying that flag forward marks the whole
+   * pool as belonging to the last group — and the rule down the left edge would
+   * have run to the bottom of the table.
+   */
+  const belongs = (key) => key !== undefined && !isBand(key) && Boolean(groupOf(key));
+  for (const [index, id] of target.entries()) {
+    const tr = present.get(id);
+    if (!tr || isBand(id)) continue;
+    const member = belongs(id);
+    tr.classList.toggle('member', member);
+    tr.dataset.last = String(member && !belongs(target[index + 1]));
   }
 
   for (const id of target) {
@@ -1916,7 +1943,35 @@ let correcting = null;
  * row joins a group: dragging five hundred rows onto a band is a gesture the
  * list is the wrong shape for, and this works from the keyboard.
  */
-function openRowMenu(id) {
+/**
+ * Puts a menu where the pointer is, without letting it hang off the window.
+ *
+ * Measured after showing rather than before: a popover has no size until it is
+ * in the top layer, so a menu placed first and measured second is placed from
+ * zeroes. Shown, measured, then moved — one frame, and no flash, because the
+ * top layer paints once at the end of the task either way.
+ */
+/** Where a menu opens when a key asked for it rather than a pointer. */
+function rowCorner(id) {
+  const box = rowsBody
+    .querySelector(`tr[data-id="${CSS.escape(id)}"]`)
+    ?.getBoundingClientRect();
+  return { clientX: box ? box.left + 24 : 24, clientY: box ? box.bottom : 24 };
+}
+
+function placeMenu(menu, at) {
+  menu.style.left = '0px';
+  menu.style.top = '0px';
+  menu.showPopover();
+  const box = menu.getBoundingClientRect();
+  const margin = 8;
+  const left = Math.max(margin, Math.min(at.clientX, innerWidth - box.width - margin));
+  const top = Math.max(margin, Math.min(at.clientY, innerHeight - box.height - margin));
+  menu.style.left = `${left}px`;
+  menu.style.top = `${top}px`;
+}
+
+function openRowMenu(id, at) {
   const session = state.sessions.get(id);
   if (!session) {
     return;
@@ -1929,13 +1984,13 @@ function openRowMenu(id) {
   const ack = el('row-menu-ack');
   setText(ack, t(unseen ? 'row.acknowledge' : 'row.unacknowledge'));
   ack.onclick = () => {
-    dialog.close();
+    dialog.hidePopover();
     void (unseen ? acknowledge([id]) : unacknowledge([id]));
   };
 
   const act = (element, run) => {
     element.onclick = () => {
-      dialog.close();
+      dialog.hidePopover();
       run();
     };
   };
@@ -1950,21 +2005,21 @@ function openRowMenu(id) {
   const current = groupOf(id);
   const choices = el('row-menu-groups');
   choices.textContent = '';
-  // "None" is a choice rather than a separate button, because leaving a group
-  // and joining one are the same decision and belong in the same row of them.
+  // "None" is an item rather than a separate control, because leaving a group
+  // and joining one are the same decision and belong in the same list of them.
   for (const group of [null, ...groups]) {
     const button = document.createElement('button');
     button.type = 'button';
-    button.className = 'chip';
+    button.className = 'menu-item';
     button.setAttribute('aria-pressed', String((current?.id ?? null) === (group?.id ?? null)));
     setText(button, group ? group.name : t('rowMenu.noGroup'));
     button.addEventListener('click', () => {
-      dialog.close();
+      dialog.hidePopover();
       assignToGroup(id, group ? group.id : null);
     });
     choices.append(button);
   }
-  dialog.showModal();
+  placeMenu(dialog, at);
 }
 
 /**
@@ -2004,7 +2059,7 @@ function createGroup() {
   });
 }
 
-function openGroupMenu(id) {
+function openGroupMenu(id, at) {
   const group = groupById(id);
   if (!group) {
     return;
@@ -2014,7 +2069,7 @@ function openGroupMenu(id) {
   const rename = el('group-menu-rename');
   const remove = el('group-menu-delete');
   rename.onclick = () => {
-    dialog.close();
+    dialog.hidePopover();
     askGroupName(t('group.renameHeading'), group.name, (name) => {
       group.name = name;
       saveGroups();
@@ -2022,14 +2077,14 @@ function openGroupMenu(id) {
     });
   };
   remove.onclick = () => {
-    dialog.close();
+    dialog.hidePopover();
     // The rows are not touched, only the band: they fall back into the pool and
     // the sort has them again, which is the whole of what deleting means here.
     groups = groups.filter((candidate) => candidate.id !== id);
     saveGroups();
     render(true);
   };
-  dialog.showModal();
+  placeMenu(dialog, at);
 }
 
 function openStatusPicker(id) {
@@ -2576,7 +2631,10 @@ function wireControls() {
     else if (event.key === 's') openStatusPicker(state.selected);
     // The whole menu, where `s` opens the one thing in it that had a key of its
     // own. Both stay: a key that used to do something must keep doing it.
-    else if (event.key === 'm') openRowMenu(state.selected);
+    // No pointer to open at, so the row itself is the anchor: a menu that
+    // appeared in the corner of the window would leave the reader hunting for
+    // the thing they had just selected.
+    else if (event.key === 'm') openRowMenu(state.selected, rowCorner(state.selected));
     else if (event.key === 'Enter') void open(state.selected, 'session');
     else if (event.key === 't') void open(state.selected, 'transcript');
     else if (event.key === 'w') void open(state.selected, 'workspace');

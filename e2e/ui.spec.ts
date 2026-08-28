@@ -61,6 +61,18 @@ async function reopen(page: Page, query = ''): Promise<void> {
   await expect(page.locator('tbody tr')).not.toHaveCount(0);
 }
 
+/**
+ * The colour picker, opened the way it is opened now.
+ *
+ * There was a brush in each of the two columns that carry a colour. They are
+ * gone: everything a row can do lives in its menu, and two buttons per row
+ * bought one gesture each at the price of the width the names are read in.
+ */
+async function openRowPalette(page: Page, kind: 'provider' | 'workspace'): Promise<void> {
+  await rows(page).first().click({ button: 'right' });
+  await page.locator(`#row-menu-${kind}`).click();
+}
+
 /** The store the page writes to, reached the way the page reaches it. */
 async function setView(patch: Record<string, string | null>): Promise<void> {
   const url = new URL(service.url);
@@ -461,10 +473,11 @@ test('any colour at all can be chosen by hand, and stays chosen', async ({ page 
       return { background: style.backgroundColor, colour: style.color };
     });
 
-  const brush = rows(page).first().locator('td.provider .brush');
-  await expect(brush).toHaveAttribute('aria-label', /claude|codex/);
-  await brush.click();
+  await openRowPalette(page, 'provider');
   await expect(page.locator('#palette')).toBeVisible();
+  // The picker names what it is about to paint, which is the only thing that
+  // said so once the brush beside the chip was gone.
+  await expect(page.locator('#palette-heading')).toHaveText(/claude|codex/);
 
   // Not one of a list. The picker offers what the frame colour offers, so the
   // test picks a colour that is deliberately not in the palette at all.
@@ -486,7 +499,7 @@ test('any colour at all can be chosen by hand, and stays chosen', async ({ page 
   expect((await painted()).background).toBe('rgb(250, 31, 25)');
 
   // And handing it back returns it to whatever the assignment would have said.
-  await rows(page).first().locator('td.provider .brush').click();
+  await openRowPalette(page, 'provider');
   await page.locator('#palette-auto').click();
   await page.locator('#palette').getByText('Close').click();
   expect(await hueOf(page, '.badge')).toBe(automatic);
@@ -495,7 +508,7 @@ test('any colour at all can be chosen by hand, and stays chosen', async ({ page 
 
 test('the picker opens on the colour the chip is already wearing', async ({ page }) => {
   await open(page);
-  await rows(page).first().locator('td.ws .brush').click();
+  await openRowPalette(page, 'workspace');
   await expect(page.locator('#palette')).toBeVisible();
 
   const same = await page.evaluate(() => {
@@ -525,7 +538,7 @@ test('the picker opens on the colour the chip is already wearing', async ({ page
 test('what is written on a chosen colour stays readable on it', async ({ page }) => {
   await open(page);
   const badge = rows(page).first().locator('.badge');
-  await rows(page).first().locator('td.provider .brush').click();
+  await openRowPalette(page, 'provider');
 
   // Across the range, including the mid greys where black and white are closest
   // to each other — that band is the whole reason the ink is one or the other.
@@ -547,7 +560,7 @@ test('the text colour is picked as freely as the background, and can be contrast
   await open(page);
   const badge = rows(page).first().locator('.badge');
   const ink = () => badge.evaluate((node) => getComputedStyle(node).color);
-  await rows(page).first().locator('td.provider .brush').click();
+  await openRowPalette(page, 'provider');
 
   await page.locator('#palette-colour').fill('#fa1f19');
   // The measured answer is what a chip starts with, and it is a tint rather
@@ -571,7 +584,7 @@ test('the text colour is picked as freely as the background, and can be contrast
 
   // And the button gives back exactly what the chip started with, which is the
   // whole of what it is for: the same answer, not a flatter one.
-  await rows(page).first().locator('td.provider .brush').click();
+  await openRowPalette(page, 'provider');
   await page.locator('#palette-contrast').click();
   expect(await ink()).toBe(started);
   await page.locator('#palette-auto').click();
@@ -622,7 +635,7 @@ test('a colour can be typed as hex without opening the native panel', async ({ p
       const style = getComputedStyle(node);
       return { background: style.backgroundColor, colour: style.color };
     });
-  await rows(page).first().locator('td.provider .brush').click();
+  await openRowPalette(page, 'provider');
 
   // The hex comes first because the panel behind the swatch opens on whichever
   // of hex, rgb and hsl the browser last remembered, and that selector is its
@@ -652,7 +665,7 @@ test('a colour can be typed as hex without opening the native panel', async ({ p
 
 test('clicking into a hex field takes the whole value, hash and all', async ({ page }) => {
   await open(page);
-  await rows(page).first().locator('td.provider .brush').click();
+  await openRowPalette(page, 'provider');
   const field = page.locator('#palette-colour-hex');
   const selection = () =>
     field.evaluate((node: HTMLInputElement) => ({
@@ -1269,11 +1282,13 @@ test('a session mid-tool is watched on its own, and shows its minutes', async ({
   await expect(running.locator('td.num')).toHaveText(DURATION);
 
   // The minutes land in their own cell and nothing else is touched. They used to
-  // be written into the transcript cell by the timer that keeps them climbing,
+  // be written into a neighbouring cell by the timer that keeps them climbing,
   // which destroyed the button it held; the next redraw then died looking for
-  // that button, and a dead redraw freezes every marker below the row.
-  await expect(running.locator('.transcript')).toHaveCount(1);
+  // that button, and a dead redraw freezes every marker below the row. The two
+  // markers left on the row are the check that nothing wrote over them.
   await expect(running.locator('td.num .marker')).toHaveCount(0);
+  await expect(running.locator('.watched')).toHaveCount(1);
+  await expect(running.locator('.favorite')).toHaveCount(1);
 });
 
 test('marking a session watched shows its minutes, and moves nothing', async ({ page }) => {
@@ -1323,7 +1338,6 @@ test('every action is a target of its own, reachable by keyboard', async ({ page
     'title',
     new RegExp(await row.locator('.title .text').innerText()),
   );
-  await expect(row.locator('.transcript')).toHaveAttribute('title', /raw transcript/);
   await expect(row.locator('td.ws .link')).toHaveAttribute('title', /Open /);
 });
 
@@ -1906,7 +1920,7 @@ test('a group holds the rows put in it, and gives them back when it goes', async
 
   const target = rows(page).filter({ hasText: 'Rewrite the landing page' });
   await target.click({ button: 'right' });
-  await page.locator('#row-menu-groups .chip', { hasText: 'Recettes' }).click();
+  await page.locator('#row-menu-groups .menu-item', { hasText: 'Recettes' }).click();
 
   // The band is first and the row it holds comes straight after it, whatever
   // the sort would have done with that row on its own.
@@ -1935,5 +1949,36 @@ test('a group holds the rows put in it, and gives them back when it goes', async
   await page.locator('#group-menu-delete').click();
   await expect(page.locator('tbody tr.band')).toHaveCount(0);
   await expect(rows(page).filter({ hasText: 'Rewrite the landing page' })).toHaveCount(1);
+  expect(problems).toEqual([]);
+});
+
+test('a name is saved by the key that ends typing it', async ({ page }) => {
+  await open(page);
+  await page.locator('#new-group').click();
+  await page.locator('#group-name-input').fill('Au clavier');
+  // Enter submits through the first submit button in tree order, and Cancel was
+  // written first: typing a name and pressing Enter threw it away.
+  await page.locator('#group-name-input').press('Enter');
+  await expect(page.locator('tbody tr.band .band-name')).toHaveText('Au clavier');
+  expect(problems).toEqual([]);
+});
+
+test('a group closes under its last row rather than running into the pool', async ({ page }) => {
+  await open(page);
+  await page.locator('#new-group').click();
+  await page.locator('#group-name-input').fill('Bande');
+  await page.locator('#group-name-save').click();
+
+  const target = rows(page).filter({ hasText: 'Rewrite the landing page' });
+  await target.click({ button: 'right' });
+  await page.locator('#row-menu-groups .menu-item', { hasText: 'Bande' }).click();
+
+  // The one row in the group is marked as belonging and as the last of them;
+  // everything below it is not, which is what draws the end of the band.
+  await expect(target).toHaveClass(/member/);
+  await expect(target).toHaveAttribute('data-last', 'true');
+  await expect(rows(page).filter({ hasNotText: 'Rewrite the landing page' }).first()).not.toHaveClass(
+    /member/,
+  );
   expect(problems).toEqual([]);
 });
