@@ -993,8 +993,9 @@ function updateBand(tr, group, shown, total) {
   tr.querySelector('.band-fold').title = t(group.collapsed ? 'group.expand' : 'group.collapse');
   for (const chip of tr.querySelectorAll('.band-only')) {
     const on = group.only === chip.dataset.only;
-    chip.setAttribute('aria-pressed', String(on));
+    lightIcon(chip, on, chip.dataset.only === 'watched' ? 'eye' : 'star');
     chip.title = t(on ? 'group.onlyOff' : `group.only.${chip.dataset.only}`);
+    chip.setAttribute('aria-label', chip.title);
   }
 }
 
@@ -1028,6 +1029,11 @@ function createRow(id) {
   // gesture. `m` on the selected row does the same thing, for the keyboard.
   tr.addEventListener('contextmenu', (event) => {
     event.preventDefault();
+    // Remembered so the highlight can be taken back when the menu closes: a row
+    // lit only because a menu was opened on it goes on looking chosen long
+    // after the menu is gone. A row already selected — by `j`, `k` or a click —
+    // was not selected by this, and keeps its highlight.
+    menuSelected = state.selected === id ? null : id;
     select(id);
     openRowMenu(id, event);
   });
@@ -1617,6 +1623,23 @@ const FORCED_PREFIX = 'Set by you';
  * namespace that render as nothing, and this file writes no markup from a
  * string anywhere else either.
  */
+/**
+ * Lights an icon that already sits beside a label, and leaves the label alone.
+ *
+ * {@link markWithIcon} owns the whole button — it writes the accessible name
+ * and clears the content to build the icon — which is right for a marker that
+ * is nothing but an icon, and wrong for a chip that carries a word. This swaps
+ * the drawing and the pressed state and touches nothing else, so the outline
+ * and the filled weight mean the same thing on a filter as they do on a row.
+ */
+function lightIcon(button, on, name) {
+  button.setAttribute('aria-pressed', String(on));
+  const use = button.querySelector('svg use');
+  if (use) {
+    use.setAttribute('href', `#icon-${on ? `${name}-fill` : name}`);
+  }
+}
+
 function markWithIcon(button, on, name, onKey, offKey) {
   const id = on ? `${name}-fill` : name;
   let svg = button.querySelector('svg');
@@ -2023,6 +2046,23 @@ function placeMenu(menu, at) {
 
 /** Enough room for a section to open into, in pixels; matches `.menu-flyout`. */
 const FLYOUT_WIDTH = 176;
+
+/** The row the menu lit by opening on it, and will put back when it closes. */
+let menuSelected = null;
+
+/*
+ * `toggle` rather than a callback on every way out: a popover closes on Escape,
+ * on a click outside, and on an item being chosen, and one of those three is
+ * always the one somebody forgets.
+ */
+el('row-menu').addEventListener('toggle', (event) => {
+  if (event.newState === 'closed' && menuSelected) {
+    if (state.selected === menuSelected) {
+      select(null);
+    }
+    menuSelected = null;
+  }
+});
 
 function openRowMenu(id, at) {
   const session = state.sessions.get(id);
@@ -2456,8 +2496,12 @@ function syncControls() {
   syncAutoSort();
   el('from').value = filters.from;
   el('to').value = filters.to;
-  el('watched-only').setAttribute('aria-pressed', String(filters.watchedOnly));
-  el('favorites-only').setAttribute('aria-pressed', String(filters.favoritesOnly));
+  // The icon says whether the filter is on, the way it does on every row: an
+  // outline for off and the filled weight for on. It used to be said by a lit
+  // background instead, which made these two the only controls here whose state
+  // the reader had to learn a second language for.
+  lightIcon(el('watched-only'), filters.watchedOnly, 'eye');
+  lightIcon(el('favorites-only'), filters.favoritesOnly, 'star');
   // The statuses carry their shape; `claude` and `codex` are names and have none.
   buildChips(el('status-filters'), STATUSES, filters.statuses, () => applyFilters(), statusLabel, true);
   buildChips(el('provider-filters'), PROVIDERS, filters.providers, () => applyFilters());

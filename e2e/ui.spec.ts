@@ -1405,14 +1405,24 @@ test('the marker filters wear the marker colour, and the dates have a line to th
     probe.remove();
     return painted;
   });
-  // Both, and in both states: the colour says which marker the chip is about,
-  // not whether the filter is on.
+  // The colour says whether the filter is on, exactly as it does on a row: dim
+  // while off, the accent while on. It used to be the accent in both states,
+  // with a lit background saying which — the only two controls here that said
+  // their state in a second language.
   for (const id of ['#watched-only', '#favorites-only']) {
     const icon = page.locator(`${id} .icon`);
-    expect(await icon.evaluate((node) => getComputedStyle(node).color)).toBe(accent);
+    // At rest, with the pointer taken off it: hovering one lifts it to the
+    // foreground colour, the way hovering a marker on a row does, and that is
+    // an answer about the pointer rather than about the filter.
+    const colour = async () => {
+      await page.mouse.move(0, 0);
+      return icon.evaluate((node) => getComputedStyle(node).color);
+    };
+    expect(await colour()).not.toBe(accent);
     await page.locator(id).click();
-    expect(await icon.evaluate((node) => getComputedStyle(node).color)).toBe(accent);
+    expect(await colour()).toBe(accent);
     await page.locator(id).click();
+    expect(await colour()).not.toBe(accent);
   }
 
   // And the dates keep a line of their own, under the chips that narrow by kind
@@ -1908,8 +1918,11 @@ test('a status can be set by hand, and the transcript takes it back', async ({ p
   const status2 = rows(page).filter({ hasText: 'Rewrite the landing page' }).locator('.status');
   await expect(status2).toHaveAttribute('data-status', 'failed');
 
-  // And `s` still opens the picker on its own.
-  await rows(page).filter({ hasText: 'Rewrite the landing page' }).click();
+  // And `s` still opens the picker on its own, on the row the keyboard chose.
+  // Selected with `j` rather than by reopening the menu: a menu that lit the
+  // row takes the highlight back when it closes, which is the point of that,
+  // and `s` needs a selection that outlives it.
+  await page.keyboard.press('j');
   await page.keyboard.press('s');
   const picker = page.locator('#status-picker');
   await expect(picker).toBeVisible();
@@ -2044,5 +2057,44 @@ test('a band answers to its own markers, whatever the bar above says', async ({ 
   await band.locator('.band-only[data-only="starred"]').click();
   await expect(target).toHaveCount(1);
   await expect(band.locator('.band-count')).toHaveText('1 shown');
+  expect(problems).toEqual([]);
+});
+
+test('a marker filter says its state with its icon, not with a lit background', async ({ page }) => {
+  await open(page);
+  const watched = page.locator('#watched-only');
+  const drawing = () => watched.locator('svg use').getAttribute('href');
+  await expect(watched).toHaveAttribute('aria-pressed', 'false');
+  expect(await drawing()).toBe('#icon-eye');
+
+  await watched.click();
+  await expect(watched).toHaveAttribute('aria-pressed', 'true');
+  // The filled weight, which is what a set marker wears on every row.
+  expect(await drawing()).toBe('#icon-eye-fill');
+  // And no lit background: the icon is the whole of what changed.
+  expect(
+    await watched.evaluate((node) => getComputedStyle(node).backgroundColor),
+  ).toMatch(/rgba\(0, 0, 0, 0\)|transparent/);
+  expect(problems).toEqual([]);
+});
+
+test('a row lit only by its menu goes dark again when the menu closes', async ({ page }) => {
+  await open(page);
+  const target = rows(page).filter({ hasText: 'Rewrite the landing page' });
+  await expect(target).not.toHaveClass(/selected/);
+
+  await target.click({ button: 'right' });
+  await expect(target).toHaveClass(/selected/);
+  await page.keyboard.press('Escape');
+  // A row lit only because a menu was opened on it must not go on looking
+  // chosen once the menu is gone.
+  await expect(target).not.toHaveClass(/selected/);
+
+  // A row selected before the menu keeps its highlight, since the menu is not
+  // what lit it.
+  await target.click();
+  await target.click({ button: 'right' });
+  await page.keyboard.press('Escape');
+  await expect(target).toHaveClass(/selected/);
   expect(problems).toEqual([]);
 });
