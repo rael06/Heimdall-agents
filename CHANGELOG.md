@@ -1,5 +1,36 @@
 # Changelog
 
+## 1.11.0
+
+**The columns are the reader's.** A *Columns* button opens two lists side by
+side: one that shows or hides each column, one that reorders them by dragging.
+
+The table carries ten and no reader needs all ten at once — which ones matter
+depends on what is being looked for, and that changes from one afternoon to the
+next. The order does too: a column is easier to read against the one beside it,
+and which one that should be is not something this can decide.
+
+**No Save**, because every change is written as it is made, like the theme and
+the widths it sits beside. **No Reset**, because hiding a column and putting it
+back are the same two clicks, and a third control to undo them earns nothing.
+The last visible column will not hide: a table with no columns is a window with
+nothing in it and no obvious way back.
+
+### One list of columns, still
+
+The header row has always been the only place the columns are declared — the
+`col` elements are built from it, and now the cells are put in step with it by
+name rather than by position. So hiding is one stylesheet rule per column, which
+reaches the header, the `col` and every cell at once, and a reorder moves the
+header and the rows together because they answer to the same names.
+
+A `col` left behind for a hidden column would hold its width open as a gap, so
+only the columns on screen get one. A column the store has never heard of is
+appended rather than dropped, and one it remembers but the table no longer has
+is ignored: a release that adds a column must not need the reader to go and find
+it, and one that removes a column must not leave a name behind that nothing
+draws.
+
 ## 1.10.1
 
 **A marker filter says its state with its icon.** An outline in the dim colour

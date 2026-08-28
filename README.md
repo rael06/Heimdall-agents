@@ -287,7 +287,13 @@ Open that URL and you get the list, live.
   the widths are reachable without a pointer. `Home`, or a double-click, gives a column back to its
   contents. The table keeps sizing itself until the first drag and only then holds still, which is
   also why the first drag records every column at once: a fixed layout shares leftover space between
-  the columns that have no width instead of fitting them to what they hold. Widths are kept per
+  the columns that have no width instead of fitting them to what they hold. **Columns** opens two
+  lists — one that shows or hides each column, one that reorders them by dragging. No Save, because
+  every change is written as it is made; no Reset, because hiding a column and putting it back are
+  the same two clicks. The last visible one will not hide. The header row stays the only place the
+  columns are declared: the `col` elements are built from it and the cells are put in step with it
+  by name, so hiding is one rule that reaches all three and a reorder moves them together. Widths
+  are kept per
   machine, beside the theme, rather than in the address bar that carries the view.
 
   Kept in the **preferences file**, not in the browser. All of it — theme, accent, colours, widths,

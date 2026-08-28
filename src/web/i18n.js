@@ -21,6 +21,11 @@ const TRANSLATIONS = {
     'bar.controls': 'Filters and settings',
     'statusPicker.inferred': 'The transcript says:',
 
+    'columns.button': 'Columns',
+    'columns.title': 'Choose which columns are shown, and in what order',
+    'columns.show': 'Show or hide',
+    'columns.reorder': 'Drag to reorder',
+
     'group.new': 'New group',
     'group.newTitle': 'Make a band the rows can be put into',
     'group.newHeading': 'Name the group',
@@ -237,6 +242,11 @@ const TRANSLATIONS = {
     'bar.to': 'au',
     'bar.controls': 'Filtres et réglages',
     'statusPicker.inferred': 'Le transcript dit :',
+
+    'columns.button': 'Colonnes',
+    'columns.title': 'Choisir les colonnes affichées, et leur ordre',
+    'columns.show': 'Afficher / masquer',
+    'columns.reorder': 'Glisser pour réordonner',
 
     'group.new': 'Nouveau groupe',
     'group.newTitle': 'Créer une bande où ranger des lignes',

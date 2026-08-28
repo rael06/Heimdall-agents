@@ -917,6 +917,29 @@ dialog::backdrop { background: rgb(0 0 0 / .5); }
 .menu-sub:focus-within > .menu-flyout { display: block; }
 /* Flipped when the menu opened too near the right edge to grow that way. */
 .menu[data-flip="true"] .menu-flyout { left: auto; right: 100%; }
+
+/*
+ * The two column lists, side by side.
+ *
+ * Ticking a box and picking a row up are different gestures, and one list doing
+ * both is a handle that toggles by accident. Anchored to the button that opens
+ * it, so it needs no coordinates of its own.
+ */
+.columns-menu {
+  position-anchor: --columns;
+  position-area: bottom span-right;
+  position-try-fallbacks: bottom span-left, top span-right;
+  margin-top: .25rem;
+}
+#columns-menu-open { anchor-name: --columns; }
+.columns-lists { display: flex; gap: 1.25rem; }
+.columns-lists > div { min-width: 10rem; }
+/* A drag handle, and a name. Not a button: it is picked up, never pressed. */
+.order-item { display: flex; align-items: center; gap: .4rem; cursor: grab; padding-left: .5rem; }
+.order-grip { display: inline-flex; opacity: .55; }
+.order-item.dragged { opacity: .5; }
+.order-item[data-drop="above"] { box-shadow: inset 0 2px 0 0 var(--accent); }
+.order-item[data-drop="below"] { box-shadow: inset 0 -2px 0 0 var(--accent); }
 dialog h2 { font-size: 1rem; margin: 0 0 .75rem; }
 dialog fieldset {
   border: 1px solid var(--line);
