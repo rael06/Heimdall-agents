@@ -80,6 +80,13 @@ const WANTED = [
   // One drawing at one weight: what changes between its two states is whether
   // the chip around it is lit, not the gear inside it.
   { id: 'gear', from: '@phosphor-icons/core/assets/regular/gear.svg' },
+  // The fold on a group band. One drawing, rotated by the stylesheet for the
+  // closed state: a caret that turns is read as the same control in two
+  // positions, where two drawings read as two controls.
+  { id: 'caret-down', from: '@phosphor-icons/core/assets/regular/caret-down.svg' },
+  // What says a band can be picked up. Six dots is the shape a pointer already
+  // knows to grab, and it needs no word in a row that carries a name.
+  { id: 'grip', from: '@phosphor-icons/core/assets/regular/dots-six-vertical.svg' },
 ];
 
 /**

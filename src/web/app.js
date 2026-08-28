@@ -612,6 +612,10 @@ const ASCENDING = {
   minutes: byStatusAge,
   created: (a, b) => time(a.createdAt) - time(b.createdAt),
   updated: (a, b) => time(a.updatedAt) - time(b.updatedAt),
+  // A row with nothing on record sorts as the oldest rather than as the newest:
+  // "not since this was kept" is further back than any date here, not nearer.
+  watchedAt: (a, b) =>
+    time(state.marks.watchedAt?.[a.id] ?? 0) - time(state.marks.watchedAt?.[b.id] ?? 0),
   provider: (a, b) => a.provider.localeCompare(b.provider),
   workspace: (a, b) => (a.cwd ?? '').localeCompare(b.cwd ?? ''),
   title: byTitle,
@@ -653,11 +657,261 @@ function comparator(sort) {
   return (a, b) => rank(a) - rank(b) || ordered(a, b);
 }
 
-function targetOrder() {
-  return [...state.sessions.values()].filter(passes).sort(comparator(filters.sort)).map((s) => s.id);
+// ------------------------------------------------------------------- groups
+
+/*
+ * Bands the reader put there, and the rows they hold.
+ *
+ * A sort answers "which of these needs me first"; it cannot answer "these six
+ * belong together", because nothing in a transcript says so. Only the reader
+ * knows, and until now there was nowhere to write it down.
+ *
+ * So the order is theirs and the sort works inside it: groups sit where they
+ * were dragged, their rows are sorted within, and everything ungrouped follows
+ * in one pool at the end. A group that floated according to its contents would
+ * undo the one thing it exists to give — a place you can look back at.
+ *
+ * Membership outranks the watched and starred pinning above, which is the same
+ * decision seen from the other side: a row that jumped out of its band the
+ * moment it was watched would make the band a lie about what it holds.
+ */
+const GROUPS = 'groups';
+
+/** Prefix on a band's key, so one list can carry both and stay reconcilable. */
+const BAND = 'group:';
+const bandKey = (group) => `${BAND}${group.id}`;
+const isBand = (key) => key.startsWith(BAND);
+const groupById = (id) => groups.find((group) => group.id === id);
+const groupOf = (sessionId) => groups.find((group) => group.members.includes(sessionId));
+
+/**
+ * Read once and kept, because every render walks it.
+ *
+ * Shaped on the way in rather than trusted: this is a string the reader's own
+ * store handed back, and a half-written one must cost a group rather than the
+ * table it is drawn in.
+ */
+function readGroups() {
+  let parsed;
+  try {
+    parsed = JSON.parse(store.get(GROUPS) ?? '[]');
+  } catch {
+    return [];
+  }
+  if (!Array.isArray(parsed)) {
+    return [];
+  }
+  return parsed
+    .filter((group) => group && typeof group.id === 'string' && typeof group.name === 'string')
+    .map((group) => ({
+      id: group.id,
+      name: group.name,
+      collapsed: group.collapsed === true,
+      members: Array.isArray(group.members)
+        ? group.members.filter((id) => typeof id === 'string')
+        : [],
+    }));
 }
 
+let groups = readGroups();
+
+function saveGroups() {
+  store.set(GROUPS, JSON.stringify(groups));
+}
+
+/**
+ * A session belongs to one group at most, so joining one leaves the other.
+ *
+ * `null` takes it out of every band and returns it to the pool, which is also
+ * what deleting a group does to everything it held.
+ */
+function assignToGroup(sessionId, groupId) {
+  for (const group of groups) {
+    group.members = group.members.filter((id) => id !== sessionId);
+  }
+  const wanted = groupId === null ? undefined : groupById(groupId);
+  if (wanted) {
+    wanted.members.push(sessionId);
+  }
+  saveGroups();
+  render(true);
+}
+
+/**
+ * The order the table is drawn in: bands where they were put, their rows sorted
+ * inside them, and the pool last.
+ *
+ * A member that a filter hides is left out like any other row, and its band
+ * stays: a group that vanished because nothing in it matched would be a group
+ * the reader cannot find their way back to, and the count on it already says
+ * how much is being held back.
+ */
+function targetOrder() {
+  const passing = [...state.sessions.values()].filter(passes);
+  const order = comparator(filters.sort);
+  const grouped = new Set();
+  const entries = [];
+
+  for (const group of groups) {
+    entries.push(bandKey(group));
+    const held = passing.filter((session) => group.members.includes(session.id));
+    for (const session of held) {
+      grouped.add(session.id);
+    }
+    if (!group.collapsed) {
+      entries.push(...held.sort(order).map((session) => session.id));
+    }
+  }
+
+  entries.push(
+    ...passing
+      .filter((session) => !grouped.has(session.id))
+      .sort(order)
+      .map((session) => session.id),
+  );
+  return entries;
+}
+
+/** How many of those entries are sessions, which is what the counter counts. */
+const sessionsIn = (entries) => entries.filter((key) => !isBand(key)).length;
+
+/** What a group holds that the filters let through, collapsed or not. */
+const held = (group) =>
+  [...state.sessions.values()].filter(
+    (session) => group.members.includes(session.id) && passes(session),
+  );
+
 // ---------------------------------------------------------------- rendering
+
+/**
+ * How far a band has to reach to span the table.
+ *
+ * Counted from the header rather than written down, for the same reason the
+ * `col` elements are built from it: a column added there and forgotten here
+ * would leave every band one cell short, which is a layout that looks like a
+ * rendering bug and is a missed edit.
+ */
+const COLUMN_COUNT = document.querySelectorAll('#sessions thead th[data-column]').length;
+
+/** Either a band or a session row, told apart by the key the order carries. */
+function createEntry(key) {
+  return isBand(key) ? createBand(key) : createRow(key);
+}
+
+/**
+ * The band a group is drawn as: one row spanning the table, carrying the fold,
+ * the name and how much it holds.
+ *
+ * A row of the same table rather than a heading between two tables, so the
+ * columns keep lining up and one reconciliation pass still owns the order.
+ */
+function createBand(key) {
+  const id = key.slice(BAND.length);
+  const tr = document.createElement('tr');
+  tr.dataset.id = key;
+  tr.className = 'band';
+  tr.draggable = true;
+  tr.innerHTML =
+    `<td colspan="${COLUMN_COUNT}">` +
+    '<button class="band-fold" type="button" aria-expanded="true"></button>' +
+    '<span class="band-grip" aria-hidden="true"></span>' +
+    '<span class="band-name"></span>' +
+    '<span class="band-count muted"></span>' +
+    '</td>';
+
+  const fold = tr.querySelector('.band-fold');
+  prependIcon(fold, 'caret-down');
+  prependIcon(tr.querySelector('.band-grip'), 'grip');
+  fold.addEventListener('click', () => {
+    const group = groupById(id);
+    if (!group) {
+      return;
+    }
+    group.collapsed = !group.collapsed;
+    saveGroups();
+    render(true);
+  });
+  tr.addEventListener('contextmenu', (event) => {
+    event.preventDefault();
+    openGroupMenu(id);
+  });
+  bindBandDrag(tr, id);
+  return tr;
+}
+
+/**
+ * Picking a band up and putting it above or below another.
+ *
+ * An insertion point rather than a swap: "put this one under that one" is the
+ * thing being asked, and swapping two bands moves a group the reader never
+ * touched. The line is drawn on the band being passed, above or below according
+ * to which half of it the pointer is in, so what will happen is visible before
+ * the button is released.
+ *
+ * The order is only written on drop. A drag that ends anywhere else — Escape,
+ * outside the table, on itself — leaves the groups exactly as they were.
+ */
+let dragging = null;
+
+function bindBandDrag(tr, id) {
+  tr.addEventListener('dragstart', (event) => {
+    dragging = id;
+    tr.classList.add('dragged');
+    event.dataTransfer.effectAllowed = 'move';
+    // Firefox starts no drag at all without something on the transfer, and the
+    // identifier is already held above: this is the price of entry, not a channel.
+    event.dataTransfer.setData('text/plain', id);
+  });
+  tr.addEventListener('dragend', () => {
+    dragging = null;
+    tr.classList.remove('dragged');
+    clearDropMarks();
+  });
+  tr.addEventListener('dragover', (event) => {
+    if (dragging === null || dragging === id) {
+      return;
+    }
+    event.preventDefault();
+    event.dataTransfer.dropEffect = 'move';
+    const box = tr.getBoundingClientRect();
+    clearDropMarks();
+    tr.dataset.drop = event.clientY < box.top + box.height / 2 ? 'above' : 'below';
+  });
+  tr.addEventListener('dragleave', () => delete tr.dataset.drop);
+  tr.addEventListener('drop', (event) => {
+    event.preventDefault();
+    const where = tr.dataset.drop;
+    clearDropMarks();
+    if (dragging === null || dragging === id || !where) {
+      return;
+    }
+    const moved = groupById(dragging);
+    const onto = groups.indexOf(groupById(id));
+    if (!moved || onto === -1) {
+      return;
+    }
+    groups = groups.filter((group) => group.id !== dragging);
+    const at = groups.indexOf(groupById(id));
+    groups.splice(where === 'above' ? at : at + 1, 0, moved);
+    saveGroups();
+    render(true);
+  });
+}
+
+function clearDropMarks() {
+  for (const band of rowsBody.querySelectorAll('tr.band[data-drop]')) {
+    delete band.dataset.drop;
+  }
+}
+
+/** Name, count and fold, written only when they changed. */
+function updateBand(tr, group, held) {
+  setText(tr.querySelector('.band-name'), group.name);
+  setText(tr.querySelector('.band-count'), t('group.count', { count: held }));
+  tr.querySelector('.band-fold').setAttribute('aria-expanded', String(!group.collapsed));
+  tr.dataset.collapsed = String(group.collapsed);
+  tr.querySelector('.band-fold').title = t(group.collapsed ? 'group.expand' : 'group.collapse');
+}
 
 function createRow(id) {
   const tr = document.createElement('tr');
@@ -668,6 +922,7 @@ function createRow(id) {
     '<td><button class="marker favorite" type="button" aria-pressed="false"></button></td>' +
     '<td><button class="marker transcript" type="button">▤</button></td>' +
     '<td class="num"></td><td class="at created"></td><td class="at updated"></td>' +
+    '<td class="at watched-at"></td>' +
     // The brush sits before the value it paints, in both columns that carry one.
     '<td class="provider"><button class="brush" type="button"></button>' +
     '<span class="badge tag"></span></td>' +
@@ -696,11 +951,11 @@ function createRow(id) {
   }
   tr.querySelector('.title .link').addEventListener('click', () => open(id, 'session'));
   // The browser's own menu offers nothing about a session, so the row takes the
-  // gesture. `s` on the selected row does the same thing, for the keyboard.
+  // gesture. `m` on the selected row does the same thing, for the keyboard.
   tr.addEventListener('contextmenu', (event) => {
     event.preventDefault();
     select(id);
-    openStatusPicker(id);
+    openRowMenu(id);
   });
   return tr;
 }
@@ -765,6 +1020,14 @@ function updateRow(tr, session) {
   );
   setText(tr.querySelector('.created'), at(session.createdAt));
   setText(tr.querySelector('.updated'), at(session.updatedAt));
+  // Empty when nothing is on record, which is not the same as "never watched":
+  // it says only that no change has been seen since this began being kept.
+  const changedAt = state.marks.watchedAt?.[session.id];
+  const watchedCell = tr.querySelector('.watched-at');
+  setText(watchedCell, changedAt ? at(changedAt) : '');
+  watchedCell.title = changedAt
+    ? t(watched ? 'row.watchedSince' : 'row.watchDropped', { at: at(changedAt) })
+    : t('row.watchUnrecorded');
   const badge = tr.querySelector('.badge');
   setText(badge, session.provider);
   paintTag(badge, 'provider', session.provider);
@@ -840,7 +1103,7 @@ function syncRows(target, applyOrder) {
      */
     let cursor = rowsBody.firstChild;
     for (const id of target) {
-      const tr = present.get(id) ?? createRow(id);
+      const tr = present.get(id) ?? createEntry(id);
       present.set(id, tr);
       if (tr === cursor) {
         cursor = cursor.nextSibling;
@@ -863,16 +1126,25 @@ function syncRows(target, applyOrder) {
           break;
         }
       }
-      const tr = createRow(id);
+      const tr = createEntry(id);
       rowsBody.insertBefore(tr, anchor);
       present.set(id, tr);
     }
   }
 
   for (const id of target) {
-    const session = state.sessions.get(id);
     const tr = present.get(id);
-    if (session && tr) updateRow(tr, session);
+    if (!tr) continue;
+    if (isBand(id)) {
+      const group = groupById(id.slice(BAND.length));
+      // What the band says it holds is what passed the filters, not what it was
+      // given: a count of rows nobody can see would be the one number here that
+      // does not answer "where did my session go".
+      if (group) updateBand(tr, group, held(group).length);
+      continue;
+    }
+    const session = state.sessions.get(id);
+    if (session) updateRow(tr, session);
   }
   return [...rowsBody.children].map((tr) => tr.dataset.id);
 }
@@ -955,11 +1227,9 @@ function render(applyOrder = false) {
     reorder.classList.add('hidden');
   }
 
-  setText(
-    el('counts'),
-    t('state.counts', { visible: target.length, loaded: state.sessions.size }),
-  );
-  renderEmpty(target.length);
+  const visible = sessionsIn(target);
+  setText(el('counts'), t('state.counts', { visible, loaded: state.sessions.size }));
+  renderEmpty(visible);
   renderWorkspaces();
   if (state.selected && !target.includes(state.selected)) {
     select(null);
@@ -1638,6 +1908,130 @@ let correcting = null;
  * tooltip: you are about to disagree with it, so it is the one thing you need
  * in front of you while you choose.
  */
+/**
+ * Everything a row offers, gathered where it can be found.
+ *
+ * The markers on the row keep working — a click on the eye is faster than any
+ * menu — so this adds a door rather than moving one. It is also the only way a
+ * row joins a group: dragging five hundred rows onto a band is a gesture the
+ * list is the wrong shape for, and this works from the keyboard.
+ */
+function openRowMenu(id) {
+  const session = state.sessions.get(id);
+  if (!session) {
+    return;
+  }
+  const dialog = el('row-menu');
+  setText(el('row-menu-heading'), session.title);
+  setText(el('row-menu-status'), `${statusLabel(session.status)} — ${session.statusReason}`);
+
+  const unseen = state.marks.unacknowledged.includes(id);
+  const ack = el('row-menu-ack');
+  setText(ack, t(unseen ? 'row.acknowledge' : 'row.unacknowledge'));
+  ack.onclick = () => {
+    dialog.close();
+    void (unseen ? acknowledge([id]) : unacknowledge([id]));
+  };
+
+  const act = (element, run) => {
+    element.onclick = () => {
+      dialog.close();
+      run();
+    };
+  };
+  act(el('row-menu-status-set'), () => openStatusPicker(id));
+  act(el('row-menu-transcript'), () => void open(id, 'transcript'));
+  act(el('row-menu-provider'), () => openPalette('provider', session.provider));
+  act(el('row-menu-workspace'), () => {
+    const name = session.cwd && folder(session.cwd);
+    if (name) openPalette('workspace', name);
+  });
+
+  const current = groupOf(id);
+  const choices = el('row-menu-groups');
+  choices.textContent = '';
+  // "None" is a choice rather than a separate button, because leaving a group
+  // and joining one are the same decision and belong in the same row of them.
+  for (const group of [null, ...groups]) {
+    const button = document.createElement('button');
+    button.type = 'button';
+    button.className = 'chip';
+    button.setAttribute('aria-pressed', String((current?.id ?? null) === (group?.id ?? null)));
+    setText(button, group ? group.name : t('rowMenu.noGroup'));
+    button.addEventListener('click', () => {
+      dialog.close();
+      assignToGroup(id, group ? group.id : null);
+    });
+    choices.append(button);
+  }
+  dialog.showModal();
+}
+
+/**
+ * Asks for a name, and calls back with it only when one was given.
+ *
+ * One dialog for creating and for renaming, because they are the same question
+ * asked twice — and a second dialog saying the same thing is a second place to
+ * forget a translation.
+ */
+function askGroupName(heading, current, done) {
+  const dialog = el('group-name');
+  const input = el('group-name-input');
+  setText(el('group-name-heading'), heading);
+  input.value = current;
+  dialog.addEventListener(
+    'close',
+    () => {
+      const name = input.value.trim();
+      if (dialog.returnValue === 'save' && name) {
+        done(name);
+      }
+    },
+    { once: true },
+  );
+  dialog.showModal();
+  input.select();
+}
+
+function createGroup() {
+  askGroupName(t('group.newHeading'), '', (name) => {
+    // Newest on top: a group is made to be filled, and the rows about to go in
+    // it are the ones on screen now. Made at the bottom of five hundred rows it
+    // would have to be dragged up before it could be used.
+    groups.unshift({ id: crypto.randomUUID(), name, collapsed: false, members: [] });
+    saveGroups();
+    render(true);
+  });
+}
+
+function openGroupMenu(id) {
+  const group = groupById(id);
+  if (!group) {
+    return;
+  }
+  setText(el('group-menu-heading'), group.name);
+  const dialog = el('group-menu');
+  const rename = el('group-menu-rename');
+  const remove = el('group-menu-delete');
+  rename.onclick = () => {
+    dialog.close();
+    askGroupName(t('group.renameHeading'), group.name, (name) => {
+      group.name = name;
+      saveGroups();
+      render(true);
+    });
+  };
+  remove.onclick = () => {
+    dialog.close();
+    // The rows are not touched, only the band: they fall back into the pool and
+    // the sort has them again, which is the whole of what deleting means here.
+    groups = groups.filter((candidate) => candidate.id !== id);
+    saveGroups();
+    render(true);
+  };
+  dialog.showModal();
+}
+
 function openStatusPicker(id) {
   const session = state.sessions.get(id);
   if (!session) {
@@ -2151,6 +2545,7 @@ function wireControls() {
    * would otherwise keep its marker forever.
    */
   el('ack-all').addEventListener('click', () => acknowledge([...state.marks.unacknowledged]));
+  el('new-group').addEventListener('click', () => createGroup());
 
   document.addEventListener('keydown', (event) => {
     const typing = ['INPUT', 'SELECT', 'TEXTAREA'].includes(event.target.tagName);
@@ -2179,6 +2574,9 @@ function wireControls() {
     else if (!state.selected) return;
     else if (event.key === 'e') void acknowledge([state.selected]);
     else if (event.key === 's') openStatusPicker(state.selected);
+    // The whole menu, where `s` opens the one thing in it that had a key of its
+    // own. Both stay: a key that used to do something must keep doing it.
+    else if (event.key === 'm') openRowMenu(state.selected);
     else if (event.key === 'Enter') void open(state.selected, 'session');
     else if (event.key === 't') void open(state.selected, 'transcript');
     else if (event.key === 'w') void open(state.selected, 'workspace');

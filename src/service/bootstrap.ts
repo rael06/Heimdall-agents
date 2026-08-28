@@ -4,6 +4,7 @@ import { MarksStore } from '../core/marksStore';
 import { SessionStore } from '../core/store';
 import { AckStore, acksFilePath } from './acks';
 import { OverrideStore, overridesFilePath } from './statusOverrides';
+import { WatchLogStore, watchLogFilePath } from './watchLog';
 import { Desktop } from './desktop';
 import { ServiceEngine } from './engine';
 import { Notifier } from './notifier';
@@ -81,6 +82,10 @@ export async function startService(options: BootstrapOptions): Promise<StartedSe
     // Its own file, like the acknowledgements and for the same reason: the
     // marks file is rebuilt from the keys the extension knows.
     new OverrideStore(overridesFilePath(options.sharedDir)),
+    // Its own file too, and for the load-bearing half of the same reason: the
+    // marks file is rewritten by the extension, which keeps three lists of
+    // identifiers and drops everything else.
+    new WatchLogStore(watchLogFilePath(options.sharedDir)),
     preferences,
     {
       roots: options.roots,

@@ -1,5 +1,64 @@
 # Changelog
 
+## 1.8.0
+
+**Rows can be put into groups you name, and the sort works inside them.**
+
+*New group* makes a band. Right-click a row and pick the band from its menu, and
+the row joins it. The band keeps its place, its rows are sorted within it, and
+everything ungrouped follows in one pool at the end.
+
+A sort answers *which of these needs me first*. It cannot answer *these six
+belong together*, because nothing in a transcript says so — only the reader
+knows, and until now there was nowhere to write it down.
+
+- **Bands are dragged** above or below one another, on an insertion point rather
+  than a swap: "put this one under that one" is the thing being asked, and
+  swapping moves a group nobody touched. The line is drawn on the band being
+  passed, so what will happen is visible before the button is released, and the
+  order is only written on drop.
+- **They fold**, and the fold is remembered. With five hundred rows loaded,
+  folding the three groups you are not reading is what makes the rest fit.
+- **Right-click a band** to rename or delete it. Deleting asks nothing back: the
+  rows fall into the pool and the sort has them again, and a confirmation on an
+  action that destroys no data teaches the reader to click through them.
+- **A group outranks the watched and starred pinning.** A row that jumped out of
+  its band the moment it was watched would make the band a lie about what it
+  holds.
+- **A band whose rows are all filtered out stays**, saying `0 shown`. One that
+  vanished would be one the reader cannot find their way back to.
+
+Groups live in the preferences file with the rest of the view, so they survive a
+port change like everything else 1.7.0 moved there.
+
+### One menu for the row
+
+Acknowledging, setting the status by hand, opening the transcript, and recolouring
+the provider or the workspace were each discoverable only by finding the pixel
+that carried them. Right-click — or `m` on the selected row — now gathers all of
+them, and it is where a row joins a group.
+
+Nothing moved: the markers on the row still work, because a click on the eye is
+faster than any menu. This is a second door, not a relocation. `s` still opens the
+status picker on its own.
+
+### Watch changed
+
+A new column dates the last time a session was taken up or dropped as watched.
+The marks file could not hold it: it is read and rewritten by the VS Code
+extension, whose sanitiser keeps three lists of identifiers and drops everything
+else, so a timestamp added there would survive until the other side wrote and
+then vanish without a word. It has its own file, like the acknowledgements and
+the overrides.
+
+It is recorded from what the service **observes** rather than from what it does,
+so a session watched from the extension is dated the same way. The first
+observation only sets the baseline — an installation already watching forty
+sessions would otherwise stamp all forty with the moment it started, which reads
+as *you did this just now* and is false for every one of them. An empty cell says
+*not since this began being kept*, and sorts as older than any date rather than
+newer.
+
 ## 1.7.0
 
 **What the page keeps for itself no longer belongs to the port.** The theme, the
