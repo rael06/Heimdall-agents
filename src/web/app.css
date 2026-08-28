@@ -438,6 +438,32 @@ tbody tr:hover { background: var(--hover); }
 tbody tr.selected { background: var(--selected); }
 
 /*
+ * A band a group is drawn as.
+ *
+ * It has to read as a heading over the rows under it rather than as one of
+ * them, and it has one cell where they have ten — so the separation is carried
+ * by weight and a rule above, not by a colour that would compete with the
+ * status markers the rows are scanned for.
+ */
+tbody tr.band { background: var(--hover); border-top: 2px solid var(--line); }
+tbody tr.band:hover { background: var(--hover); }
+tbody tr.band > td { padding: .35rem .5rem; }
+.band-name { font-weight: 600; }
+.band-count { margin-left: .5rem; }
+.band-grip { display: inline-flex; opacity: .55; cursor: grab; vertical-align: middle; }
+tbody tr.band.dragged { opacity: .5; }
+/* The fold turns rather than swapping drawing: one control, two positions. */
+.band-fold svg { transition: transform .12s ease; }
+tbody tr.band[data-collapsed="true"] .band-fold svg { transform: rotate(-90deg); }
+/*
+ * Where the band will land, drawn on the one being passed. An inset shadow
+ * rather than a border, which would move every row below it by two pixels while
+ * the pointer is still deciding.
+ */
+tbody tr.band[data-drop="above"] { box-shadow: inset 0 2px 0 0 var(--accent); }
+tbody tr.band[data-drop="below"] { box-shadow: inset 0 -2px 0 0 var(--accent); }
+
+/*
  * Dates, workspace and minutes are read, not skimmed past: they are the answer
  * to "which one is this", as much as the title. Only the chrome around them —
  * column headers, badges, counters, notices — stays quiet.

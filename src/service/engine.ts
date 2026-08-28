@@ -10,6 +10,7 @@ import {
   SessionStatus,
 } from '../model/types';
 import { overrideReason, releaseOvertaken } from '../core/statusOverride';
+import { WatchLogStore, watchChanges } from './watchLog';
 import { AckStore, applyStatusChanges } from './acks';
 import { SessionDelta, computeDelta, isEmptyDelta } from './delta';
 import { Desktop } from './desktop';
@@ -71,6 +72,16 @@ export interface MarksView {
   watched: string[];
   favorites: string[];
   unacknowledged: string[];
+  /**
+   * When each session was last taken up or dropped as watched, by identifier.
+   *
+   * Carried with the marks rather than on the session, because that is what it
+   * is about: nothing in a transcript decides it, and putting it on the session
+   * would have every provider carry a field neither of them can fill. Absent
+   * for a session whose watching predates this being kept — an empty cell says
+   * "not since this was recorded", which is the only true thing available.
+   */
+  watchedAt: Record<string, string>;
 }
 
 export interface EngineState {
@@ -94,7 +105,7 @@ export interface DeltaEvent extends SessionDelta {
   scannedAt: string;
 }
 
-const NO_MARKS: MarksView = { watched: [], favorites: [], unacknowledged: [] };
+const NO_MARKS: MarksView = { watched: [], favorites: [], unacknowledged: [], watchedAt: {} };
 
 /**
  * Owns the scanning: what triggers it, when it is allowed, what changed, and the
@@ -113,6 +124,8 @@ export class ServiceEngine {
   private inferred: SessionView[] = [];
   private tracked = new Map<string, Tracked>();
   private marks: MarksView = NO_MARKS;
+  /** False until the first observation, which dates nothing and only sets it. */
+  private watchBaseline = false;
   private paused = false;
   /**
    * Owned by the interface once the user touches them, and remembered across
@@ -134,6 +147,7 @@ export class ServiceEngine {
     private readonly marksStore: MarksStore,
     private readonly ackStore: AckStore,
     private readonly overrideStore: OverrideStore,
+    private readonly watchLogStore: WatchLogStore,
     private readonly preferences: PreferencesStore,
     private readonly options: EngineOptions,
   ) {
@@ -401,9 +415,32 @@ export class ServiceEngine {
   }
 
   private async publishMarks(watched: string[], favorites: string[]): Promise<MarksView> {
-    this.marks = { watched, favorites, unacknowledged: this.marks.unacknowledged };
+    const watchedAt = await this.noteWatchChanges(watched);
+    this.marks = { watched, favorites, unacknowledged: this.marks.unacknowledged, watchedAt };
     this.emitMarks();
     return this.marks;
+  }
+
+  /**
+   * Dates whatever just joined or left the watched set.
+   *
+   * Driven by the difference between two observations rather than by the call
+   * that made the change, so a session watched from the VS Code extension —
+   * which writes the same marks file and knows nothing about this one — is
+   * dated exactly like one watched here. Two writers, one fact.
+   *
+   * The first observation only establishes the baseline. An installation that
+   * already watches forty sessions would otherwise stamp all forty with the
+   * moment the service started, which reads as *you did this just now* and is
+   * false for every one of them.
+   */
+  private async noteWatchChanges(watched: readonly string[]): Promise<Record<string, string>> {
+    const changed = this.watchBaseline ? watchChanges(this.marks.watched, watched) : {};
+    this.watchBaseline = true;
+    const log = await this.watchLogStore.record(changed, new Date());
+    return Object.fromEntries(
+      Object.entries(log.entries).map(([id, entry]) => [id, entry.at]),
+    );
   }
 
   private startWatching(): void {
@@ -502,6 +539,11 @@ export class ServiceEngine {
         watched: marks.watched,
         favorites: marks.favorites,
         unacknowledged: acks.unacknowledged,
+        // Before the assignment below, which is what it compares against. This
+        // is the path that catches the extension: it writes the marks file and
+        // the next scan reads it, so a session watched over there is dated here
+        // without either side knowing about the other.
+        watchedAt: await this.noteWatchChanges(marks.watched),
       };
       const changed = JSON.stringify(next) !== JSON.stringify(this.marks);
       this.marks = next;

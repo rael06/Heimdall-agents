@@ -44,6 +44,7 @@ const VIEW_KEYS = [
   'columns',
   'autoSort',
   'controls',
+  'groups',
   'workspaceColours',
   'providerColours',
 ];
@@ -1860,9 +1861,12 @@ test('a status can be set by hand, and the transcript takes it back', async ({ p
   await expect(status).toHaveAttribute('data-status', 'idle');
   await expect(status).toHaveAttribute('data-forced', 'false');
 
-  // Right-click, the gesture asked for. `s` on the selected row opens the same
-  // picker, which is why the row is selected as part of opening it.
+  // Right-click opens the row's menu, and the picker is one of the things in
+  // it. `s` on the selected row still reaches the picker directly, which is why
+  // the row is selected as part of opening either.
   await rows(page).filter({ hasText: 'Rewrite the landing page' }).click({ button: 'right' });
+  await expect(page.locator('#row-menu')).toBeVisible();
+  await page.locator('#row-menu-status-set').click();
   const picker = page.locator('#status-picker');
   await expect(picker).toBeVisible();
   // What you are about to disagree with is in front of you while you choose.
@@ -1883,5 +1887,53 @@ test('a status can be set by hand, and the transcript takes it back', async ({ p
   await startSiteSession(service.home);
   await expect(status).toHaveAttribute('data-status', 'running', { timeout: 20000 });
   await expect(status).toHaveAttribute('data-forced', 'false');
+  expect(problems).toEqual([]);
+});
+
+test('a group holds the rows put in it, and gives them back when it goes', async ({ page }) => {
+  await open(page);
+  const band = page.locator('tbody tr.band');
+  await expect(band).toHaveCount(0);
+
+  await page.locator('#new-group').click();
+  await page.locator('#group-name-input').fill('Recettes');
+  await page.locator('#group-name-save').click();
+  await expect(band).toHaveCount(1);
+  await expect(band.locator('.band-name')).toHaveText('Recettes');
+  // Empty, and saying so rather than disappearing: a band with nothing in it is
+  // still where the reader is about to put something.
+  await expect(band.locator('.band-count')).toContainText('0');
+
+  const target = rows(page).filter({ hasText: 'Rewrite the landing page' });
+  await target.click({ button: 'right' });
+  await page.locator('#row-menu-groups .chip', { hasText: 'Recettes' }).click();
+
+  // The band is first and the row it holds comes straight after it, whatever
+  // the sort would have done with that row on its own.
+  await expect(band.locator('.band-count')).toContainText('1');
+  const keys = await page.locator('tbody tr').evaluateAll((all) =>
+    all.map((tr) => (tr as HTMLElement).dataset.id ?? ''),
+  );
+  expect(keys[0].startsWith('group:')).toBe(true);
+  expect(keys[1]).not.toBe('');
+  expect(keys[1].startsWith('group:')).toBe(false);
+
+  // Folded away, the band stays and its rows do not.
+  await band.locator('.band-fold').click();
+  await expect(band.locator('.band-count')).toContainText('1');
+  await expect(target).toHaveCount(0);
+  await band.locator('.band-fold').click();
+  await expect(target).toHaveCount(1);
+
+  // It survives an opening, like everything else the page keeps.
+  await reopen(page);
+  await expect(page.locator('tbody tr.band .band-name')).toHaveText('Recettes');
+
+  // Deleting the band returns its rows to the sorted pool rather than taking
+  // them with it.
+  await page.locator('tbody tr.band').click({ button: 'right' });
+  await page.locator('#group-menu-delete').click();
+  await expect(page.locator('tbody tr.band')).toHaveCount(0);
+  await expect(rows(page).filter({ hasText: 'Rewrite the landing page' })).toHaveCount(1);
   expect(problems).toEqual([]);
 });

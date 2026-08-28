@@ -168,6 +168,12 @@
         <span class="chip-label" data-i18n="bar.starred">Starred</span>
       </button>
     </div>
+    <!-- Beside the two filters rather than among the settings: grouping is
+         something done to the list while reading it, like narrowing to what is
+         watched, and not something set up once behind a fold. -->
+    <button id="new-group" type="button" data-i18n-title="group.newTitle">
+      <span class="chip-label" data-i18n="group.new">New group</span>
+    </button>
     <!-- Both change for the same reason — the list moved — so they are announced
          together rather than as two unrelated interruptions. And they are out of
          the fold on purpose: a live region inside a closed `details` announces
@@ -246,6 +252,10 @@
           </th>
           <th scope="col" data-column="created"><button class="sort" type="button" data-key="created" data-i18n="column.created">created</button></th>
           <th scope="col" data-column="updated"><button class="sort" type="button" data-key="updated" data-i18n="column.updated">last activity</button></th>
+          <!-- Beside the other two dates rather than next to the eye it belongs
+               to: it is read the way they are, as an answer to "when", and a
+               date squeezed into a 32px marker column would be neither. -->
+          <th scope="col" data-column="watchedAt"><button class="sort" type="button" data-key="watchedAt" data-i18n="column.watchedAt">watch changed</button></th>
           <th scope="col" data-column="provider"><button class="sort" type="button" data-key="provider" data-i18n="column.provider">provider</button></th>
           <th scope="col" data-column="workspace"><button class="sort" type="button" data-key="workspace" data-i18n="column.workspace">workspace</button></th>
           <th scope="col" data-column="title"><button class="sort" type="button" data-key="title" data-i18n="column.title">title</button></th>
@@ -273,6 +283,76 @@
   right-click: a control that exists only under a pointer is one a keyboard
   never finds, which is the same reason the brush is always drawn.
 -->
+<!--
+  Everything a row offers, in one place.
+
+  These actions were spread across the row itself — a click on the status, a
+  button per column, a brush in two of them — and each was discoverable only by
+  finding the pixel that carried it. They stay where they are, because a marker
+  you can click is faster than a menu; this gathers them so there is somewhere
+  to look when you cannot remember which pixel it was, and it is where a row
+  joins a group.
+-->
+<dialog id="row-menu">
+  <form method="dialog">
+    <h2 id="row-menu-heading"></h2>
+    <p id="row-menu-status" class="muted"></p>
+    <div class="bar wrap">
+      <button id="row-menu-ack" type="button"></button>
+      <button id="row-menu-status-set" type="button" data-i18n="rowMenu.status">Set the status…</button>
+      <button id="row-menu-transcript" type="button" data-i18n="rowMenu.transcript">Show the transcript</button>
+      <button id="row-menu-provider" type="button" data-i18n="rowMenu.provider">Provider colour…</button>
+      <button id="row-menu-workspace" type="button" data-i18n="rowMenu.workspace">Workspace colour…</button>
+    </div>
+    <h3 data-i18n="rowMenu.group">Group</h3>
+    <div id="row-menu-groups" class="chips" role="group"></div>
+    <div class="bar">
+      <span class="grow"></span>
+      <button value="cancel" type="submit" data-i18n="settings.close">Close</button>
+    </div>
+  </form>
+</dialog>
+
+<!--
+  Naming a group, and renaming one.
+
+  A dialog rather than `prompt()`, which the packaged application does not show
+  at all: an Electron window answers `window.prompt` with nothing and the group
+  would have been created nameless with no sign of why.
+-->
+<dialog id="group-name">
+  <form method="dialog">
+    <h2 id="group-name-heading"></h2>
+    <label class="field"><span data-i18n="group.nameLabel">Name</span>
+      <input id="group-name-input" type="text" maxlength="60" required>
+    </label>
+    <div class="bar">
+      <span class="grow"></span>
+      <button value="cancel" type="submit" data-i18n="group.cancel">Cancel</button>
+      <button id="group-name-save" value="save" type="submit" data-i18n="group.save">Save</button>
+    </div>
+  </form>
+</dialog>
+
+<!--
+  What a group offers: renaming it, and taking it away.
+
+  Deleting asks nothing back. Nothing is lost by it — the sessions return to the
+  pool and the sort has them again — and a confirmation on an action that
+  destroys no data is a click that teaches the reader to click through them.
+-->
+<dialog id="group-menu">
+  <form method="dialog">
+    <h2 id="group-menu-heading"></h2>
+    <div class="bar">
+      <button id="group-menu-rename" type="button" data-i18n="group.rename">Rename</button>
+      <button id="group-menu-delete" type="button" data-i18n="group.delete">Delete</button>
+      <span class="grow"></span>
+      <button value="cancel" type="submit" data-i18n="settings.close">Close</button>
+    </div>
+  </form>
+</dialog>
+
 <dialog id="status-picker">
   <form method="dialog">
     <h2 id="status-picker-heading"></h2>
