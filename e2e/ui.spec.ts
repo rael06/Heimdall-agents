@@ -2113,7 +2113,8 @@ test('the columns are the reader\'s: hidden, reordered, and kept', async ({ page
 
   // Hiding reaches the header, the cells and the `col` together — one name, one
   // rule. A `col` left behind would hold the width open as a gap.
-  const created = page.locator('#columns-visible .menu-item').filter({ hasText: 'created' });
+  // One row per column, doing both: a press toggles it, a drag moves it.
+  const created = page.locator('#columns-list .order-item').filter({ hasText: 'created' });
   await created.click();
   await expect(page.locator('#sessions thead th[data-column="created"]')).toBeHidden();
   await expect(page.locator('tbody tr td[data-column="created"]').first()).toBeHidden();
@@ -2124,7 +2125,7 @@ test('the columns are the reader\'s: hidden, reordered, and kept', async ({ page
 
   // Dragging a column above another moves the header and every row's cells with
   // it, because the cells are put in order by name and never by position.
-  const items = page.locator('#columns-order .order-item');
+  const items = page.locator('#columns-list .order-item');
   await items.filter({ hasText: 'title' }).dragTo(items.first(), { targetPosition: { x: 40, y: 2 } });
   await expect.poll(async () => (await heads())[0]).toBe('title');
   const cells = await page

@@ -287,8 +287,8 @@ Open that URL and you get the list, live.
   the widths are reachable without a pointer. `Home`, or a double-click, gives a column back to its
   contents. The table keeps sizing itself until the first drag and only then holds still, which is
   also why the first drag records every column at once: a fixed layout shares leftover space between
-  the columns that have no width instead of fitting them to what they hold. **Columns** opens two
-  lists — one that shows or hides each column, one that reorders them by dragging. No Save, because
+  the columns that have no width instead of fitting them to what they hold. **Columns** opens one
+  list: press a row to show or hide that column, drag it to move it. No Save, because
   every change is written as it is made; no Reset, because hiding a column and putting it back are
   the same two clicks. The last visible one will not hide. The header row stays the only place the
   columns are declared: the `col` elements are built from it and the cells are put in step with it

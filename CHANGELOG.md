@@ -1,5 +1,25 @@
 # Changelog
 
+## 1.13.1
+
+**The Columns menu is one list.** Each row shows the tick, the grip and the
+name: pressing it shows or hides that column, dragging it moves it.
+
+It was two lists side by side, on the argument that ticking a box and picking a
+row up are different gestures and a handle that also toggles is one that toggles
+by accident. They are two gestures about the same thing, and the price of
+keeping them apart was reading every name twice to do either. The browser tells
+them apart on its own — a drag fires no click — so the toggle cannot go off
+under a reorder.
+
+### The picture found what the tests could not
+
+The tick is placed absolutely in every other menu here, and a plain
+`.order-item::before` did not outweigh the rule that does it: a class and an
+attribute beat a class. So the tick landed **on top of the grip** rather than
+beside it, on every row that had one. Nothing failing, nothing to assert
+against — it took rendering the menu and looking at it.
+
 ## 1.13.0
 
 **A bell on every row.** It decides whether that session is worth interrupting
