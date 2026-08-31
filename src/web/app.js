@@ -571,7 +571,7 @@ function writeUrl() {
  * and every other filter — the search, the statuses, the dates — still applies:
  * the band overrides the one narrowing it is about, not the whole question.
  */
-function passes(session, markers = filters) {
+function passes(session, marker) {
   const marks = state.marks;
   // A search is answered by the service, which reads the transcripts. It always
   // narrows, whatever the match mode: widening it would return sessions that do
@@ -582,8 +582,16 @@ function passes(session, markers = filters) {
   // rather than "true", which is what lets "any" mean "one of the things I
   // asked for" instead of "everything".
   const verdicts = [];
-  if (markers.watchedOnly) verdicts.push(marks.watched.includes(session.id));
-  if (markers.favoritesOnly) verdicts.push(marks.favorites.includes(session.id));
+  // A band answers the marker question for its own rows, and answers it whole:
+  // its two icons are the only marker filter that reaches them, so a group is
+  // not quietly narrowed by a bar the reader set for the pool.
+  if (marker) {
+    const verdict = marker(session);
+    if (verdict !== null) verdicts.push(verdict);
+  } else {
+    if (filters.watchedOnly) verdicts.push(marks.watched.includes(session.id));
+    if (filters.favoritesOnly) verdicts.push(marks.favorites.includes(session.id));
+  }
   if (filters.statuses.size) verdicts.push(filters.statuses.has(session.status));
   if (filters.providers.size) verdicts.push(filters.providers.has(session.provider));
   if (filters.workspaces.size) {
@@ -715,9 +723,15 @@ function readGroups() {
       id: group.id,
       name: group.name,
       collapsed: group.collapsed === true,
-      // Empty means "follow the bar at the top", which is what a band does
-      // until it is told otherwise.
-      only: group.only === 'watched' || group.only === 'starred' ? group.only : '',
+      // Two switches rather than one choice of three, because they are two
+      // questions. Neither lit means every row the group holds.
+      //
+      // The single string they used to be is read back as the switch it named,
+      // so a band set before this keeps what it was set to.
+      only: {
+        watched: group.only === 'watched' || group.only?.watched === true,
+        starred: group.only === 'starred' || group.only?.starred === true,
+      },
       members: Array.isArray(group.members)
         ? group.members.filter((id) => typeof id === 'string')
         : [],
@@ -784,16 +798,30 @@ function targetOrder() {
 /** How many of those entries are sessions, which is what the counter counts. */
 const sessionsIn = (entries) => entries.filter((key) => !isBand(key)).length;
 
-/** The marker filters a band answers to: its own when it has any. */
-const markersOf = (group) =>
-  group.only
-    ? { watchedOnly: group.only === 'watched', favoritesOnly: group.only === 'starred' }
-    : filters;
+/**
+ * The band's own answer about markers, for one of its rows.
+ *
+ * Neither icon lit is not "follow the bar above" — it is "all of them". A group
+ * is a place the reader put things, and one that quietly emptied because a
+ * filter was set for the pool is a place they cannot find their way back to.
+ *
+ * Both lit shows what carries either marker rather than what carries both. The
+ * intersection is already reachable by lighting one and reading down it, and it
+ * is the narrower of two sets that are both easy to get; the union is the one
+ * that cannot be had any other way — everything in this group I have marked at
+ * all — which is what earns the third state.
+ */
+const bandMarker = (group) => (session) => {
+  const wanted = [];
+  if (group.only.watched) wanted.push(state.marks.watched.includes(session.id));
+  if (group.only.starred) wanted.push(state.marks.favorites.includes(session.id));
+  return wanted.length ? wanted.some(Boolean) : null;
+};
 
 /** What a group holds that the filters let through, collapsed or not. */
 const held = (group) =>
   [...state.sessions.values()].filter(
-    (session) => group.members.includes(session.id) && passes(session, markersOf(group)),
+    (session) => group.members.includes(session.id) && passes(session, bandMarker(group)),
   );
 
 // ---------------------------------------------------------------- rendering
@@ -1030,9 +1058,9 @@ function createBand(key) {
       if (!group) {
         return;
       }
-      // A third press puts the band back on the bar's own filter, so there is
-      // always a way back to following it without deleting the group.
-      group.only = group.only === chip.dataset.only ? '' : chip.dataset.only;
+      // Each switch answers for itself: pressing one never turns the other off.
+      const which = chip.dataset.only;
+      group.only = { ...group.only, [which]: !group.only[which] };
       saveGroups();
       render(true);
     });
@@ -1176,9 +1204,10 @@ function updateBand(tr, group, shown, total) {
   tr.dataset.collapsed = String(group.collapsed);
   tr.querySelector('.band-fold').title = t(group.collapsed ? 'group.expand' : 'group.collapse');
   for (const chip of tr.querySelectorAll('.band-only')) {
-    const on = group.only === chip.dataset.only;
-    lightIcon(chip, on, chip.dataset.only === 'watched' ? 'eye' : 'star');
-    chip.title = t(on ? 'group.onlyOff' : `group.only.${chip.dataset.only}`);
+    const which = chip.dataset.only;
+    const on = group.only[which] === true;
+    lightIcon(chip, on, which === 'watched' ? 'eye' : 'star');
+    chip.title = t(on ? `group.onlyOff.${which}` : `group.only.${which}`);
     chip.setAttribute('aria-label', chip.title);
   }
 }
@@ -2368,7 +2397,17 @@ function createGroup() {
     // Newest on top: a group is made to be filled, and the rows about to go in
     // it are the ones on screen now. Made at the bottom of five hundred rows it
     // would have to be dragged up before it could be used.
-    groups.unshift({ id: crypto.randomUUID(), name, collapsed: false, members: [] });
+    groups.unshift({
+      id: crypto.randomUUID(),
+      name,
+      collapsed: false,
+      // Neither switch on, which is every row it is about to be given. Written
+      // here as well as read back in {@link readGroups}: a group made in this
+      // session never went through that, and the band asked it a question it
+      // could not answer.
+      only: { watched: false, starred: false },
+      members: [],
+    });
     saveGroups();
     render(true);
   });

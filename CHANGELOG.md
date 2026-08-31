@@ -1,5 +1,35 @@
 # Changelog
 
+## 1.12.0
+
+**The two switches on a band are two questions, and the bar above is not one of
+them.** Four states, and each says what it does:
+
+| | |
+| --- | --- |
+| neither lit | every row the group holds |
+| the eye | what is watched there |
+| the star | what is starred there |
+| both | what carries either marker |
+
+Neither lit used to mean *follow the bar above*, and it was the wrong answer: a
+group narrowed by a filter set for the pool empties without saying why, and a
+place the reader put things has to be a place they can find their way back to.
+The band's own two icons are now the only marker filter that reaches its rows.
+
+They were also one choice of three rather than two switches, so lighting one
+turned the other off and *both* could not be asked for at all. Pressing one
+never touches the other now.
+
+**Both lit shows what carries either marker, not both.** The intersection is
+already reachable by lighting one and reading down it, and it is the narrower of
+two sets that are both easy to get. The union — everything in this group I have
+marked at all — cannot be had any other way, which is what earns the third
+state.
+
+A band set before this keeps what it was set to: the single value it used to
+hold is read back as the switch it named.
+
 ## 1.11.0
 
 **The columns are the reader's.** A *Columns* button opens two lists side by
