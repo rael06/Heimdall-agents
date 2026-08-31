@@ -903,20 +903,34 @@ function changeLayout(mutate) {
 /** The name a column is known by, which is the one its header wears. */
 const columnName = (key) => t(`column.${key}`);
 
+/**
+ * One row per column, carrying both gestures.
+ *
+ * A press toggles it and a drag moves it, which the browser already tells
+ * apart: a drag fires no click at the end of it, so the two cannot go off
+ * together. It was two lists, and reading every name twice to do either was the
+ * price of keeping the gestures on separate rows.
+ */
 function fillColumnsMenu() {
-  const shown = el('columns-visible');
-  const order = el('columns-order');
-  shown.textContent = '';
-  order.textContent = '';
+  const list = el('columns-list');
+  list.textContent = '';
 
   for (const key of layout.order) {
     const on = !layout.hidden.includes(key);
-    const toggle = document.createElement('button');
-    toggle.type = 'button';
-    toggle.className = 'menu-item';
-    toggle.setAttribute('aria-pressed', String(on));
-    setText(toggle, columnName(key));
-    toggle.addEventListener('click', () => {
+    const row = document.createElement('button');
+    row.type = 'button';
+    row.className = 'menu-item order-item';
+    row.draggable = true;
+    row.dataset.column = key;
+    row.setAttribute('aria-pressed', String(on));
+
+    const grip = document.createElement('span');
+    grip.className = 'order-grip';
+    grip.setAttribute('aria-hidden', 'true');
+    prependIcon(grip, 'grip');
+    row.append(grip, document.createTextNode(columnName(key)));
+
+    row.addEventListener('click', () => {
       // The last one standing is not offered: a table with no columns is a
       // window with nothing in it and no obvious way back.
       if (on && shownColumns().length === 1) {
@@ -928,19 +942,8 @@ function fillColumnsMenu() {
           : layout.hidden.filter((hidden) => hidden !== key);
       });
     });
-    shown.append(toggle);
-
-    const row = document.createElement('div');
-    row.className = 'menu-item order-item';
-    row.draggable = true;
-    row.dataset.column = key;
-    const grip = document.createElement('span');
-    grip.className = 'order-grip';
-    grip.setAttribute('aria-hidden', 'true');
-    prependIcon(grip, 'grip');
-    row.append(grip, document.createTextNode(columnName(key)));
     bindColumnDrag(row, key);
-    order.append(row);
+    list.append(row);
   }
 }
 
@@ -957,7 +960,7 @@ function bindColumnDrag(row, key) {
   row.addEventListener('dragend', () => {
     draggingColumn = null;
     row.classList.remove('dragged');
-    for (const other of el('columns-order').children) delete other.dataset.drop;
+    for (const other of el('columns-list').children) delete other.dataset.drop;
   });
   row.addEventListener('dragover', (event) => {
     if (draggingColumn === null || draggingColumn === key) {
@@ -965,7 +968,7 @@ function bindColumnDrag(row, key) {
     }
     event.preventDefault();
     event.dataTransfer.dropEffect = 'move';
-    for (const other of el('columns-order').children) delete other.dataset.drop;
+    for (const other of el('columns-list').children) delete other.dataset.drop;
     const box = row.getBoundingClientRect();
     row.dataset.drop = event.clientY < box.top + box.height / 2 ? 'above' : 'below';
   });

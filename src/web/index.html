@@ -326,24 +326,19 @@
 <!--
   Which columns are shown, and in what order.
 
-  Two lists side by side rather than one that does both: ticking a box and
-  picking a row up are different gestures, and a handle that also toggles is a
-  handle that toggles by accident. There is no Save — every change is written as
-  it is made, like the theme and the widths beside it — and no Reset: hiding a
-  column and putting it back are the same two clicks, so a third control to undo
-  them earns nothing.
+  One list doing both. It was two side by side, on the argument that ticking a
+  box and picking a row up are different gestures — but they are two gestures
+  about the same thing, and reading a name twice to do either was the cost of
+  keeping them apart. A press and a drag are told apart by the browser: a drag
+  fires no click, so the toggle cannot go off under a reorder.
+
+  There is no Save — every change is written as it is made, like the theme and
+  the widths beside it — and no Reset: hiding a column and putting it back are
+  the same two clicks, so a third control to undo them earns nothing.
 -->
 <div id="columns-menu" popover class="menu columns-menu" anchor="columns-menu-open">
-  <div class="columns-lists">
-    <div>
-      <p class="menu-heading" data-i18n="columns.show">Show or hide</p>
-      <div id="columns-visible"></div>
-    </div>
-    <div>
-      <p class="menu-heading" data-i18n="columns.reorder">Drag to reorder</p>
-      <div id="columns-order"></div>
-    </div>
-  </div>
+  <p class="menu-heading" data-i18n="columns.both">Click to show or hide, drag to reorder</p>
+  <div id="columns-list"></div>
 </div>
 
 <div id="row-menu" popover class="menu">
