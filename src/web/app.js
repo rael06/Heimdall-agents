@@ -869,11 +869,10 @@ function readLayout() {
   }
   const kept = (list) =>
     Array.isArray(list) ? list.filter((key) => known.includes(key)) : [];
-  // A column the store has never heard of is appended rather than dropped: a
-  // release that adds one must not need the reader to go and find it, and a
-  // release that removes one must not leave a name behind that nothing draws.
-  const order = [...new Set(kept(stored.order))];
-  return { order: [...order, ...known.filter((key) => !order.includes(key))], hidden: kept(stored.hidden) };
+  return {
+    order: reconcileColumnOrder([...new Set(kept(stored.order))], known),
+    hidden: kept(stored.hidden),
+  };
 }
 
 const saveLayout = () => store.set(COLUMN_LAYOUT, JSON.stringify(layout));

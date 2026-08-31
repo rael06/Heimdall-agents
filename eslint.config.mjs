@@ -54,6 +54,7 @@ export default tseslint.config(
         assignSlots: 'readonly',
         readSlots: 'readonly',
         minutesSince: 'readonly',
+        reconcileColumnOrder: 'readonly',
         splitDuration: 'readonly',
         MIN_COLUMN_WIDTH: 'readonly',
         MAX_COLUMN_WIDTH: 'readonly',

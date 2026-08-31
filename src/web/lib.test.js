@@ -19,6 +19,7 @@ import {
   readableInk,
   readSlots,
   minutesSince,
+  reconcileColumnOrder,
   splitDuration,
   normalizeSort,
   readable,
@@ -575,3 +576,52 @@ function hslToRgb(h, s, l) {
     : [c, 0, x];
   return [(r + m) * 255, (g + m) * 255, (b + m) * 255];
 }
+
+describe('reconcileColumnOrder', () => {
+  const declared = ['status', 'starred', 'watched', 'notify', 'minutes', 'title'];
+
+  it('leaves an order that already covers the table exactly as it is', () => {
+    const stored = ['title', 'status', 'minutes', 'notify', 'watched', 'starred'];
+    expect(reconcileColumnOrder(stored, declared)).toEqual(stored);
+  });
+
+  it('puts a new column where the markup declares it, not at the end', () => {
+    // The bell, arriving into an order written before it existed. Appended, it
+    // landed past the title at the far right of the table; the markup declares
+    // it between the two markers it belongs with.
+    const stored = ['status', 'watched', 'starred', 'minutes', 'title'];
+    expect(reconcileColumnOrder(stored, declared)).toEqual([
+      'status',
+      'watched',
+      'notify',
+      'starred',
+      'minutes',
+      'title',
+    ]);
+  });
+
+  it('drops a name the table no longer declares', () => {
+    const stored = ['status', 'transcript', 'title'];
+    expect(reconcileColumnOrder(stored, declared)).not.toContain('transcript');
+  });
+
+  it('keeps several new columns in the order they are declared', () => {
+    // The first one placed becomes the neighbour the second is placed against.
+    expect(reconcileColumnOrder(['status', 'title'], declared)).toEqual([
+      'status',
+      'starred',
+      'watched',
+      'notify',
+      'minutes',
+      'title',
+    ]);
+  });
+
+  it('puts a column declared first at the front when nothing precedes it', () => {
+    expect(reconcileColumnOrder(['title'], declared)[0]).toBe('status');
+  });
+
+  it('answers the whole table when the reader has stored nothing', () => {
+    expect(reconcileColumnOrder([], declared)).toEqual(declared);
+  });
+});
