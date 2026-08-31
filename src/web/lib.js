@@ -472,3 +472,44 @@ export function minutesSince(iso, now = Date.now()) {
   }
   return Math.max(0, Math.floor((now - started) / 60000));
 }
+
+/**
+ * The reader's column order, reconciled with the columns the table actually has.
+ *
+ * Two things can be out of step, and each has one right answer. A name the
+ * store remembers and the table no longer declares is dropped: a release that
+ * removes a column must not leave behind a name nothing draws. A column the
+ * table declares and the store has never heard of is **inserted where the
+ * markup puts it**, not appended.
+ *
+ * Appending is what this did first, and it was wrong in a way that only showed
+ * once a column was added: the bell arrived at the far right of the table,
+ * past the title, because that is where the end of the list is — while the
+ * markup had declared it third, between the two markers it belongs with. A
+ * reader who has ever opened the columns menu would have had to go and find it.
+ *
+ * The position is taken from the nearest declared neighbour to its left that
+ * the reader's order already contains, so a new column lands beside the ones it
+ * was designed to sit with, and several new ones keep their declared order
+ * among themselves — the first one placed becomes the neighbour of the second.
+ */
+export function reconcileColumnOrder(stored, declared) {
+  const order = stored.filter((key) => declared.includes(key));
+  for (const [index, key] of declared.entries()) {
+    if (order.includes(key)) {
+      continue;
+    }
+    // Nothing to its left that survived means it was declared first, and the
+    // front of the list is where it goes.
+    let at = 0;
+    for (let before = index - 1; before >= 0; before -= 1) {
+      const found = order.indexOf(declared[before]);
+      if (found !== -1) {
+        at = found + 1;
+        break;
+      }
+    }
+    order.splice(at, 0, key);
+  }
+  return order;
+}

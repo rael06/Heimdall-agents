@@ -1,5 +1,29 @@
 # Changelog
 
+## 1.13.2
+
+**A new column arrives where the markup declares it, not at the end.**
+
+A reader's stored column order is theirs, and a column added by a release is not
+in it. Appending was the first answer and it reads as reasonable until a column
+is actually added: the bell landed at the far right of the table, past the
+title, because that is where the end of a list is — while the markup had
+declared it third, between the two markers it belongs with. Anyone who had ever
+opened the Columns menu had to go and find it.
+
+It is now placed against its nearest declared neighbour to the left that the
+reader's order already holds, so it lands beside the columns it was designed to
+sit with. Several new ones keep their declared order among themselves, because
+the first one placed becomes the neighbour the second is placed against.
+
+The other half is unchanged and was already right: a name the store remembers
+and the table no longer declares is dropped, so a release that removes a column
+leaves nothing behind that nothing draws.
+
+Moved to `lib.js` and tested there rather than reasoned about in place — it is
+list arithmetic with no page in it, and the case that mattered is the one nobody
+would think to try by hand.
+
 ## 1.13.1
 
 **The Columns menu is one list.** Each row shows the tick, the grip and the
