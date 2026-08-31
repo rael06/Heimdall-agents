@@ -22,14 +22,15 @@ export const DEFAULT_NOTIFY_ON: SessionStatus[] = ['idle', 'failed'];
 /**
  * Which sessions may raise a notification at all.
  *
- * `watched` follows the eye: only sessions you are following, and dismissing one
- * silences it until it works again. It is narrow by design, and it has a gap —
- * a session is only watched automatically when it is seen *starting* to run, so
- * one that was already running before the service came up never qualifies.
+ * `watched` follows the bell on the row. It followed the eye until the bell
+ * existed, and the two turned out not to be one thing: a session can be worth
+ * keeping in view without being worth a toast every time it stops, and one you
+ * are not following can be the one you are waiting on. Watching a session turns
+ * its bell on, so the set is seeded where the old rule looked.
  *
  * `unacknowledged` follows the marker instead: anything that stopped with
  * something you have not seen. Acknowledging becomes the way to silence a
- * session, rather than un-watching it.
+ * session, rather than reaching for the bell.
  */
 export type NotifyScope = 'watched' | 'unacknowledged';
 
@@ -46,8 +47,8 @@ export interface NotifyPolicy {
 
 export interface NotifyInput {
   transitions: readonly Transition[];
-  /** Sessions being followed. */
-  watched: ReadonlySet<string>;
+  /** Sessions whose bell is on. */
+  notifying: ReadonlySet<string>;
   /**
    * Sessions holding something unseen, *after* this scan applied its changes —
    * a session that just stopped is already in here, which is what makes it
@@ -88,7 +89,7 @@ export function chooseNotifications(input: NotifyInput): NotifyDecision {
     const allowed =
       input.policy.scope === 'unacknowledged'
         ? input.unacknowledged.has(transition.id)
-        : input.watched.has(transition.id);
+        : input.notifying.has(transition.id);
     if (!allowed || notified.has(transition.id)) {
       continue;
     }

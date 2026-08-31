@@ -82,7 +82,9 @@ const TRANSLATIONS = {
     'scope.content': 'content',
     'match.all': 'all of them',
     'match.any': 'any of them',
-    'notifyScope.watched': 'watched sessions',
+    /* The set the bell on each row decides. Watching a session turns its bell
+       on, so this is where the old wording pointed — it just says which set. */
+    'notifyScope.watched': 'sessions with the bell on',
     'notifyScope.unacknowledged': 'anything unacknowledged',
 
     'sort.watched-desc': 'watched first',
@@ -128,6 +130,7 @@ const TRANSLATIONS = {
     'column.title': 'title',
     'column.watched': 'Watched',
     'column.starred': 'Starred',
+    'column.notify': 'Notifications',
     'column.minutes': 'Minutes in this status',
     /* Short enough not to set the width of a column of three-digit numbers. */
     'column.minutesShort': 'm.',
@@ -153,6 +156,8 @@ const TRANSLATIONS = {
     'row.watchedOff': 'Click to watch',
     'row.starredOn': 'Starred — click to remove',
     'row.starredOff': 'Click to star',
+    'row.notifyOn': 'Notifying about this session — click to silence it',
+    'row.notifyOff': 'Silent — click to be notified about this session',
     'row.acknowledge': '(click to acknowledge)',
     'row.unacknowledge': '(click to mark it unseen again)',
     'row.watchedSince': 'Watched since {at}',
@@ -302,7 +307,7 @@ const TRANSLATIONS = {
     'scope.content': 'contenu',
     'match.all': 'tous',
     'match.any': "au moins un",
-    'notifyScope.watched': 'sessions suivies',
+    'notifyScope.watched': 'sessions dont la cloche est allumée',
     'notifyScope.unacknowledged': 'tout ce qui est non vu',
 
     'sort.watched-desc': 'suivies d’abord',
@@ -351,6 +356,7 @@ const TRANSLATIONS = {
     'column.title': 'titre',
     'column.watched': 'Suivie',
     'column.starred': 'Favorite',
+    'column.notify': 'Notifications',
     'column.minutes': 'Minutes dans ce statut',
     'column.minutesShort': 'm.',
     'unit.days': 'j',
@@ -374,6 +380,8 @@ const TRANSLATIONS = {
     'row.watchedOff': 'Cliquer pour suivre',
     'row.starredOn': 'Favorite — cliquer pour retirer',
     'row.starredOff': 'Cliquer pour mettre en favori',
+    'row.notifyOn': 'Notifications actives — cliquer pour les couper',
+    'row.notifyOff': 'Silencieuse — cliquer pour être notifié de cette session',
     'row.acknowledge': '(cliquer pour marquer comme vu)',
     'row.unacknowledge': '(cliquer pour remarquer comme non vu)',
     'row.watchedSince': 'Surveillée depuis le {at}',

@@ -184,7 +184,7 @@ const STATUS_ICON = {
 
 const state = {
   sessions: new Map(),
-  marks: { watched: [], favorites: [], unacknowledged: [] },
+  marks: { watched: [], favorites: [], unacknowledged: [], notify: [] },
   service: null,
   /** id -> matched fields, or null when no search is active. */
   matched: null,
@@ -650,6 +650,7 @@ function comparator(sort) {
   const marked = {
     watched: (session) => state.marks.watched.includes(session.id),
     starred: (session) => state.marks.favorites.includes(session.id),
+    notify: (session) => state.marks.notify?.includes(session.id) ?? false,
   };
   const primary =
     marked[key] !== undefined
@@ -1220,8 +1221,9 @@ function createRow(id) {
   // back in the reader's order without counting positions.
   tr.innerHTML =
     '<td data-column="status"><button class="marker status" type="button"></button></td>' +
-    '<td data-column="watched"><button class="marker watched" type="button" aria-pressed="false"></button></td>' +
     '<td data-column="starred"><button class="marker favorite" type="button" aria-pressed="false"></button></td>' +
+    '<td data-column="watched"><button class="marker watched" type="button" aria-pressed="false"></button></td>' +
+    '<td data-column="notify"><button class="marker notify" type="button" aria-pressed="false"></button></td>' +
     '<td class="num" data-column="minutes"></td>' +
     '<td class="at created" data-column="created"></td>' +
     '<td class="at updated" data-column="updated"></td>' +
@@ -1239,6 +1241,7 @@ function createRow(id) {
   );
   tr.querySelector('.watched').addEventListener('click', () => toggleMark('watched', id));
   tr.querySelector('.favorite').addEventListener('click', () => toggleMark('favorite', id));
+  tr.querySelector('.notify').addEventListener('click', () => toggleMark('notify', id));
   // A click lands on the thing it means, never on the row: a stray click in the
   // margin opens nothing.
   tr.querySelector('.ws .link').addEventListener('click', () => open(id, 'workspace'));
@@ -1296,6 +1299,18 @@ function updateRow(tr, session) {
   const favorite = state.marks.favorites.includes(session.id);
   markWithIcon(tr.querySelector('.watched'), watched, 'eye', 'row.watchedOn', 'row.watchedOff');
   markWithIcon(tr.querySelector('.favorite'), favorite, 'star', 'row.starredOn', 'row.starredOff');
+  // A bell that is not ringing must not look like a bell that is, which is why
+  // the off state is a different drawing rather than the same one lighter —
+  // the same reason the switch in the settings has carried two since it existed.
+  const bell = state.marks.notify?.includes(session.id) ?? false;
+  markWithIcon(
+    tr.querySelector('.notify'),
+    bell,
+    'bell',
+    'row.notifyOn',
+    'row.notifyOff',
+    'bell-slash',
+  );
   // Every cell is addressed by name rather than by position. An index has to be
   // kept in step with the markup by hand, and one of them was not: the minute
   // timer wrote into the transcript cell, destroyed the button it held, and the
@@ -1646,9 +1661,9 @@ function renderWorkspaces() {
 
 // ------------------------------------------------------------------ actions
 
+/** `kind` is the route's own last segment: watched, favorite or notify. */
 async function toggleMark(kind, id) {
-  const path = kind === 'watched' ? '/api/marks/watched' : '/api/marks/favorite';
-  state.marks = await post(path, { id });
+  state.marks = await post(`/api/marks/${kind}`, { id });
   render();
 }
 
@@ -1859,8 +1874,17 @@ function lightIcon(button, on, name) {
   }
 }
 
-function markWithIcon(button, on, name, onKey, offKey) {
-  const id = on ? `${name}-fill` : name;
+/**
+ * `off` names the drawing for the off state when it is not simply the lighter
+ * weight of the same one.
+ *
+ * The eye and the star are one shape at two weights, and the weight is the
+ * state. A bell is not: an unlit bell reads as a bell, so its off state has to
+ * be a bell with a stroke through it — which is why the notification switch in
+ * the settings has carried two drawings since the day it was written.
+ */
+function markWithIcon(button, on, name, onKey, offKey, off) {
+  const id = on ? `${name}-fill` : (off ?? name);
   let svg = button.querySelector('svg');
   if (!svg) {
     svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');

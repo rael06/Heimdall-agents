@@ -1,5 +1,40 @@
 # Changelog
 
+## 1.13.0
+
+**A bell on every row.** It decides whether that session is worth interrupting
+you for, and it is the set the *notifications on* scope now reads. **Watching a
+session turns its bell on**; dropping the watch leaves the bell alone, because
+silencing something you still follow and un-following something you still want
+to hear about are both things to want.
+
+*Watched* and *tell me about it* had been the same thing, and they are not. A
+session can be worth keeping in view without being worth a toast every time it
+stops, and one you are not following can be exactly the one you are waiting on.
+
+The three markers are now read **starred, watched, bell** — from the loosest
+commitment to the one that interrupts you. A star is a bookmark, watching is
+following, the bell is asking to be told.
+
+An unlit bell is drawn **struck through**, not merely lighter. The eye and the
+star are one shape at two weights and the weight is the state; a quiet bell that
+still looks like a bell says nothing, which is why the switch in the settings has
+carried two drawings since the day it was written.
+
+### Nothing changes for a reader who never touches one
+
+The bells are seeded once, from whatever is watched, the first time the file is
+missing — so an installation already watching six sessions goes on hearing about
+those six. The guard is the file's absence and not the set being empty, because
+*every bell off* is a state a reader can choose and a restart must not undo it.
+After that only a newly watched session gets one, compared against the previous
+observation rather than against nothing, so a bell turned off by hand on a
+session that stays watched is not put back on the next scan.
+
+Its own file, for the reason the acknowledgements, the overrides and the watch
+log each have one: `marks.json` is rewritten by the VS Code extension, whose
+sanitiser keeps three lists of identifiers and drops everything else.
+
 ## 1.12.0
 
 **The two switches on a band are two questions, and the bar above is not one of

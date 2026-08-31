@@ -4,6 +4,7 @@ import { MarksStore } from '../core/marksStore';
 import { SessionStore } from '../core/store';
 import { AckStore, acksFilePath } from './acks';
 import { OverrideStore, overridesFilePath } from './statusOverrides';
+import { NotifyStore, notifyFilePath } from './notifyMarks';
 import { WatchLogStore, watchLogFilePath } from './watchLog';
 import { Desktop } from './desktop';
 import { ServiceEngine } from './engine';
@@ -86,6 +87,8 @@ export async function startService(options: BootstrapOptions): Promise<StartedSe
     // marks file is rewritten by the extension, which keeps three lists of
     // identifiers and drops everything else.
     new WatchLogStore(watchLogFilePath(options.sharedDir)),
+    // And one more, for the same reason again: the bell on each row.
+    new NotifyStore(notifyFilePath(options.sharedDir)),
     preferences,
     {
       roots: options.roots,
