@@ -312,9 +312,13 @@ Open that URL and you get the list, live.
   are deleted from their right-click menu — which returns their rows to the sorted pool and asks
   nothing back, because nothing is lost by it. A group outranks the watched and starred pinning: a
   row that jumped out of its band the moment it was watched would make the band a lie about what it
-  holds. Each band carries the same eye and star the bar at the top does, and pressing one narrows
-  that group to what is watched or starred *there*, whatever the bar is set to — it overrides the
-  one narrowing it is about and no other, and a third press gives the band back to the bar. A band
+  holds. Each band carries the same eye and star the bar at the top does, as two switches rather
+  than one choice: neither lit is every row the group holds, the eye is what is watched there, the
+  star what is starred there, and both is what carries **either** marker — the union, because the
+  intersection is already reachable by lighting one and reading down it. The band's own two icons
+  are the only marker filter that reaches its rows; the bar above narrows the pool and not the
+  groups, since a group emptied by a filter set for the pool is a place the reader cannot find
+  their way back to. Every other filter — the search, the statuses, the dates — still applies. A band
   showing fewer rows than it holds says `0 of 6 shown` rather than a bare zero: a group that lost
   its rows and a group that is hiding them are not the same thing.
 - **One menu for the row**, on right-click or `m`, in four sections that open to the side:

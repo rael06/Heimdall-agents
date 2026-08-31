@@ -39,9 +39,10 @@ const TRANSLATIONS = {
     'group.countOf': '{shown} of {total} shown',
     'group.collapse': 'Fold this group away',
     'group.expand': 'Show what this group holds',
-    'group.only.watched': 'Show only what is watched in this group, whatever the filter above says',
-    'group.only.starred': 'Show only what is starred in this group, whatever the filter above says',
-    'group.onlyOff': 'Follow the filter above again',
+    'group.only.watched': 'Narrow this group to what is watched',
+    'group.only.starred': 'Narrow this group to what is starred',
+    'group.onlyOff.watched': 'Stop narrowing this group to what is watched',
+    'group.onlyOff.starred': 'Stop narrowing this group to what is starred',
 
     /* A menu item is an instruction. The two strings beside these are hints on
        a marker — "(click to acknowledge)" — and reading one in a menu was the
@@ -261,11 +262,10 @@ const TRANSLATIONS = {
     'group.countOf': '{shown} affichée(s) sur {total}',
     'group.collapse': 'Replier ce groupe',
     'group.expand': 'Afficher ce que ce groupe contient',
-    'group.only.watched':
-      'N’afficher que les surveillées de ce groupe, quel que soit le filtre du haut',
-    'group.only.starred':
-      'N’afficher que les favorites de ce groupe, quel que soit le filtre du haut',
-    'group.onlyOff': 'Suivre à nouveau le filtre du haut',
+    'group.only.watched': 'Restreindre ce groupe aux surveillées',
+    'group.only.starred': 'Restreindre ce groupe aux favorites',
+    'group.onlyOff.watched': 'Ne plus restreindre ce groupe aux surveillées',
+    'group.onlyOff.starred': 'Ne plus restreindre ce groupe aux favorites',
 
     'rowMenu.ack': 'Marquer comme vue',
     'rowMenu.unack': 'Marquer comme non vue',

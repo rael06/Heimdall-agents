@@ -2050,8 +2050,8 @@ test('a band answers to its own markers, whatever the bar above says', async ({ 
   // Star it, and the band's own filter lets it back through — while the bar at
   // the top was never touched.
   await expect(page.locator('#favorites-only')).toHaveAttribute('aria-pressed', 'false');
-  // Pressing it a third time gives the band back to the bar above, which is how
-  // the row becomes reachable again in order to be starred.
+  // Pressing it again stops the narrowing, which is how the row becomes
+  // reachable in order to be starred.
   await band.locator('.band-only[data-only="starred"]').click();
   await expect(target).toHaveCount(1);
   await target.locator('.favorite').click();
@@ -2136,5 +2136,81 @@ test('the columns are the reader\'s: hidden, reordered, and kept', async ({ page
   await reopen(page);
   expect((await heads())[0]).toBe('title');
   await expect(page.locator('#sessions thead th[data-column="created"]')).toBeHidden();
+  expect(problems).toEqual([]);
+});
+
+test('the two switches on a band are two questions, and neither is the bar above', async ({
+  page,
+}) => {
+  await open(page);
+  await page.locator('#new-group').click();
+  await page.locator('#group-name-input').fill('Quatre états');
+  await page.locator('#group-name-input').press('Enter');
+
+  // Three rows: one watched, one starred, one neither.
+  const watched = rows(page).filter({ hasText: 'Rewrite the landing page' });
+  const starred = rows(page).filter({ hasText: 'Chase a flaky test' });
+  const plain = rows(page).filter({ hasText: 'Refactor the importer' });
+  for (const row of [watched, starred, plain]) {
+    await putInGroup(page, row, 'Quatre états');
+  }
+  const band = page.locator('tbody tr.band');
+  const eye = band.locator('.band-only[data-only="watched"]');
+  const star = band.locator('.band-only[data-only="starred"]');
+
+  /*
+   * Set rather than assumed, in both directions.
+   *
+   * The marks live in the shared directory and outlive a test, where the view
+   * store is cleared before each — so a star another test left on one of these
+   * rows would make this one measure the wrong thing, and did.
+   */
+  const mark = async (row: Locator, marker: string, wanted: boolean) => {
+    const button = row.locator(marker);
+    if ((await button.getAttribute('aria-pressed')) !== String(wanted)) {
+      await button.click();
+      await expect(button).toHaveAttribute('aria-pressed', String(wanted));
+    }
+  };
+  for (const [row, isWatched, isStarred] of [
+    [watched, true, false],
+    [starred, false, true],
+    [plain, false, false],
+  ] as const) {
+    await mark(row, '.watched', isWatched);
+    await mark(row, '.favorite', isStarred);
+  }
+  await expect(band.locator('.band-count')).toHaveText('3 shown');
+
+  // Neither lit: every row the group holds, whatever the bar above is set to.
+  await page.locator('#watched-only').click();
+  await expect(band.locator('.band-count')).toHaveText('3 shown');
+  await expect(plain).toHaveCount(1);
+  await page.locator('#watched-only').click();
+
+  // The eye alone: the watched one.
+  await eye.click();
+  await expect(eye).toHaveAttribute('aria-pressed', 'true');
+  await expect(star).toHaveAttribute('aria-pressed', 'false');
+  await expect(watched).toHaveCount(1);
+  await expect(starred).toHaveCount(0);
+  await expect(plain).toHaveCount(0);
+
+  // Both: what carries either marker, which is the set neither switch can give
+  // on its own — and pressing the star did not turn the eye off, which is the
+  // half of "two questions" that a single choice of three could not answer.
+  await star.click();
+  await expect(eye).toHaveAttribute('aria-pressed', 'true');
+  await expect(star).toHaveAttribute('aria-pressed', 'true');
+  await expect(watched).toHaveCount(1);
+  await expect(starred).toHaveCount(1);
+  await expect(plain).toHaveCount(0);
+
+  // The star alone.
+  await eye.click();
+  await expect(eye).toHaveAttribute('aria-pressed', 'false');
+  await expect(star).toHaveAttribute('aria-pressed', 'true');
+  await expect(starred).toHaveCount(1);
+  await expect(watched).toHaveCount(0);
   expect(problems).toEqual([]);
 });
