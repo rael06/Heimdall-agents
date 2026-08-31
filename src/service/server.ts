@@ -263,18 +263,26 @@ export function createServiceServer(engine: ServiceEngine, options: ServerOption
         sendJson(response, 200, engine.state);
         return;
       }
-      if (path === '/api/marks/watched' || path === '/api/marks/favorite') {
+      // The three markers a row carries, on one shape of route: they are the
+      // same kind of thing said about a session, and a route each with a body
+      // each would be three places for the identifier to be validated.
+      if (
+        path === '/api/marks/watched' ||
+        path === '/api/marks/favorite' ||
+        path === '/api/marks/notify'
+      ) {
         const body = asObject(await readJsonBody(request));
         const id = typeof body.id === 'string' ? body.id : '';
         if (!id) {
           sendJson(response, 400, { error: 'An "id" is required.' });
           return;
         }
-        const marks =
-          path === '/api/marks/watched'
-            ? await engine.toggleWatched(id)
-            : await engine.toggleFavorite(id);
-        sendJson(response, 200, marks);
+        const toggle = {
+          '/api/marks/watched': () => engine.toggleWatched(id),
+          '/api/marks/favorite': () => engine.toggleFavorite(id),
+          '/api/marks/notify': () => engine.toggleNotify(id),
+        }[path];
+        sendJson(response, 200, await toggle());
         return;
       }
       if (path === '/api/open') {

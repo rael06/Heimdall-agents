@@ -20,7 +20,11 @@ function decide(
 ) {
   return chooseNotifications({
     transitions,
-    watched: new Set(options.watched ?? ['a']),
+    // The scope that used to read the watched set reads the bells now, and the
+    // helper's option keeps its old name: every test below is about the same
+    // question — may this session speak — and renaming them would only make the
+    // diff look like a change of behaviour.
+    notifying: new Set(options.watched ?? ['a']),
     unacknowledged: new Set(options.unacknowledged ?? ['a']),
     notified: new Set(options.notified ?? []),
     policy: options.policy ?? on('idle'),

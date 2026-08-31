@@ -457,8 +457,14 @@ one notification too many and the channel gets muted for good. So the rules are 
 - **Which statuses raise one** is a row of chips beside the switch. `needs-action` alone is the
   default; add `completed` to be told when a turn simply finishes, which is the most common reason
   to want to know.
-- **Only the sessions you follow**, by default: a notification requires the session to be watched,
-  and un-watching one silences it until it works again. `--notify-scope unacknowledged`, or the
+- **Only the sessions whose bell is on**, by default. Each row carries one, third of the three
+  markers — starred, watched, bell, from a bookmark to being interrupted. Watching a session turns
+  its bell on and dropping the watch leaves it alone, because silencing something you still follow
+  and un-following something you still want to hear about are both things to want; *watched* and
+  *tell me about it* had been one thing and are not. An unlit bell is drawn struck through rather
+  than merely lighter: a quiet bell that still looks like a bell says nothing. The set is seeded
+  once from whatever is watched, so nothing changes for a reader who never touches one.
+  `--notify-scope unacknowledged`, or the
   select beside the switch, changes the trigger to the acknowledgement marker instead — anything
   holding something you have not seen, including a session that was already running when the
   service started and which the eye therefore never marked. Acknowledging then silences it.

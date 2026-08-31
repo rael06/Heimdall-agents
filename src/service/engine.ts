@@ -10,6 +10,7 @@ import {
   SessionStatus,
 } from '../model/types';
 import { overrideReason, releaseOvertaken } from '../core/statusOverride';
+import { NotifyStore } from './notifyMarks';
 import { WatchLogStore, watchChanges } from './watchLog';
 import { AckStore, applyStatusChanges } from './acks';
 import { SessionDelta, computeDelta, isEmptyDelta } from './delta';
@@ -73,6 +74,12 @@ export interface MarksView {
   favorites: string[];
   unacknowledged: string[];
   /**
+   * Sessions whose bell is on, which is what the *watched sessions* scope now
+   * means. Watching one turns its bell on, so the set is seeded where the old
+   * rule looked and a reader who never touches a bell sees no change.
+   */
+  notify: string[];
+  /**
    * When each session was last taken up or dropped as watched, by identifier.
    *
    * Carried with the marks rather than on the session, because that is what it
@@ -105,7 +112,13 @@ export interface DeltaEvent extends SessionDelta {
   scannedAt: string;
 }
 
-const NO_MARKS: MarksView = { watched: [], favorites: [], unacknowledged: [], watchedAt: {} };
+const NO_MARKS: MarksView = {
+  watched: [],
+  favorites: [],
+  unacknowledged: [],
+  notify: [],
+  watchedAt: {},
+};
 
 /**
  * Owns the scanning: what triggers it, when it is allowed, what changed, and the
@@ -148,6 +161,7 @@ export class ServiceEngine {
     private readonly ackStore: AckStore,
     private readonly overrideStore: OverrideStore,
     private readonly watchLogStore: WatchLogStore,
+    private readonly notifyStore: NotifyStore,
     private readonly preferences: PreferencesStore,
     private readonly options: EngineOptions,
   ) {
@@ -367,7 +381,26 @@ export class ServiceEngine {
     const marks = await this.marksStore.update((current) => {
       current.watched = toggle(current.watched, id);
     });
+    // Taking a session up turns its bell on; putting it down leaves the bell
+    // where it is. Silencing something you are still following is a thing to
+    // want, and un-following something you still want to hear about is too —
+    // so only the direction that adds is automatic.
+    if (marks.watched.includes(id)) {
+      await this.notifyStore.update((current) => {
+        current.ids = [...current.ids, id];
+      });
+    }
     return this.publishMarks(marks.watched, marks.favorites);
+  }
+
+  /** The bell on one row: whether that session is worth interrupting for. */
+  async toggleNotify(id: string): Promise<MarksView> {
+    await this.notifyStore.update((current) => {
+      current.ids = current.ids.includes(id)
+        ? current.ids.filter((candidate) => candidate !== id)
+        : [...current.ids, id];
+    });
+    return this.publishMarks(this.marks.watched, this.marks.favorites);
   }
 
   async toggleFavorite(id: string): Promise<MarksView> {
@@ -416,7 +449,13 @@ export class ServiceEngine {
 
   private async publishMarks(watched: string[], favorites: string[]): Promise<MarksView> {
     const watchedAt = await this.noteWatchChanges(watched);
-    this.marks = { watched, favorites, unacknowledged: this.marks.unacknowledged, watchedAt };
+    this.marks = {
+      watched,
+      favorites,
+      unacknowledged: this.marks.unacknowledged,
+      notify: (await this.notifyStore.read()).ids,
+      watchedAt,
+    };
     this.emitMarks();
     return this.marks;
   }
@@ -535,10 +574,39 @@ export class ServiceEngine {
         current.unacknowledged = applyStatusChanges(current.unacknowledged, transitions);
       });
 
+      /*
+       * The bells, seeded once and then only added to.
+       *
+       * `seedIfMissing` is the migration: before the bell existed, *watched*
+       * was what notified, so an installation already watching six sessions
+       * goes on hearing about those six. It writes only where there is no file,
+       * so a reader who silences everything keeps that across a restart.
+       *
+       * After that, a session taken up by auto-watch gets its bell for the same
+       * reason a hand-watched one does — it just started working and is now
+       * being followed, which is exactly when the old rule spoke up. Compared
+       * against the previous observation, so a bell turned off by hand on a
+       * session that stays watched is not put back on the next scan.
+       */
+      const seeded = await this.notifyStore.seedIfMissing(marks.watched);
+      // Nothing is "taken up" on the first observation of a run: there is no
+      // previous set to have been taken up from, and treating an empty one as
+      // the answer would put every silenced bell back on at every start — the
+      // exact thing the seeding above is guarded against.
+      const takenUp = this.watchBaseline
+        ? marks.watched.filter((id) => !this.marks.watched.includes(id))
+        : [];
+      const bells = takenUp.length
+        ? await this.notifyStore.update((current) => {
+            current.ids = [...current.ids, ...takenUp];
+          })
+        : seeded;
+
       const next: MarksView = {
         watched: marks.watched,
         favorites: marks.favorites,
         unacknowledged: acks.unacknowledged,
+        notify: bells.ids,
         // Before the assignment below, which is what it compares against. This
         // is the path that catches the extension: it writes the marks file and
         // the next scan reads it, so a session watched over there is dated here
@@ -571,7 +639,7 @@ export class ServiceEngine {
     };
     const decision = chooseNotifications({
       transitions,
-      watched: new Set(this.marks.watched),
+      notifying: new Set(this.marks.notify),
       unacknowledged: new Set(this.marks.unacknowledged),
       notified: this.notified,
       policy,

@@ -2117,7 +2117,10 @@ test('the columns are the reader\'s: hidden, reordered, and kept', async ({ page
   await created.click();
   await expect(page.locator('#sessions thead th[data-column="created"]')).toBeHidden();
   await expect(page.locator('tbody tr td[data-column="created"]').first()).toBeHidden();
-  await expect(page.locator('#sessions colgroup col')).toHaveCount(9);
+  // One fewer than the table declares, counted rather than written down so that
+  // adding a column does not quietly make this assertion about nothing.
+  const declared = await page.locator('#sessions thead th[data-column]').count();
+  await expect(page.locator('#sessions colgroup col')).toHaveCount(declared - 1);
 
   // Dragging a column above another moves the header and every row's cells with
   // it, because the cells are put in order by name and never by position.
@@ -2212,5 +2215,55 @@ test('the two switches on a band are two questions, and neither is the bar above
   await expect(star).toHaveAttribute('aria-pressed', 'true');
   await expect(starred).toHaveCount(1);
   await expect(watched).toHaveCount(0);
+  expect(problems).toEqual([]);
+});
+
+test('the bell is the row\'s own switch, and watching turns it on', async ({ page }) => {
+  await open(page);
+  const row = rows(page).filter({ hasText: 'Refactor the importer' });
+  const bell = row.locator('.notify');
+  const eye = row.locator('.watched');
+  const drawing = () => bell.locator('svg use').getAttribute('href');
+
+  // Starred, watched, then the bell: the three markers in the order the columns
+  // declare them, from a bookmark to being interrupted.
+  const columns = await row.locator('td').evaluateAll((all) =>
+    all.map((td) => (td as HTMLElement).dataset.column),
+  );
+  expect(columns.slice(0, 4)).toEqual(['status', 'starred', 'watched', 'notify']);
+
+  /*
+   * Both set rather than assumed. The marks live in the shared directory and
+   * outlive a test, where the view store is cleared before each — and the eye
+   * is cleared first, since dropping it must not be what turns the bell off.
+   */
+  for (const [button, wanted] of [
+    [eye, false],
+    [bell, false],
+  ] as const) {
+    if ((await button.getAttribute('aria-pressed')) !== String(wanted)) {
+      await button.click();
+      await expect(button).toHaveAttribute('aria-pressed', String(wanted));
+    }
+  }
+
+  // An unlit bell is struck through rather than merely lighter: a quiet bell
+  // that still looks like a bell says nothing.
+  expect(await drawing()).toBe('#icon-bell-slash');
+
+  await bell.click();
+  await expect(bell).toHaveAttribute('aria-pressed', 'true');
+  expect(await drawing()).toBe('#icon-bell-fill');
+  await bell.click();
+  await expect(bell).toHaveAttribute('aria-pressed', 'false');
+
+  // Taking a session up turns its bell on. Putting it down leaves the bell
+  // alone: silencing something you still follow is a thing to want.
+  await eye.click();
+  await expect(eye).toHaveAttribute('aria-pressed', 'true');
+  await expect(bell).toHaveAttribute('aria-pressed', 'true');
+  await eye.click();
+  await expect(eye).toHaveAttribute('aria-pressed', 'false');
+  await expect(bell).toHaveAttribute('aria-pressed', 'true');
   expect(problems).toEqual([]);
 });

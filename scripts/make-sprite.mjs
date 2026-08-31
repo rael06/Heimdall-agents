@@ -42,6 +42,11 @@ const WANTED = [
   // lighter: a bell that is not ringing looks like a bell that is.
   { id: 'bell', from: '@phosphor-icons/core/assets/regular/bell.svg' },
   { id: 'bell-slash', from: '@phosphor-icons/core/assets/regular/bell-slash.svg' },
+  // The filled weight, for the bell each row carries. On is filled and off is
+  // struck through, so the marker says its state twice — by weight like the eye
+  // and the star beside it, and by shape, because an unlit bell still reads as
+  // a bell where an unfilled star does not read as a star that is set.
+  { id: 'bell-fill', from: '@phosphor-icons/core/assets/fill/bell-fill.svg' },
   // The status column header. Three circles for distinct states, which echoes
   // the four shapes in the column below it.
   { id: 'circles-three', from: '@phosphor-icons/core/assets/regular/circles-three.svg' },

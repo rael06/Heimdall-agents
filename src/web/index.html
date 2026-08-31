@@ -236,14 +236,23 @@
           <!-- Sortable like the columns that carry words, and wearing the same
                mark they hold, so the header says what the column is without
                taking the width of a label. -->
+          <!-- Starred, watched, then the bell: from the loosest commitment to
+               the one that interrupts you. Starring is a bookmark, watching is
+               following, and the bell is asking to be told — each is a step
+               further in, and the columns are read in that order. -->
+          <th scope="col" class="tight" data-column="starred">
+            <button class="sort" type="button" data-key="starred">
+              <span class="sr-only" data-i18n="column.starred">Starred</span>
+            </button>
+          </th>
           <th scope="col" class="tight" data-column="watched">
             <button class="sort" type="button" data-key="watched">
               <span class="sr-only" data-i18n="column.watched">Watched</span>
             </button>
           </th>
-          <th scope="col" class="tight" data-column="starred">
-            <button class="sort" type="button" data-key="starred">
-              <span class="sr-only" data-i18n="column.starred">Starred</span>
+          <th scope="col" class="tight" data-column="notify">
+            <button class="sort" type="button" data-key="notify">
+              <span class="sr-only" data-i18n="column.notify">Notifications</span>
             </button>
           </th>
           <!-- The transcript had a column of its own, holding one button. It is
