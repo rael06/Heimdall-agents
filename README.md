@@ -95,6 +95,11 @@ API](https://platform.claude.com/docs/en/api/messages) defines:
 | `max_tokens`, `refusal` | — | the turn was cut short |
 
 **Codex** writes `task_started` and `task_complete`, paired by `turn_id`, plus `turn_aborted`.
+Between them it names what the model produced, and it has renamed those once already: a newer
+release folds the message and the reasoning into one `item_completed` carrying the kind in
+`item.type`. Both vocabularies are read, and a tool call with no output is taken as an open turn
+whichever names are in use — a session whose middle the reader cannot name is a session reported
+inconclusive for as long as it works, which is what happened when the names first moved.
 
 That `null` matters more than it looks: it is what keeps a ten-minute thinking phase from being
 read as a finished turn. Work in progress is stated, not inferred from a delay.

@@ -95,3 +95,51 @@ describe('inferCodexStatus', () => {
     expect(inferCodexStatus([], FRESH, options).status).toBe('unknown');
   });
 });
+
+describe('the vocabulary Codex moved to', () => {
+  it('reads an item finishing as a turn in progress', () => {
+    // A newer release folds the message, the reasoning and the rest into one
+    // `item_completed` carrying the real kind in `item.type`, and stops
+    // emitting the three names the reader knew. Measured on a session written
+    // by it: 345 entries, two of them recognised — `task_started` at the top
+    // and `task_complete` at the end, 343 lines apart. The window holds 120,
+    // so the row read inconclusive for most of the time it was working.
+    const tail = [
+      event('task_started'),
+      event('item_completed', { item: { type: 'UserMessage' } }),
+      event('token_count'),
+      event('item_completed', { item: { type: 'AgentMessage' } }),
+    ];
+    expect(inferCodexStatus(tail, FRESH, options).status).toBe('running');
+  });
+
+  it('still ends the turn when Codex says the turn ended', () => {
+    // `task_complete` is written last and the walk meets it first, so an item
+    // finishing before it never overrules it.
+    const tail = [
+      event('item_completed', { item: { type: 'AgentMessage' } }),
+      event('task_complete'),
+    ];
+    expect(inferCodexStatus(tail, FRESH, options).status).toBe('idle');
+  });
+
+  it('reads an unclosed tool call as an open turn when it knows no event at all', () => {
+    // The net under the next rename: a call with no output is the file saying a
+    // turn is open, in a part of it the vocabulary does not cover. Codex has
+    // renamed its events once already, and the reader went on reporting
+    // inconclusive for most of every session until somebody noticed.
+    const tail = [
+      event('some_event_from_a_later_release'),
+      item('custom_tool_call', { call_id: 'c1' }),
+      event('token_count'),
+    ];
+    const verdict = inferCodexStatus(tail, FRESH, options);
+    expect(verdict.status).toBe('running');
+    expect(verdict.reason).toMatch(/tool is running/i);
+  });
+
+  it('is still inconclusive when the window holds nothing at all to go on', () => {
+    const tail = [event('token_count'), event('thread_settings_applied')];
+    expect(inferCodexStatus(tail, FRESH, options).status).toBe('unknown');
+  });
+});
