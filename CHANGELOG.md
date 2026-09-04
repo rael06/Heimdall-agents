@@ -1,5 +1,36 @@
 # Changelog
 
+## 1.13.3
+
+**A Codex session read *inconclusive* for most of the time it was working.**
+
+Codex changed the names of its events. A newer release folds the message, the
+reasoning and the rest into one `item_completed` carrying the real kind in
+`item.type`, and stops emitting `agent_message`, `agent_reasoning` and
+`user_message` — the three the reader walked back looking for.
+
+Measured on the session that showed it: **345 entries, two of them recognised** —
+`task_started` at the top and `task_complete` at the end, 343 lines apart. The
+window holds 120, so for **224 of its 345 states** there was nothing usable in it
+and the row said *inconclusive*. Replayed against the fix, none of the 355 states
+does.
+
+It needed no new meaning, only the new name: an item finishing with no
+`task_complete` after it says the turn is open, exactly as an agent message did.
+
+### And a net under the next rename
+
+An unclosed tool call is now read as an open turn when the walk recognises
+nothing at all. A call with no output is the file saying a turn is running, in a
+part of it the vocabulary does not cover — evidence of the same kind as an
+event, and it does not depend on knowing what the events are called this year.
+
+Across the 381 Codex transcripts here the numbers look small — 45 inconclusive
+states out of 59 969 sampled, and one session inconclusive at rest, all now
+zero. That is because most of them predate the change: `agent_message` appears
+128 948 times against 464 for `item_completed`. On a session written by the new
+Codex it was not small at all, which is how it was reported.
+
 ## 1.13.2
 
 **A new column arrives where the markup declares it, not at the end.**

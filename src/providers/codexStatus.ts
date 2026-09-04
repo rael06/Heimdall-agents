@@ -77,12 +77,31 @@ export function codexTurnState(tail: unknown[]): TurnState {
       case 'error':
       case 'stream_error':
         return { kind: 'settled', status: 'failed', reason: 'The last turn ended on an error.' };
+      /*
+       * Codex saying the turn is open, in its own words. Nothing is inferred
+       * from any of these: `task_started` with no matching `task_complete` is
+       * an open turn, and so is anything the model produced with no ending
+       * written after it.
+       *
+       * `item_completed` is the same thing said in the vocabulary Codex moved
+       * to. A newer release folds the message, the reasoning and the rest into
+       * one event carrying the real kind in `item.type`, and stops emitting the
+       * three names above it. Measured on a session written by that release:
+       * 345 entries, of which exactly **two** the reader recognised —
+       * `task_started` at the top and `task_complete` at the end, 343 lines
+       * apart. The window holds 120, so for 224 of its 345 states there was no
+       * usable event in it at all, and the row read *inconclusive* for most of
+       * the time the session spent working.
+       *
+       * It needed no new meaning, only the new name: an item finishing with no
+       * `task_complete` after it says the turn is open, exactly as an agent
+       * message did.
+       */
       case 'task_started':
       case 'user_message':
       case 'agent_message':
       case 'agent_reasoning':
-        // `task_started` with no matching `task_complete` is Codex saying the
-        // turn is open, in its own words. Nothing has to be inferred from it.
+      case 'item_completed':
         return {
           kind: 'pending',
           running: pendingCall ? 'A tool is running.' : 'Turn in progress.',
@@ -93,6 +112,25 @@ export function codexTurnState(tail: unknown[]): TurnState {
         // Codex release: keep walking back through the transcript.
         continue;
     }
+  }
+
+  /*
+   * Nothing the walk knows how to read — but a tool call with no output is
+   * still the file saying a turn is open, in a part of it the vocabulary above
+   * does not cover.
+   *
+   * This is the net under the next rename. Codex has changed the names of its
+   * events once already, and the reader went on reporting *inconclusive* for
+   * most of every session until somebody noticed; a call left unclosed is
+   * evidence of the same kind as an event, and it does not depend on knowing
+   * what the events are called this year.
+   */
+  if (pendingCall) {
+    return {
+      kind: 'pending',
+      running: 'A tool is running.',
+      unknown: 'A tool was left running with nothing said about it since.',
+    };
   }
 
   return {
