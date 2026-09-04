@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 import {
   COLUMN_FORMAT,
   FIRST_DIRECTION,
@@ -26,10 +26,110 @@ import {
   splitSort,
   toHex,
   toRgb,
+  viewStore,
 } from './lib.js';
 
 const WHITE = [255, 255, 255];
 const DARK = [21, 22, 26];
+
+describe('viewStore', () => {
+  it('keeps the request in flight available to the pagehide beacon', async () => {
+    let finish;
+    const sent = [];
+    const beaconed = [];
+    const store = viewStore(
+      {},
+      (patch) => {
+        sent.push(patch);
+        return new Promise((resolve) => {
+          finish = resolve;
+        });
+      },
+      (patch) => beaconed.push(patch),
+    );
+
+    store.set('columns', 'chosen');
+    store.pagehide();
+
+    expect(sent).toEqual([{ columns: 'chosen' }]);
+    expect(beaconed).toEqual([{ columns: 'chosen' }]);
+    finish();
+    await store.drain();
+  });
+
+  it('waits until every queued change has been acknowledged', async () => {
+    const finishes = [];
+    const sent = [];
+    const store = viewStore({}, (patch) => {
+      sent.push(patch);
+      return new Promise((resolve) => finishes.push(resolve));
+    });
+
+    store.set('theme', 'dark');
+    store.set('primary', '#123456');
+    let drained = false;
+    const drain = store.drain().then(() => {
+      drained = true;
+    });
+
+    expect(sent).toEqual([{ theme: 'dark' }]);
+    expect(drained).toBe(false);
+    finishes.shift()();
+    await Promise.resolve();
+    await Promise.resolve();
+    expect(sent).toEqual([{ theme: 'dark' }, { primary: '#123456' }]);
+    expect(drained).toBe(false);
+    finishes.shift()();
+    await drain;
+    expect(drained).toBe(true);
+  });
+
+  it('puts the latest value over the active one in the pagehide patch', () => {
+    const beaconed = [];
+    const store = viewStore(
+      {},
+      () => new Promise(() => undefined),
+      (patch, revision) => beaconed.push({ patch, revision }),
+    );
+
+    store.set('theme', 'dark');
+    store.set('theme', 'light');
+    store.pagehide();
+
+    expect(beaconed).toEqual([{ patch: { theme: 'light' }, revision: 2 }]);
+  });
+
+  it('journals unresolved changes until their request is acknowledged', async () => {
+    let finish;
+    const remembered = [];
+    const store = viewStore(
+      {},
+      () =>
+        new Promise((resolve) => {
+          finish = resolve;
+        }),
+      undefined,
+      (patch, revision) => remembered.push({ patch, revision }),
+      7,
+    );
+
+    store.set('columns', 'chosen');
+    expect(remembered.at(-1)).toEqual({ patch: { columns: 'chosen' }, revision: 8 });
+    finish();
+    await store.drain();
+    expect(remembered.at(-1)).toEqual({ patch: {}, revision: 8 });
+  });
+
+  it('does not write a value that was already present or absent', () => {
+    const send = vi.fn(async () => undefined);
+    const store = viewStore({ theme: 'dark' }, send);
+
+    store.set('theme', 'dark');
+    store.remove('primary');
+
+    expect(send).not.toHaveBeenCalled();
+  });
+});
 
 describe('readable', () => {
   it('walks any colour until it clears 4.5:1 on a light background', () => {

@@ -14,6 +14,112 @@
  * page they are inert, because an inline module script has no importer.
  */
 
+// ------------------------------------------------------------------ storage
+
+/**
+ * A synchronous view of the reader's choices over an asynchronous writer.
+ *
+ * A change leaves immediately. While it is on the wire, later changes collect
+ * behind it and leave together after it is acknowledged. The active patch is
+ * deliberately kept until that acknowledgement: a document can disappear in
+ * between, and its pagehide beacon then has to carry both what is waiting and
+ * what might have been cancelled with the page.
+ *
+ * `drain` is the stronger promise available to an application host. A browser
+ * cannot hold its own process open, but Electron can ask the renderer to drain
+ * before it lets the window and its service go.
+ */
+export function viewStore(
+  initial,
+  send,
+  beacon = () => undefined,
+  remember = () => undefined,
+  initialRevision = 0,
+) {
+  const values = initial;
+  let pending = {};
+  let active = null;
+  let revision = Number.isSafeInteger(initialRevision) && initialRevision >= 0 ? initialRevision : 0;
+
+  const unresolved = () => ({ ...(active?.patch ?? {}), ...pending });
+  const rememberUnresolved = () => remember(unresolved(), revision);
+
+  function flush() {
+    if (active || !Object.keys(pending).length) return;
+
+    const patch = pending;
+    pending = {};
+    revision += 1;
+    let request;
+    try {
+      request = Promise.resolve(send(patch, revision));
+    } catch (error) {
+      request = Promise.reject(error);
+    }
+    active = { patch, request };
+    void request.then(
+      () => {
+        active = null;
+        flush();
+        rememberUnresolved();
+      },
+      () => {
+        active = null;
+        // A later value for the same key is the one the reader can see, so it
+        // wins when the failed patch goes back behind it.
+        pending = { ...patch, ...pending };
+        rememberUnresolved();
+      },
+    );
+  }
+
+  function change(key, value) {
+    if (value === null ? !(key in values) : values[key] === value) return;
+    if (value === null) delete values[key];
+    else values[key] = value;
+    pending[key] = value;
+    flush();
+    rememberUnresolved();
+  }
+
+  function patch(changes) {
+    for (const [key, value] of Object.entries(changes)) {
+      if (value === null ? !(key in values) : values[key] === value) continue;
+      if (value === null) delete values[key];
+      else values[key] = value;
+      pending[key] = value;
+    }
+    flush();
+    rememberUnresolved();
+  }
+
+  return {
+    get: (key) => (key in values ? values[key] : null),
+    set: (key, value) => change(key, String(value)),
+    remove: (key) => change(key, null),
+    patch,
+    pagehide() {
+      const patch = unresolved();
+      if (!Object.keys(patch).length) return;
+      revision += 1;
+      rememberUnresolved();
+      beacon(patch, revision);
+    },
+    async drain() {
+      while (active || Object.keys(pending).length) {
+        flush();
+        if (!active) return false;
+        try {
+          await active.request;
+        } catch {
+          return false;
+        }
+      }
+      return true;
+    },
+  };
+}
+
 // ------------------------------------------------------------------- colour
 
 export function channel(value) {

@@ -62,6 +62,7 @@ export default tseslint.config(
         COLUMN_FORMAT: 'readonly',
         clampColumnWidth: 'readonly',
         readColumnWidths: 'readonly',
+        viewStore: 'readonly',
       },
     },
   },

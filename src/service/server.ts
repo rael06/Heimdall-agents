@@ -129,6 +129,35 @@ export interface ServiceServer {
 export function createServiceServer(engine: ServiceEngine, options: ServerOptions): ServiceServer {
   const hub = new SseHub();
   const assets = new AssetReader();
+  const viewRevisions = new Map<string, number>();
+  let viewWrites = Promise.resolve();
+
+  /**
+   * One arrival order for every window, with a stronger order inside one.
+   *
+   * A leaving page can resend the patch whose fetch was already in flight. The
+   * beacon is newer even when it reaches the service first, so a revision the
+   * service has already seen must never be allowed to write behind it.
+   */
+  const saveView = (
+    patch: Record<string, string | null>,
+    writer?: string,
+    revision?: number,
+  ): Promise<void> => {
+    const write = viewWrites.then(async () => {
+      if (writer !== undefined && revision !== undefined) {
+        if (revision <= (viewRevisions.get(writer) ?? -1)) {
+          return;
+        }
+        await options.settings?.saveView(patch);
+        viewRevisions.set(writer, revision);
+        return;
+      }
+      await options.settings?.saveView(patch);
+    });
+    viewWrites = write.catch(() => undefined);
+    return write;
+  };
   const unsubscribe = [
     engine.onDelta((event) => hub.send('delta', event)),
     engine.onState((state) => hub.send('state', state)),
@@ -338,13 +367,27 @@ export function createServiceServer(engine: ServiceEngine, options: ServerOption
           return;
         }
         const body = asObject(await readJsonBody(request));
+        const versioned = Object.hasOwn(body, 'patch');
+        const writer = versioned && typeof body.writer === 'string' ? body.writer : undefined;
+        const revision =
+          versioned && typeof body.revision === 'number' && Number.isSafeInteger(body.revision)
+            ? body.revision
+            : undefined;
+        if (
+          versioned &&
+          (!writer || writer.length > 64 || revision === undefined || revision < 0)
+        ) {
+          sendJson(response, 400, { error: 'A view patch needs a writer and a revision.' });
+          return;
+        }
+        const source = versioned ? asObject(body.patch) : body;
         const patch: Record<string, string | null> = {};
-        for (const [key, value] of Object.entries(body)) {
+        for (const [key, value] of Object.entries(source)) {
           if (typeof value === 'string' || value === null) {
             patch[key] = value;
           }
         }
-        await options.settings.saveView(patch);
+        await saveView(patch, writer, revision);
         sendJson(response, 200, { saved: true });
         return;
       }

@@ -25,57 +25,52 @@ const rowsBody = el('rows');
 /** What the service inlined, and the copy every read below answers from. */
 const view = window.__view ?? {};
 
-let pendingView = {};
-let viewInFlight = false;
+const VIEW_JOURNAL = 'heimdall-view-journal';
 
-/*
- * Sent at once, and coalesced rather than delayed.
- *
- * A timer was the obvious way to survive a column drag, which writes on every
- * mouse move — and it lost the change: set the theme, reload, and the request
- * had not left yet. Eleven end-to-end tests said so, and they were right about
- * the application rather than about themselves.
- *
- * So a change goes out immediately, and anything written while that request is
- * in flight waits for it and goes out together. A drag still costs one request
- * per round trip instead of one per frame, and nothing is ever held back on a
- * clock that a reload can outrun.
- */
-function flushView() {
-  if (viewInFlight || !Object.keys(pendingView).length) {
-    return;
+function readViewJournal() {
+  const empty = { writer: crypto.randomUUID(), revision: 0, patch: {} };
+  try {
+    const parsed = JSON.parse(sessionStorage.getItem(VIEW_JOURNAL) ?? '{}');
+    if (typeof parsed !== 'object' || parsed === null) return empty;
+    const patch = {};
+    for (const [key, value] of Object.entries(parsed.patch ?? {})) {
+      if (typeof value === 'string' || value === null) patch[key] = value;
+    }
+    return {
+      writer: typeof parsed.writer === 'string' && parsed.writer ? parsed.writer : empty.writer,
+      revision:
+        Number.isSafeInteger(parsed.revision) && parsed.revision >= 0 ? parsed.revision : 0,
+      patch,
+    };
+  } catch {
+    return empty;
   }
-  const patch = pendingView;
-  pendingView = {};
-  viewInFlight = true;
-  post('/api/view', patch)
-    .catch(() => undefined)
-    .finally(() => {
-      viewInFlight = false;
-      flushView();
-    });
 }
 
-const store = {
-  get: (key) => (key in view ? view[key] : null),
-  set(key, value) {
-    const text = String(value);
-    if (view[key] === text) {
-      return;
-    }
-    view[key] = text;
-    pendingView[key] = text;
-    flushView();
+function rememberViewJournal(journal) {
+  try {
+    sessionStorage.setItem(VIEW_JOURNAL, JSON.stringify(journal));
+  } catch {
+    // A browser that refuses site data still gets the service and the beacon.
+  }
+}
+
+const journal = readViewJournal();
+
+const store = viewStore(
+  view,
+  (patch, revision) => post('/api/view', { writer: journal.writer, revision, patch }),
+  (patch, revision) => {
+    const body = new Blob(
+      [JSON.stringify({ writer: journal.writer, revision, patch })],
+      { type: 'application/json' },
+    );
+    navigator.sendBeacon(`/api/view?token=${encodeURIComponent(token)}`, body);
   },
-  remove(key) {
-    if (!(key in view)) {
-      return;
-    }
-    delete view[key];
-    pendingView[key] = null;
-    flushView();
-  },
-};
+  (patch, revision) =>
+    rememberViewJournal({ writer: journal.writer, revision, patch }),
+  journal.revision,
+);
 
 /*
  * A window closing must not take the last change with it.
@@ -87,13 +82,12 @@ const store = {
  * anyway.
  */
 addEventListener('pagehide', () => {
-  if (!Object.keys(pendingView).length) {
-    return;
-  }
-  const body = new Blob([JSON.stringify(pendingView)], { type: 'application/json' });
-  navigator.sendBeacon(`/api/view?token=${encodeURIComponent(token)}`, body);
-  pendingView = {};
+  store.pagehide();
 });
+
+// Electron can hold the application open until this settles. A normal browser
+// has no such authority and uses the pagehide beacon above instead.
+window.flushView = () => store.drain();
 
 /**
  * Carries a store written under the old, port-shaped origin into the new home.
@@ -103,7 +97,9 @@ addEventListener('pagehide', () => {
  * because a browser told to refuse site data throws on the property itself.
  */
 function adoptPreviousStorage() {
-  if (Object.keys(view).length) {
+  const recovering = Object.keys(journal.patch).length > 0;
+  store.patch(journal.patch);
+  if (recovering || Object.keys(view).length) {
     return;
   }
   const carried = {};
@@ -112,7 +108,6 @@ function adoptPreviousStorage() {
       const key = localStorage.key(index);
       const value = key === null ? null : localStorage.getItem(key);
       if (key && typeof value === 'string') {
-        view[key] = value;
         carried[key] = value;
       }
     }
@@ -120,8 +115,7 @@ function adoptPreviousStorage() {
     return;
   }
   if (Object.keys(carried).length) {
-    pendingView = { ...pendingView, ...carried };
-    flushView();
+    store.patch(carried);
   }
 }
 

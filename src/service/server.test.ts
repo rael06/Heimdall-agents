@@ -202,6 +202,23 @@ describe('what the routes answer', () => {
     expect(settings.saveView).toHaveBeenCalledWith({ primary: '#fa1f19', columns: null });
   });
 
+  it('does not let an older view write overwrite a newer one from the same page', async () => {
+    const callsBefore = settings.saveView.mock.calls.length;
+    await post('/api/view', {
+      writer: 'one-page',
+      revision: 2,
+      patch: { columnLayout: 'new' },
+    });
+    await post('/api/view', {
+      writer: 'one-page',
+      revision: 1,
+      patch: { columnLayout: 'old' },
+    });
+
+    expect(settings.saveView).toHaveBeenCalledTimes(callsBefore + 1);
+    expect(settings.saveView).toHaveBeenCalledWith({ columnLayout: 'new' });
+  });
+
   it('carries the same two headers on an API answer', async () => {
     const response = await get('/api/state');
     expect(response.headers.get('x-content-type-options')).toBe('nosniff');
