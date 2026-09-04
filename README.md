@@ -99,7 +99,10 @@ Between them it names what the model produced, and it has renamed those once alr
 release folds the message and the reasoning into one `item_completed` carrying the kind in
 `item.type`. Both vocabularies are read, and a tool call with no output is taken as an open turn
 whichever names are in use — a session whose middle the reader cannot name is a session reported
-inconclusive for as long as it works, which is what happened when the names first moved.
+inconclusive for as long as it works, which is what happened when the names first moved. An item is
+read against its own `turn_id` rather than against its position, because Codex records one finishing
+*after* the turn it belongs to has completed — nine minutes after, in the case that showed it, and
+as the last line in the file.
 
 That `null` matters more than it looks: it is what keeps a ten-minute thinking phase from being
 read as a finished turn. Work in progress is stated, not inferred from a delay.

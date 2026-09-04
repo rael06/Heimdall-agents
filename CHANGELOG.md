@@ -1,5 +1,27 @@
 # Changelog
 
+## 1.13.4
+
+**A finished Codex session no longer reads as working because of an item written
+after it ended.**
+
+This is the other half of the mistake 1.13.3 fixed, and 1.13.3 introduced it.
+Teaching the reader `item_completed` made an item finishing mean *the turn is
+open* — read by position, which turned out not to hold. Measured on the session
+that showed it: a `CommandExecution` item was written **nine minutes past** the
+`task_complete` of another turn, and it was the last line in the file. The walk
+met it first and never reached the ending one line above.
+
+An item is now read against its own turn instead of against its position. Codex
+already pairs `task_started` and `task_complete` by `turn_id`, and the item
+carries the same identifier: if the window has seen that turn end, the item is a
+late record of finished work and the walk keeps going. It is the difference
+between *the last thing written* and *the last thing that happened*.
+
+Across the 388 transcripts here, exactly **one** ends that way — the one
+reported. Nothing else moved: 381 idle, 5 failed, and the 2 pending are the two
+Codex sessions genuinely at work.
+
 ## 1.13.3
 
 **A Codex session read *inconclusive* for most of the time it was working.**

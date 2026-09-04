@@ -37,9 +37,36 @@ export function hasPendingToolCall(tail: unknown[]): boolean {
   return pending.size > 0;
 }
 
+/**
+ * The turns this window has seen end, by `turn_id`.
+ *
+ * Codex records an item finishing *after* the turn it belongs to has completed:
+ * measured on one session, a `CommandExecution` was written nine minutes past
+ * the `task_complete` of another turn, and it was the last line in the file. A
+ * walk that meets that item first reads it as work in progress and never gets
+ * to the ending one line above.
+ *
+ * So an item is read against its own turn rather than against its position.
+ * That pairing is Codex's own — `task_started` and `task_complete` already
+ * carry the same identifier — and it is the difference between "the last thing
+ * written" and "the last thing that happened".
+ */
+function completedTurns(tail: unknown[]): Set<string> {
+  const done = new Set<string>();
+  for (const raw of tail) {
+    const entry = asObject(raw);
+    const payload = entry ? payloadOf(entry) : undefined;
+    if (payload?.type === 'task_complete' && typeof payload.turn_id === 'string') {
+      done.add(payload.turn_id);
+    }
+  }
+  return done;
+}
+
 /** What the end of the rollout says, before the clock has its say. */
 export function codexTurnState(tail: unknown[]): TurnState {
   const pendingCall = hasPendingToolCall(tail);
+  const finished = completedTurns(tail);
 
   for (let index = tail.length - 1; index >= 0; index -= 1) {
     const entry = asObject(tail[index]);
@@ -48,6 +75,19 @@ export function codexTurnState(tail: unknown[]): TurnState {
     }
     const payload = payloadOf(entry);
     const type = payload && typeof payload.type === 'string' ? payload.type : '';
+
+    // An item belonging to a turn this window has already seen end is a late
+    // record of finished work, not work in progress: keep walking back to
+    // whatever actually ended last. Before the switch rather than inside it,
+    // because a `case` that falls into the next one is a `case` somebody edits
+    // wrongly later — and TypeScript refuses it outright.
+    if (
+      type === 'item_completed' &&
+      typeof payload?.turn_id === 'string' &&
+      finished.has(payload.turn_id)
+    ) {
+      continue;
+    }
 
     switch (type) {
       case 'task_complete':
