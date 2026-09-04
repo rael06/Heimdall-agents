@@ -22,6 +22,7 @@ import {
   worthAnnouncing,
 } from './update';
 import type { Release } from './release';
+import { QuitCoordinator } from './quit';
 import { trayIcon } from './trayIcon';
 import { Language, appLanguage, text } from './strings';
 
@@ -57,6 +58,23 @@ let quitting = false;
  * change. Held rather than looked up per string: a menu is built in one pass.
  */
 let language: Language = 'en';
+
+const quitCoordinator = new QuitCoordinator(
+  async () => {
+    try {
+      if (window && !window.isDestroyed()) {
+        await window.webContents.executeJavaScript('window.flushView?.()');
+      }
+    } finally {
+      // Closing the server waits for requests it already accepted. It happens
+      // after the renderer drain so no final view write can arrive behind it.
+      const running = service;
+      service = undefined;
+      await running?.stop();
+    }
+  },
+  () => app.quit(),
+);
 
 /** One string of this application's own, in the language in force. */
 const say = (key: string, values: Record<string, string | number> = {}): string =>
@@ -117,7 +135,7 @@ const controls: HostControls = {
   restart: () => {
     quitting = true;
     app.relaunch();
-    app.exit(0);
+    app.quit();
   },
 };
 
@@ -669,13 +687,13 @@ if (!app.requestSingleInstanceLock()) {
   });
 
 
-  app.on('before-quit', () => {
+  app.on('before-quit', (event) => {
     quitting = true;
+    void quitCoordinator.handle(event);
   });
 
   app.on('will-quit', () => {
     tray?.destroy();
-    void service?.stop();
   });
 
   // The window closing is not the application ending: it keeps watching.

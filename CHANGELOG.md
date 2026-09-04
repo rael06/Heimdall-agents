@@ -1,5 +1,28 @@
 # Changelog
 
+## 1.13.5
+
+**A view change made just before leaving no longer gets left behind.**
+
+The persistence queue treated *sent* as *saved*: it removed a width or colour
+from its pending patch as soon as the request started, so `pagehide` had nothing
+to hand to its beacon if a reload cancelled that request. The queue now keeps
+the active patch until the service acknowledges it, and the leaving page sends
+that patch together with anything newer still waiting. A newer value for the
+same setting wins in that final copy.
+
+The installed application takes the stronger path its host makes possible. An
+Electron quit is held at `before-quit` until the renderer has drained the queue
+and the service has finished every request it accepted; only then are the
+window and process allowed to close. A settings restart now follows that same
+path instead of using `app.exit()`, which bypasses Electron's quit events.
+
+Measured in Chromium with the immediate reload that exposed the race: **20 of
+20** chosen column widths, **20 of 20** chosen colours and **20 of 20** combined
+column hide-and-reorders survived. The queue, revision order and quit gate are
+also pinned directly by **seven** unit tests, including a change that arrives
+behind one already in flight.
+
 ## 1.13.4
 
 **A finished Codex session no longer reads as working because of an item written
