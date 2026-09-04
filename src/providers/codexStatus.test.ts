@@ -143,3 +143,37 @@ describe('the vocabulary Codex moved to', () => {
     expect(inferCodexStatus(tail, FRESH, options).status).toBe('unknown');
   });
 });
+
+describe('an item recorded after its turn ended', () => {
+  it('does not put a finished session back to work', () => {
+    /*
+     * Measured on a real rollout: a `CommandExecution` item was written nine
+     * minutes past the `task_complete` of another turn, and it was the last
+     * line in the file. Read by position, it says work in progress; read
+     * against its own turn — which this window has seen end — it is a late
+     * record of work already done.
+     */
+    const tail = [
+      event('task_started', { turn_id: 'a' }),
+      event('task_complete', { turn_id: 'a' }),
+      event('item_completed', { turn_id: 'a', item: { type: 'CommandExecution' } }),
+    ];
+    expect(inferCodexStatus(tail, FRESH, options).status).toBe('idle');
+  });
+
+  it('still reports a turn whose own ending has not been written', () => {
+    // The item belongs to a second turn, and nothing has closed that one.
+    const tail = [
+      event('task_started', { turn_id: 'a' }),
+      event('task_complete', { turn_id: 'a' }),
+      event('task_started', { turn_id: 'b' }),
+      event('item_completed', { turn_id: 'b', item: { type: 'AgentMessage' } }),
+    ];
+    expect(inferCodexStatus(tail, FRESH, options).status).toBe('running');
+  });
+
+  it('reports an item that names no turn at all, having nothing to pair it with', () => {
+    const tail = [event('task_complete', { turn_id: 'a' }), event('item_completed')];
+    expect(inferCodexStatus(tail, FRESH, options).status).toBe('running');
+  });
+});
