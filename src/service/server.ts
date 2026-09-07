@@ -318,8 +318,13 @@ export function createServiceServer(engine: ServiceEngine, options: ServerOption
         const body = asObject(await readJsonBody(request));
         const id = typeof body.id === 'string' ? body.id : '';
         const target = body.target;
-        if (target !== 'session' && target !== 'workspace' && target !== 'transcript') {
-          sendJson(response, 400, { error: 'A "target" of session, workspace or transcript.' });
+        if (
+          target !== 'session' && target !== 'workspace' &&
+          target !== 'transcript' && target !== 'codex-desktop'
+        ) {
+          sendJson(response, 400, {
+            error: 'A "target" of session, workspace, transcript or codex-desktop.',
+          });
           return;
         }
         const result = await engine.open(id, target);

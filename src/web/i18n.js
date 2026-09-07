@@ -150,6 +150,7 @@ const TRANSLATIONS = {
     'palette.auto': 'Choose for me',
 
     'row.openSession': 'Open this session in VS Code',
+    'row.openCodexDesktop': 'Resume this conversation in Codex Desktop',
     'row.openWorkspace': 'Open',
     'row.watchedOn': 'Watched — click to remove',
     'row.watchedOff': 'Click to watch',
@@ -373,6 +374,7 @@ const TRANSLATIONS = {
     'palette.auto': 'Choisir pour moi',
 
     'row.openSession': 'Ouvrir cette session dans VS Code',
+    'row.openCodexDesktop': 'Reprendre cette conversation dans Codex Desktop',
     'row.openWorkspace': 'Ouvrir',
     'row.watchedOn': 'Suivie — cliquer pour retirer',
     'row.watchedOff': 'Cliquer pour suivre',

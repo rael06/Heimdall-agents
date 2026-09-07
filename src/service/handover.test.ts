@@ -37,6 +37,28 @@ const noSleep = async (): Promise<void> => undefined;
 // bug in how a URI reaches Windows read as a gap in `desktop.ts`'s coverage.
 
 describe('handover', () => {
+  it('opens a Codex desktop conversation directly without opening a workspace', async () => {
+    const desktop = fakeDesktop();
+    const sleep = vi.fn();
+    const nativeId = '019fa35b-eb9b-7002-a6cf-8c7a67429d26';
+    const result = await handover(desktop, session({ provider: 'codex', nativeId }), 'codex-desktop', 2000, sleep);
+    expect(result).toEqual({ opened: [`codex://threads/${nativeId}`], fellBack: false });
+    expect(desktop.opened).toEqual(result.opened);
+    expect(sleep).not.toHaveBeenCalled();
+  });
+
+  it('rejects another provider and malformed Codex identifiers before launching', async () => {
+    const desktop = fakeDesktop();
+    await expect(handover(desktop, session(), 'codex-desktop', 0, noSleep)).rejects.toThrow('Only Codex');
+    await expect(handover(desktop, session({ provider: 'codex', nativeId: '../new?prompt=run' }), 'codex-desktop', 0, noSleep)).rejects.toThrow('identifier');
+    expect(desktop.opened).toEqual([]);
+  });
+
+  it('reports a failed Codex launch without switching applications', async () => {
+    const desktop = fakeDesktop(() => true);
+    await expect(handover(desktop, session({ provider: 'codex', nativeId: '019fa35b-eb9b-7002-a6cf-8c7a67429d26' }), 'codex-desktop', 0, noSleep)).rejects.toThrow('cannot open');
+    expect(desktop.opened).toEqual([]);
+  });
   it('focuses the window first, then asks it for the session', async () => {
     const desktop = fakeDesktop();
     const sleep = vi.fn().mockResolvedValue(undefined);

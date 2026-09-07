@@ -1,5 +1,25 @@
 # Changelog
 
+## 1.14.0
+
+**Choose VS Code or Codex Desktop directly beside a session title.**
+
+Every row now has a VS Code icon button before its title. Codex rows also have
+a Codex icon button that opens the existing local conversation in Codex Desktop
+through `codex://threads/<id>`. The native route was verified in the installed
+26.901.5280.0 bundle. The title itself keeps opening the VS Code conversation.
+Both buttons have translated tooltips and accessible names and work by keyboard.
+
+This adds explicit application shortcuts to the previously menu-focused row
+actions. The SVGs retain their brand drawings and use the theme's foreground
+colour. Their sources and licences ship with the application.
+
+The desktop destination only accepts Codex sessions with valid conversation
+identifiers. A launch error is reported instead of opening a different
+application. As with VS Code links, OS acceptance does not prove that the target
+application displayed the conversation. Claude Desktop transfer is deferred:
+its session and process lifecycle needs a separate scope.
+
 ## 1.13.5
 
 **A view change made just before leaving no longer gets left behind.**

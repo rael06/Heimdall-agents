@@ -1,8 +1,8 @@
-import { fileUri, folderUri, sessionUri } from '../core/uris';
+import { codexDesktopThreadUri, fileUri, folderUri, sessionUri } from '../core/uris';
 import { AgentSession } from '../model/types';
 import { Desktop } from './desktop';
 
-export type HandoverTarget = 'session' | 'workspace' | 'transcript';
+export type HandoverTarget = 'session' | 'workspace' | 'transcript' | 'codex-desktop';
 
 export interface HandoverResult {
   /** URIs handed to the operating system, in order. */
@@ -33,6 +33,15 @@ export async function handover(
   sleep: (ms: number) => Promise<void>,
 ): Promise<HandoverResult> {
   const opened: string[] = [];
+
+  if (target === 'codex-desktop') {
+    if (session.provider !== 'codex') {
+      throw new Error('Only Codex conversations can be opened in Codex Desktop.');
+    }
+    const uri = codexDesktopThreadUri(session.nativeId);
+    await desktop.openExternal(uri);
+    return { opened: [uri], fellBack: false };
+  }
 
   if (target === 'transcript') {
     await desktop.openExternal(fileUri(session.filePath));

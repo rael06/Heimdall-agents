@@ -1362,6 +1362,44 @@ test('every action is a target of its own, reachable by keyboard', async ({ page
   await expect(row.locator('td.ws .link')).toHaveAttribute('title', /Open /);
 });
 
+test('the title has branded buttons for VS Code and Codex conversations', async ({ page }, testInfo) => {
+  const calls: { id: string; target: string }[] = [];
+  await page.route(/\/api\/sessions(\?|$)/, async (route) => {
+    const response = await route.fetch();
+    const body = await response.json();
+    body.sessions[0] = { ...body.sessions[0], provider: 'codex' };
+    await route.fulfill({ json: body });
+  });
+  await page.route(/\/api\/open(\?|$)/, async (route) => {
+    calls.push(route.request().postDataJSON());
+    await route.fulfill({ json: { opened: [], fellBack: false } });
+  });
+  await open(page);
+  const codex = rows(page).filter({ has: page.locator('.badge', { hasText: 'codex' }) }).first();
+  const claude = rows(page).filter({ has: page.locator('.badge', { hasText: 'claude' }) }).first();
+  await expect(claude.locator('.open-codex')).toBeHidden();
+  await expect(claude.locator('.open-vscode')).toBeVisible();
+  const vscode = codex.getByRole('button', { name: 'Open this session in VS Code', exact: true });
+  const desktop = codex.getByRole('button', { name: 'Resume this conversation in Codex Desktop', exact: true });
+  await expect(vscode.locator('use')).toHaveAttribute('href', '#icon-vscode');
+  await expect(desktop.locator('use')).toHaveAttribute('href', '#icon-codex');
+  const titleBox = await codex.locator('.title .link').boundingBox();
+  const iconBox = await desktop.boundingBox();
+  expect(iconBox!.x + iconBox!.width).toBeLessThanOrEqual(titleBox!.x);
+  await vscode.click();
+  await desktop.focus();
+  await page.keyboard.press('Enter');
+  await expect.poll(() => calls.map((call) => call.target)).toEqual(['session', 'codex-desktop']);
+  expect(calls.every((call) => call.id === calls[0].id)).toBe(true);
+  await page.locator('#open-settings').click();
+  await page.locator('#set-language').selectOption('fr');
+  await page.keyboard.press('Escape');
+  await expect(desktop).toHaveCount(0);
+  await expect(codex.getByRole('button', { name: 'Reprendre cette conversation dans Codex Desktop' })).toBeVisible();
+  await codex.locator('.title').screenshot({ path: testInfo.outputPath('session-buttons.png') });
+  expect(problems).toEqual([]);
+});
+
 test('the bar says it is opening while it opens, and not once it is done', async ({ page }) => {
   await open(page);
   const bar = page.locator('#service-state');

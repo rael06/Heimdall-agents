@@ -21,6 +21,7 @@ export interface Runner {
  * gone wrong upstream and the shell is the last place to find that out.
  */
 const SAFE_URI = /^vscode:\/\/[A-Za-z0-9._~:/?#[\]@!$&'()*+,;=%-]+$/;
+const CODEX_THREAD_URI = /^codex:\/\/threads\/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 export function openCommand(
   platform: NodeJS.Platform,
@@ -94,7 +95,7 @@ export function createDesktop(
 ): Desktop {
   return {
     async openExternal(uri: string): Promise<void> {
-      if (!SAFE_URI.test(uri)) {
+      if (!SAFE_URI.test(uri) && !CODEX_THREAD_URI.test(uri)) {
         throw new Error(`Refusing to open an unexpected URI: ${uri}`);
       }
       const command = openCommand(platform, uri);

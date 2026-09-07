@@ -74,12 +74,21 @@ describe('createDesktop', () => {
 
     await expect(desktop.openExternal('https://example.com')).rejects.toThrow(/unexpected URI/);
     await expect(desktop.openExternal('file:///C:/x')).rejects.toThrow(/unexpected URI/);
+    await expect(desktop.openExternal('codex://threads/new?prompt=run')).rejects.toThrow(/unexpected URI/);
+    await expect(desktop.openExternal('codex://settings')).rejects.toThrow(/unexpected URI/);
     // Kept from the test this replaces. It reads as an injection case and is
     // not one: what `SAFE_URI` rejects here is the quote, not the ampersand.
     // `vscode://file/C:/projects/R&D` passes the very same check, which is why
     // the ampersand reached `cmd` for as long as it did.
     await expect(desktop.openExternal('vscode://file/x" & calc')).rejects.toThrow(/unexpected URI/);
     expect(calls).toEqual([]);
+  });
+
+  it('hands a Codex conversation URI to the operating system intact', async () => {
+    const { runner, calls } = recorder();
+    const uri = 'codex://threads/019fa35b-eb9b-7002-a6cf-8c7a67429d26';
+    await createDesktop('win32', runner).openExternal(uri);
+    expect(calls).toEqual([{ command: 'rundll32.exe', args: ['url.dll,FileProtocolHandler', uri] }]);
   });
 
   it('says so rather than failing quietly on an unsupported platform', async () => {
