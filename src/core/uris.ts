@@ -55,6 +55,14 @@ export function codexThreadUri(threadId: string): string {
   return `vscode://${CODEX_EXTENSION_ID}/local/${encodeURIComponent(threadId)}`;
 }
 
+/** Native local-conversation route, verified in Codex Desktop 26.901.5280.0. */
+export function codexDesktopThreadUri(threadId: string): string {
+  if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(threadId)) {
+    throw new Error('Codex Desktop requires a valid conversation identifier.');
+  }
+  return `codex://threads/${threadId}`;
+}
+
 /**
  * VS Code routes a URI to the **focused** window, so a session cannot be opened
  * in one step: the window holding its folder has to be brought up first, and

@@ -10,7 +10,7 @@ whole design. It watches everything and speaks only on evidence, never on a dela
 Three things, and nothing else:
 
 1. **Monitor** your sessions — every one of them, whatever started it.
-2. **Click to navigate** — open VS Code straight on that session.
+2. **Click to navigate** — open VS Code straight on that session, or Codex Desktop for a Codex conversation.
 3. **Notify** you when a model stops, with everything closed.
 
 **Where it stands.** It monitors both providers, a click opens a session in VS Code, and it notifies
@@ -371,8 +371,9 @@ Open that URL and you get the list, live.
   address still decides: one that carries a view replaces the kept one instead of merging with it,
   because a link is a whole view and half of someone else's filters mixed into yours is neither.
   *Reset* clears both.
-- **A click opens the session** in VS Code — the title opens the conversation, the workspace opens
-  its window, and the icon on the left opens the raw transcript. Opening a session acknowledges it.
+- **Application icons before the title** open the session in VS Code, or in Codex Desktop for
+  Codex rows. The title still opens VS Code; the workspace opens its window, and the row menu
+  offers the raw transcript. Opening a session acknowledges it.
 - **Refresh** forces a scan *and* takes the whole list back from the service, so a push missed by a
   stream that dropped cannot leave the page quietly out of date. It applies a pending reorder
   without asking again — asking for a refresh is the asking — and keeps your search and filters.
@@ -449,6 +450,21 @@ and a missing extension then quietly ignores cannot be detected. The fallback co
 *launch*; the transcript action covers the rest.
 
 Windows is implemented. macOS and Linux are written down and untested.
+
+### Handing over to Codex Desktop
+
+The Codex icon before a Codex session title opens `codex://threads/<threadId>`.
+This resumes the existing local conversation without creating a new one or
+sending a prompt. The installed Codex application must handle the `codex:`
+protocol and have access to that conversation. This internal route was checked
+in Codex Desktop 26.901.5280.0 and may change in a future version.
+
+Launch errors are reported without falling back to VS Code. As with the
+extension links, an operating-system acknowledgement cannot confirm the target
+application's final screen. Claude Desktop transfer is not included.
+
+Brand SVG sources and licences are recorded in `src/web/brands/LICENSE.txt`
+and included in the packaged application.
 
 ### Notifications
 

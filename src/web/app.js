@@ -1229,8 +1229,11 @@ function createRow(id) {
     // each at the price of the width the names are read in.
     '<td class="provider" data-column="provider"><span class="badge tag"></span></td>' +
     '<td class="ws" data-column="workspace"><button class="link tag" type="button"></button></td>' +
-    '<td class="title" data-column="title"><button class="link text" type="button"></button>' +
-    '<span class="matched"></span></td>';
+    '<td class="title" data-column="title"><span class="session-title">' +
+    '<button class="marker open-vscode" type="button"></button>' +
+    '<button class="marker open-codex" type="button" hidden></button>' +
+    '<button class="link text" type="button"></button>' +
+    '<span class="matched"></span></span></td>';
   orderCells(tr);
   tr.querySelector('.status').addEventListener('click', () =>
     state.marks.unacknowledged.includes(id) ? acknowledge([id]) : unacknowledge([id]),
@@ -1242,6 +1245,10 @@ function createRow(id) {
   // margin opens nothing.
   tr.querySelector('.ws .link').addEventListener('click', () => open(id, 'workspace'));
   tr.querySelector('.title .link').addEventListener('click', () => open(id, 'session'));
+  prependIcon(tr.querySelector('.open-vscode'), 'vscode');
+  prependIcon(tr.querySelector('.open-codex'), 'codex');
+  tr.querySelector('.open-vscode').addEventListener('click', () => open(id, 'session'));
+  tr.querySelector('.open-codex').addEventListener('click', () => open(id, 'codex-desktop'));
   bindRowDrag(tr, id);
   // The browser's own menu offers nothing about a session, so the row takes the
   // gesture. `m` on the selected row does the same thing, for the keyboard.
@@ -1356,6 +1363,15 @@ function updateRow(tr, session) {
   // The whole title, since the column cuts it — and what a click does, which
   // the tooltip was saying alone before.
   title.title = `${session.title}\n\n${t('row.openSession')}`;
+  for (const [selector, label] of [
+    ['.open-vscode', 'row.openSession'],
+    ['.open-codex', 'row.openCodexDesktop'],
+  ]) {
+    const button = tr.querySelector(selector);
+    button.title = t(label);
+    button.setAttribute('aria-label', t(label));
+  }
+  tr.querySelector('.open-codex').hidden = session.provider !== 'codex';
   const matched = state.matched?.[session.id] ?? [];
   setText(
     tr.querySelector('.title .matched'),

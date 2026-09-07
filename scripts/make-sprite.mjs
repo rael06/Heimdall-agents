@@ -96,7 +96,7 @@ const WANTED = [
  * grid it was drawn on rather than being forced onto a shared one.
  */
 async function symbolFor({ id, from }) {
-  const raw = await readFile(require.resolve(from), 'utf8');
+  const raw = await readFile(from.startsWith('./') ? path.resolve(from) : require.resolve(from), 'utf8');
   const viewBox = /viewBox="([^"]+)"/.exec(raw)?.[1];
   if (!viewBox) {
     throw new Error(`${from} has no viewBox; refusing to guess one.`);
@@ -108,6 +108,10 @@ async function symbolFor({ id, from }) {
   return `<symbol id="icon-${id}" viewBox="${viewBox}" fill="currentColor">${body}</symbol>`;
 }
 
+WANTED.push(
+  { id: 'vscode', from: './src/web/brands/vscode.svg' },
+  { id: 'codex', from: './src/web/brands/codex.svg' },
+);
 const symbols = await Promise.all(WANTED.map(symbolFor));
 // `aria-hidden` and no size: this block exists to be referenced, never seen.
 const sprite =

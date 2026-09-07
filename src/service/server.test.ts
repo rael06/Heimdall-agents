@@ -271,6 +271,13 @@ describe('what the routes refuse', () => {
     expect(response.status).toBe(404);
   });
 
+  it('passes the explicit Codex desktop destination to the engine', async () => {
+    engine.open.mockResolvedValueOnce({ opened: [], fellBack: false });
+    const id = 'codex:019fa35b-eb9b-7002-a6cf-8c7a67429d26';
+    expect((await post('/api/open', { id, target: 'codex-desktop' })).status).toBe(200);
+    expect(engine.open).toHaveBeenLastCalledWith(id, 'codex-desktop');
+  });
+
   it('keeps only the statuses it recognises out of a notification request', async () => {
     await post('/api/notifications', {
       enabled: true,
