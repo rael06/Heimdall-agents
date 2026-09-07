@@ -55,6 +55,8 @@ const EN: Strings = {
   'update.install': 'Download and install',
 
   'start.failedTitle': '{app} could not start',
+  'open.failedTitle': 'Could not open the conversation',
+  'open.failedMessage': 'The application selected for this notification could not be opened.',
   'start.failedMessage': 'The service behind the window did not come up, so there is nothing to show.',
 
   'update.errorTitle': 'Could not check for updates',
@@ -139,6 +141,8 @@ const FR: Strings = {
   'update.install': 'Télécharger et installer',
 
   'start.failedTitle': '{app} n’a pas pu démarrer',
+  'open.failedTitle': 'Impossible d’ouvrir la conversation',
+  'open.failedMessage': 'L’application choisie pour cette notification n’a pas pu être ouverte.',
   'start.failedMessage':
     'Le service derrière la fenêtre n’est pas monté, il n’y a donc rien à afficher.',
 

@@ -320,10 +320,10 @@ export function createServiceServer(engine: ServiceEngine, options: ServerOption
         const target = body.target;
         if (
           target !== 'session' && target !== 'workspace' &&
-          target !== 'transcript' && target !== 'codex-desktop'
+          target !== 'transcript' && target !== 'codex-desktop' && target !== 'notification'
         ) {
           sendJson(response, 400, {
-            error: 'A "target" of session, workspace, transcript or codex-desktop.',
+            error: 'A "target" of session, workspace, transcript, codex-desktop or notification.',
           });
           return;
         }

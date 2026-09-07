@@ -12,6 +12,13 @@ import {
 const fallback = DEFAULT_NOTIFICATIONS;
 
 describe('sanitizePreferences', () => {
+  it('defaults notification opening to VS Code and keeps only supported provider targets', () => {
+    expect(sanitizePreferences({}, fallback).notificationOpen).toEqual({ claude: 'vscode', codex: 'vscode' });
+    expect(sanitizePreferences({ notificationOpen: { codex: 'codex-desktop' } }, fallback).notificationOpen)
+      .toEqual({ claude: 'vscode', codex: 'codex-desktop' });
+    expect(sanitizePreferences({ notificationOpen: { claude: 'codex-desktop', codex: 'unknown' } }, fallback).notificationOpen)
+      .toEqual({ claude: 'vscode', codex: 'vscode' });
+  });
   it('reads back a complete file', () => {
     const stored = {
       version: 1,

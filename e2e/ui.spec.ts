@@ -896,9 +896,27 @@ test('the wait before notifying is a setting, and the service takes it', async (
 });
 
 test('the language reaches the service, not only the page', async ({ page }) => {
+  const failedResponses: Promise<string>[] = [];
+  page.on('response', response => {
+    if (response.status() >= 400) {
+      failedResponses.push(response.text().then(body =>
+        `${response.status()} ${new URL(response.url()).pathname}: ${body}`,
+      () => `${response.status()} ${new URL(response.url()).pathname}: body unavailable`));
+    }
+  });
+  const chooseLanguage = async (language: string) => {
+    const saved = page.waitForResponse(response =>
+      new URL(response.url()).pathname === '/api/settings' &&
+      response.request().method() === 'POST' &&
+      response.request().postDataJSON()?.app?.language === language,
+    );
+    await page.locator('#set-language').selectOption(language);
+    const response = await saved;
+    expect(response.status(), await response.text()).toBe(200);
+  };
   await open(page);
   await page.locator('#open-settings').click();
-  await page.locator('#set-language').selectOption('fr');
+  await chooseLanguage('fr');
   await expect(page.locator('#reset')).toHaveText('Réinitialiser');
 
   // The page draws itself from the store the service wrote into the document,
@@ -912,9 +930,9 @@ test('the language reaches the service, not only the page', async ({ page }) => 
   });
   expect(stored).toBe('fr');
 
-  await page.locator('#set-language').selectOption('auto');
+  await chooseLanguage('auto');
   await page.keyboard.press('Escape');
-  expect(problems).toEqual([]);
+  expect(problems, (await Promise.all(failedResponses)).join('\n')).toEqual([]);
 });
 
 test('a bare service offers only what it can actually do', async ({ page }) => {
@@ -1434,6 +1452,48 @@ test('the bar says it is opening while it opens, and not once it is done', async
   release();
   await expect(bar).toContainText('watching');
   expect(problems).toEqual([]);
+});
+
+test('notification opening can be configured independently of delivery and table actions', async ({ page }, testInfo) => {
+  await open(page);
+  const id = await rows(page).first().getAttribute('data-id');
+  const settingsUrl = new URL('/api/settings', service.url);
+  settingsUrl.search = new URL(service.url).search;
+  try {
+    await page.locator('#open-settings').click();
+    await expect(page.locator('#set-notify-codex-open')).toHaveValue('vscode');
+    await page.locator('#set-notify-codex-open').selectOption('codex-desktop');
+    await page.locator('#save-settings').click();
+    await expect(page.locator('#settings-note')).not.toHaveText('');
+    const saved = await (await page.request.get(settingsUrl.toString())).json();
+    expect(saved.notificationOpen).toEqual({ claude: 'vscode', codex: 'codex-desktop' });
+    await page.locator('fieldset').filter({ has: page.locator('#set-notify-codex-open') })
+      .screenshot({ path: testInfo.outputPath('notification-opening.png') });
+    await page.keyboard.press('Escape');
+    await page.reload();
+    await page.locator('#open-settings').click();
+    await expect(page.locator('#set-notify-codex-open')).toHaveValue('codex-desktop');
+    await page.keyboard.press('Escape');
+
+    const calls: { id: string; target: string }[] = [];
+    await page.route(/\/api\/open(\?|$)/, async route => {
+      calls.push(route.request().postDataJSON());
+      await route.fulfill({ json: { opened: [], fellBack: false } });
+    });
+    const notification = new URL(service.url);
+    notification.searchParams.set('open', id!);
+    await page.goto(notification.toString());
+    await expect.poll(() => calls).toEqual([{ id, target: 'notification' }]);
+    await rows(page).first().locator('.open-vscode').click();
+    await expect.poll(() => calls[1]?.target).toBe('session');
+    const invalid = await page.request.post(settingsUrl.toString(), {
+      data: { notificationOpen: { claude: 'codex-desktop' } },
+    });
+    expect(invalid.status()).toBe(400);
+    expect(problems).toEqual([]);
+  } finally {
+    await page.request.post(settingsUrl.toString(), { data: { notificationOpen: { codex: 'vscode' } } });
+  }
 });
 
 test('the new open column preserves an existing title position and widths', async ({ page }) => {

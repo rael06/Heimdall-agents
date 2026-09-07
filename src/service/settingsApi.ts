@@ -3,6 +3,7 @@ import { Detection, detect } from './detect';
 import { NotifyScope } from './notifications';
 import {
   PreferencesStore,
+  NotificationOpenPreferences,
   ProviderPreferences,
   ScanPreferences,
   ViewPreferences,
@@ -36,6 +37,7 @@ export interface HostControls {
 }
 
 export interface SettingsView {
+  notificationOpen: NotificationOpenPreferences;
   providers: ProviderPreferences;
   scan: ScanPreferences;
   notifications: {
@@ -53,6 +55,7 @@ export interface SettingsView {
 }
 
 export interface SaveRequest {
+  notificationOpen?: Partial<NotificationOpenPreferences>;
   providers?: Partial<ProviderPreferences>;
   scan?: Partial<ScanPreferences>;
   host?: { startsWithLogin?: boolean; trayVisible?: boolean };
@@ -120,6 +123,7 @@ export class SettingsApi {
     const stored = await this.preferences.read();
     return {
       providers: stored.providers,
+      notificationOpen: stored.notificationOpen,
       scan: stored.scan,
       notifications: stored.notifications,
       host: this.host
@@ -137,8 +141,21 @@ export class SettingsApi {
   }
 
   async save(request: SaveRequest): Promise<SaveResult> {
+    if (request.notificationOpen !== undefined) {
+      const targets = request.notificationOpen;
+      if (!targets || typeof targets !== 'object' || Array.isArray(targets) ||
+          Object.entries(targets).some(([provider, target]) =>
+            !(provider === 'claude' && target === 'vscode') &&
+            !(provider === 'codex' && (target === 'vscode' || target === 'codex-desktop')))) {
+        throw new Error('Unsupported notification opening destination.');
+      }
+    }
     const before = await this.read();
     const restartRequired = needsRestart(before, request);
+
+    if (request.notificationOpen) {
+      await this.preferences.writeNotificationOpen(request.notificationOpen);
+    }
 
     if (request.providers) {
       await this.preferences.writeProviders({ ...before.providers, ...request.providers });

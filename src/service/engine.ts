@@ -295,18 +295,24 @@ export class ServiceEngine {
   }
 
   /**
-   * Hands a session over to VS Code. Opening it counts as seeing it, so the
+   * Hands a session over to the chosen application. Opening it counts as seeing it, so the
    * acknowledgement goes out at the same time.
    */
-  async open(id: string, target: HandoverTarget): Promise<HandoverResult | undefined> {
+  async open(id: string, target: HandoverTarget | 'notification'): Promise<HandoverResult | undefined> {
     const session = this.previous.find((candidate) => candidate.id === id);
     if (!session) {
       return undefined;
     }
+    // Resolve at activation, not toast creation: retained notifications and
+    // either host follow the latest saved choice without a restart.
+    const destination = target === 'notification'
+      ? ((await this.preferences.read()).notificationOpen[session.provider] === 'codex-desktop'
+        ? 'codex-desktop' : 'session')
+      : target;
     const result = await handover(
       this.options.desktop,
       session,
-      target,
+      destination,
       this.options.handoffDelayMs,
       (ms) => new Promise((resolve) => setTimeout(resolve, ms)),
     );

@@ -1,5 +1,21 @@
 # Changelog
 
+## 1.15.0
+
+**Choose where a Codex notification opens its conversation.**
+
+Settings → Behaviour now offers VS Code or Codex Desktop for Codex notifications.
+VS Code remains the default; Claude notifications continue to open VS Code while
+Claude Desktop transfer remains deferred. This replaces the previously fixed
+VS Code destination for notification activations.
+
+The service reads the saved provider choice when the notification body or its
+Open button is clicked, including notifications already displayed and links
+from `asm serve`. Saving takes effect without restarting. Explicit application
+buttons in the table keep their own destinations. Unsupported choices are
+rejected before writing, persistence failures are reported, and a failed native
+Codex launch does not mark the conversation as seen.
+
 ## 1.14.1
 
 **Opening actions have their own column; the title is plain text.**
