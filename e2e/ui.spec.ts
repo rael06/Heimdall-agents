@@ -896,9 +896,27 @@ test('the wait before notifying is a setting, and the service takes it', async (
 });
 
 test('the language reaches the service, not only the page', async ({ page }) => {
+  const failedResponses: Promise<string>[] = [];
+  page.on('response', response => {
+    if (response.status() >= 400) {
+      failedResponses.push(response.text().then(body =>
+        `${response.status()} ${new URL(response.url()).pathname}: ${body}`,
+      () => `${response.status()} ${new URL(response.url()).pathname}: body unavailable`));
+    }
+  });
+  const chooseLanguage = async (language: string) => {
+    const saved = page.waitForResponse(response =>
+      new URL(response.url()).pathname === '/api/settings' &&
+      response.request().method() === 'POST' &&
+      response.request().postDataJSON()?.app?.language === language,
+    );
+    await page.locator('#set-language').selectOption(language);
+    const response = await saved;
+    expect(response.status(), await response.text()).toBe(200);
+  };
   await open(page);
   await page.locator('#open-settings').click();
-  await page.locator('#set-language').selectOption('fr');
+  await chooseLanguage('fr');
   await expect(page.locator('#reset')).toHaveText('Réinitialiser');
 
   // The page draws itself from the store the service wrote into the document,
@@ -912,9 +930,9 @@ test('the language reaches the service, not only the page', async ({ page }) => 
   });
   expect(stored).toBe('fr');
 
-  await page.locator('#set-language').selectOption('auto');
+  await chooseLanguage('auto');
   await page.keyboard.press('Escape');
-  expect(problems).toEqual([]);
+  expect(problems, (await Promise.all(failedResponses)).join('\n')).toEqual([]);
 });
 
 test('a bare service offers only what it can actually do', async ({ page }) => {
