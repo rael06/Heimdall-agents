@@ -864,7 +864,7 @@ function readLayout() {
   const kept = (list) =>
     Array.isArray(list) ? list.filter((key) => known.includes(key)) : [];
   return {
-    order: reconcileColumnOrder([...new Set(kept(stored.order))], known),
+    order: reconcileColumnOrder([...new Set(kept(stored.order))], known, { open: 'title' }),
     hidden: kept(stored.hidden),
   };
 }
@@ -1229,11 +1229,11 @@ function createRow(id) {
     // each at the price of the width the names are read in.
     '<td class="provider" data-column="provider"><span class="badge tag"></span></td>' +
     '<td class="ws" data-column="workspace"><button class="link tag" type="button"></button></td>' +
-    '<td class="title" data-column="title"><span class="session-title">' +
+    '<td data-column="open"><span class="session-actions">' +
     '<button class="marker open-vscode" type="button"></button>' +
     '<button class="marker open-codex" type="button" hidden></button>' +
-    '<button class="link text" type="button"></button>' +
-    '<span class="matched"></span></span></td>';
+    '</span></td><td class="title" data-column="title"><span class="text"></span>' +
+    '<span class="matched"></span></td>';
   orderCells(tr);
   tr.querySelector('.status').addEventListener('click', () =>
     state.marks.unacknowledged.includes(id) ? acknowledge([id]) : unacknowledge([id]),
@@ -1244,7 +1244,6 @@ function createRow(id) {
   // A click lands on the thing it means, never on the row: a stray click in the
   // margin opens nothing.
   tr.querySelector('.ws .link').addEventListener('click', () => open(id, 'workspace'));
-  tr.querySelector('.title .link').addEventListener('click', () => open(id, 'session'));
   prependIcon(tr.querySelector('.open-vscode'), 'vscode');
   prependIcon(tr.querySelector('.open-codex'), 'codex');
   tr.querySelector('.open-vscode').addEventListener('click', () => open(id, 'session'));
@@ -1358,11 +1357,10 @@ function updateRow(tr, session) {
   if (session.cwd) paintTag(ws, 'workspace', workspace);
   else for (const p of ['--hue', 'background', 'color', 'border-color']) ws.style.removeProperty(p);
   ws.title = session.cwd ? `${t('row.openWorkspace')} ${session.cwd}` : t('row.workspaceUnknown');
-  const title = tr.querySelector('.title .link');
+  const title = tr.querySelector('.title .text');
   setText(title, session.title);
-  // The whole title, since the column cuts it — and what a click does, which
-  // the tooltip was saying alone before.
-  title.title = `${session.title}\n\n${t('row.openSession')}`;
+  // The whole title remains available when the column cuts it.
+  title.title = session.title;
   for (const [selector, label] of [
     ['.open-vscode', 'row.openSession'],
     ['.open-codex', 'row.openCodexDesktop'],
@@ -2749,6 +2747,7 @@ function buildColumns() {
   columnWidths = readColumnWidths(
     store.get(COLUMN_STORE),
     headerCells().map((th) => th.dataset.column),
+    { open: 64 },
   );
   applyColumnWidths();
 }

@@ -1354,15 +1354,15 @@ test('every action is a target of its own, reachable by keyboard', async ({ page
   // running the tests. It is covered by the unit tests of `handover`.
   await expect(row).not.toHaveAttribute('onclick');
   // The tooltip carries the whole title, since the column cuts it.
-  await expect(row.locator('.title .link')).toHaveAttribute('title', /Open this session/);
-  await expect(row.locator('.title .link')).toHaveAttribute(
+  await expect(row.locator('.title button, .title a')).toHaveCount(0);
+  await expect(row.locator('.title .text')).toHaveAttribute(
     'title',
     new RegExp(await row.locator('.title .text').innerText()),
   );
   await expect(row.locator('td.ws .link')).toHaveAttribute('title', /Open /);
 });
 
-test('the title has branded buttons for VS Code and Codex conversations', async ({ page }, testInfo) => {
+test('the open column has branded buttons and the title is plain text', async ({ page }, testInfo) => {
   const calls: { id: string; target: string }[] = [];
   await page.route(/\/api\/sessions(\?|$)/, async (route) => {
     const response = await route.fetch();
@@ -1383,7 +1383,13 @@ test('the title has branded buttons for VS Code and Codex conversations', async 
   const desktop = codex.getByRole('button', { name: 'Resume this conversation in Codex Desktop', exact: true });
   await expect(vscode.locator('use')).toHaveAttribute('href', '#icon-vscode');
   await expect(desktop.locator('use')).toHaveAttribute('href', '#icon-codex');
-  const titleBox = await codex.locator('.title .link').boundingBox();
+  await expect(codex.locator('td[data-column="open"] button')).toHaveCount(2);
+  await expect(codex.locator('.title button, .title a')).toHaveCount(0);
+  await codex.locator('.title .text').click();
+  expect(calls).toEqual([]);
+  const columns = await codex.locator('td').evaluateAll(cells => cells.map(cell => cell.dataset.column));
+  expect(columns.indexOf('open')).toBe(columns.indexOf('title') - 1);
+  const titleBox = await codex.locator('.title .text').boundingBox();
   const iconBox = await desktop.boundingBox();
   expect(iconBox!.x + iconBox!.width).toBeLessThanOrEqual(titleBox!.x);
   await vscode.click();
@@ -1396,7 +1402,7 @@ test('the title has branded buttons for VS Code and Codex conversations', async 
   await page.keyboard.press('Escape');
   await expect(desktop).toHaveCount(0);
   await expect(codex.getByRole('button', { name: 'Reprendre cette conversation dans Codex Desktop' })).toBeVisible();
-  await codex.locator('.title').screenshot({ path: testInfo.outputPath('session-buttons.png') });
+  await codex.screenshot({ path: testInfo.outputPath('session-buttons.png') });
   expect(problems).toEqual([]);
 });
 
@@ -1421,12 +1427,33 @@ test('the bar says it is opening while it opens, and not once it is done', async
     await route.fulfill({ json: { opened: [], fellBack: false } });
   });
 
-  await rows(page).first().locator('.title .link').click();
+  await rows(page).first().locator('.open-vscode').click();
   await expect(bar).toHaveText('opening…');
 
   // And it does not outlive what it describes, waiting for a scan to clear it.
   release();
   await expect(bar).toContainText('watching');
+  expect(problems).toEqual([]);
+});
+
+test('the new open column preserves an existing title position and widths', async ({ page }) => {
+  await open(page);
+  const previous = await page.locator('th[data-column]').evaluateAll(heads =>
+    heads.map(head => (head as HTMLElement).dataset.column!).filter(key => key !== 'open'),
+  );
+  const order = ['title', ...previous.filter(key => key !== 'title')];
+  await setView({
+    columnLayout: JSON.stringify({ order, hidden: [] }),
+    columns: JSON.stringify({ v: 2, widths: Object.fromEntries(previous.map(key => [key, key === 'title' ? 320 : 80])) }),
+  });
+  await page.reload();
+  const migrated = await page.locator('th[data-column]').evaluateAll(heads =>
+    heads.map(head => (head as HTMLElement).dataset.column),
+  );
+  expect(migrated.slice(0, 2)).toEqual(['open', 'title']);
+  expect(await columnWidth(page, 'title')).toBeCloseTo(320, 0);
+  expect(await columnWidth(page, 'open')).toBeCloseTo(64, 0);
+  await expect(rows(page).first().locator('.title button, .title a')).toHaveCount(0);
   expect(problems).toEqual([]);
 });
 

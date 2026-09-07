@@ -371,8 +371,8 @@ Open that URL and you get the list, live.
   address still decides: one that carries a view replaces the kept one instead of merging with it,
   because a link is a whole view and half of someone else's filters mixed into yours is neither.
   *Reset* clears both.
-- **Application icons before the title** open the session in VS Code, or in Codex Desktop for
-  Codex rows. The title still opens VS Code; the workspace opens its window, and the row menu
+- **An Open column before the title** contains the VS Code icon and, on Codex rows, the Codex
+  Desktop icon. The title is plain text; the workspace opens its window, and the row menu
   offers the raw transcript. Opening a session acknowledges it.
 - **Refresh** forces a scan *and* takes the whole list back from the service, so a push missed by a
   stream that dropped cannot leave the page quietly out of date. It applies a pending reorder
@@ -453,7 +453,7 @@ Windows is implemented. macOS and Linux are written down and untested.
 
 ### Handing over to Codex Desktop
 
-The Codex icon before a Codex session title opens `codex://threads/<threadId>`.
+The Codex icon in the Open column opens `codex://threads/<threadId>`.
 This resumes the existing local conversation without creating a new one or
 sending a prompt. The installed Codex application must handle the `codex:`
 protocol and have access to that conversation. This internal route was checked

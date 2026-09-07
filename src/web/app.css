@@ -308,7 +308,7 @@ button:hover { border-color: var(--accent); }
  * own pushed every column after it off the screen — so the width of the table
  * was being set by its worst row rather than by what is worth reading.
  */
-td.title .link {
+td.title .text {
   display: inline-block;
   max-width: 46ch;
   overflow: hidden;
@@ -316,10 +316,9 @@ td.title .link {
   white-space: nowrap;
   vertical-align: bottom;
 }
-.session-title { display: flex; align-items: center; gap: .2rem; }
-.session-title .marker { flex: 0 0 auto; color: var(--fg); }
-.session-title .marker[hidden] { display: none; }
-.session-title .link { min-width: 0; }
+.session-actions { display: inline-flex; align-items: center; gap: .2rem; }
+.session-actions .marker { flex: 0 0 auto; color: var(--fg); }
+.session-actions .marker[hidden] { display: none; }
 table { border-collapse: collapse; width: max-content; min-width: 100%; }
 th, td { text-align: left; padding: .18rem .5rem .18rem 0; white-space: nowrap; }
 th {
@@ -371,7 +370,7 @@ th.tight { width: 1px; }
 /* These two caps exist to stop one long value setting the width of the whole
    table. That is the reader's job now, and left as they are they would ignore a
    column deliberately dragged wider than the cap. */
-#sessions[data-sized] td.title .link,
+#sessions[data-sized] td.title .text,
 #sessions[data-sized] td.ws .link { max-width: 100%; }
 
 /*

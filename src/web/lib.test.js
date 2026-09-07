@@ -570,6 +570,15 @@ describe('readColumnWidths', () => {
   const keys = ['status', 'title'];
   const stored = (widths) => JSON.stringify({ v: COLUMN_FORMAT, widths });
 
+  it('preserves existing widths when a new column has an explicit migration default', () => {
+    const columns = ['status', 'open', 'title'];
+    expect(readColumnWidths(stored({ status: 50, title: 300 }), columns, { open: 64 }))
+      .toEqual({ status: 50, open: 64, title: 300 });
+    expect(readColumnWidths(stored({ status: 50, open: 90, title: 300 }), columns, { open: 64 }))
+      .toEqual({ status: 50, open: 90, title: 300 });
+    expect(readColumnWidths(stored({ status: 50 }), columns, { open: 64 })).toEqual({});
+  });
+
   it('reads back a complete set', () => {
     expect(readColumnWidths(stored({ status: 50, title: 300 }), keys)).toEqual({
       status: 50,
@@ -679,6 +688,15 @@ function hslToRgb(h, s, l) {
 
 describe('reconcileColumnOrder', () => {
   const declared = ['status', 'starred', 'watched', 'notify', 'minutes', 'title'];
+
+  it('inserts a new action before its value without overriding a saved position', () => {
+    const columns = ['status', 'open', 'title'];
+    expect(reconcileColumnOrder(['title', 'status'], columns, { open: 'title' }))
+      .toEqual(['open', 'title', 'status']);
+    expect(reconcileColumnOrder(['title', 'status', 'open'], columns, { open: 'title' }))
+      .toEqual(['title', 'status', 'open']);
+    expect(reconcileColumnOrder([], columns, { open: 'title' })).toEqual(columns);
+  });
 
   it('leaves an order that already covers the table exactly as it is', () => {
     const stored = ['title', 'status', 'minutes', 'notify', 'watched', 'starred'];
