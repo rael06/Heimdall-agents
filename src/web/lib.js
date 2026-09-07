@@ -287,7 +287,7 @@ export const COLUMN_FORMAT = 2;
  * it could not name. Falling back to automatic is the honest answer, and the
  * user's next drag writes a complete set again.
  */
-export function readColumnWidths(stored, keys) {
+export function readColumnWidths(stored, keys, addedDefaults = {}) {
   let parsed;
   try {
     parsed = JSON.parse(stored ?? '');
@@ -298,7 +298,9 @@ export function readColumnWidths(stored, keys) {
   if (parsed.v !== COLUMN_FORMAT) return {};
   const widths = {};
   for (const key of keys) {
-    const value = parsed.widths?.[key];
+    // An explicitly supplied default migrates a newly introduced column without
+    // discarding the widths of existing columns; other incomplete sets still reset.
+    const value = parsed.widths?.[key] ?? addedDefaults[key];
     if (typeof value === 'number' && Number.isFinite(value)) {
       widths[key] = clampColumnWidth(value);
     }
@@ -599,10 +601,17 @@ export function minutesSince(iso, now = Date.now()) {
  * was designed to sit with, and several new ones keep their declared order
  * among themselves — the first one placed becomes the neighbour of the second.
  */
-export function reconcileColumnOrder(stored, declared) {
+export function reconcileColumnOrder(stored, declared, insertBefore = {}) {
   const order = stored.filter((key) => declared.includes(key));
   for (const [index, key] of declared.entries()) {
     if (order.includes(key)) {
+      continue;
+    }
+    // Action columns can belong immediately before a value even when the reader
+    // moved that value. Once saved, their own chosen position takes precedence.
+    const anchor = order.indexOf(insertBefore[key]);
+    if (anchor !== -1) {
+      order.splice(anchor, 0, key);
       continue;
     }
     // Nothing to its left that survived means it was declared first, and the

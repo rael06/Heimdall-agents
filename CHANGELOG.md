@@ -1,5 +1,18 @@
 # Changelog
 
+## 1.14.1
+
+**Opening actions have their own column; the title is plain text.**
+
+The VS Code and Codex Desktop icon buttons now live in an Open column immediately
+before the title. This replaces 1.14.0's inline buttons and removes the title's
+VS Code action. Its tooltip still exposes the full text when the column is narrow.
+
+Existing layouts gain Open before the title even when the title was moved.
+Existing widths are retained, with 64px allocated to the new column. Open can
+then be resized, hidden or reordered like other columns; its saved position and
+width take precedence on subsequent launches. Claude Desktop remains deferred.
+
 ## 1.14.0
 
 **Choose VS Code or Codex Desktop directly beside a session title.**
