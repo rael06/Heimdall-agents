@@ -10,6 +10,7 @@ const effective = { claudeHome: '/roots/claude', codexHome: '/roots/codex' };
 function view(overrides: Partial<SettingsView> = {}): SettingsView {
   return {
     providers: { claudeHome: '', codexHome: '' },
+    notificationOpen: { claude: 'vscode', codex: 'vscode' },
     scan: DEFAULT_SCAN,
     notifications: { enabled: true, on: ['idle'], scope: 'watched', delaySeconds: 5 },
     app: { language: 'auto' },
@@ -78,6 +79,29 @@ describe('SettingsApi', () => {
       restart: () => calls.push('restart'),
     };
   }
+
+  it('persists the notification destination without restarting or changing notification delivery', async () => {
+    const api = new SettingsApi(store, effective);
+    const before = await api.read();
+    const result = await api.save({ notificationOpen: { codex: 'codex-desktop' } });
+    expect(result.restartRequired).toBe(false);
+    const reread = await new SettingsApi(new PreferencesStore(preferencesFilePath(shared)), effective).read();
+    expect(reread.notificationOpen).toEqual({ claude: 'vscode', codex: 'codex-desktop' });
+    expect({ ...reread.notifications, on: new Set(reread.notifications.on) })
+      .toEqual({ ...before.notifications, on: new Set(before.notifications.on) });
+    await store.write({ ...before.notifications, enabled: false });
+    expect((await api.read()).notificationOpen.codex).toBe('codex-desktop');
+  });
+
+  it('rejects unsupported destinations before writing and reports persistence errors', async () => {
+    const api = new SettingsApi(store, effective);
+    for (const value of [null, [], 'codex-desktop', { claude: 'codex-desktop' }, { codex: 'other' }, { unknown: 'vscode' }]) {
+      await expect(api.save({ notificationOpen: value as never })).rejects.toThrow('Unsupported');
+    }
+    expect((await api.read()).notificationOpen).toEqual({ claude: 'vscode', codex: 'vscode' });
+    vi.spyOn(store, 'writeNotificationOpen').mockRejectedValueOnce(new Error('disk unavailable'));
+    await expect(api.save({ notificationOpen: { codex: 'codex-desktop' } })).rejects.toThrow('disk unavailable');
+  });
 
   it('withholds the host section from a service that has no window', async () => {
     // A bare `asm serve` has nothing to start at login and no tray, so the

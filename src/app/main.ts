@@ -612,7 +612,14 @@ function handle(request: AppRequest | undefined): void {
   }
   // The handover runs in the service, exactly as it does from the interface —
   // there is one implementation of it and this is not a second one.
-  void service?.engine.open(request.id, 'session');
+  void service?.engine.open(request.id, 'notification').catch((error: unknown) => {
+    void dialog.showMessageBox({
+      type: 'error',
+      title: say('open.failedTitle'),
+      message: say('open.failedMessage'),
+      detail: error instanceof Error ? error.message : String(error),
+    });
+  });
 }
 
 // Windows shows the name and icon of the application that owns this identifier

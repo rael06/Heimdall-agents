@@ -468,6 +468,14 @@ and included in the packaged application.
 
 ### Notifications
 
+**Settings → Behaviour → Open Codex notifications in** selects VS Code (the
+default) or Codex Desktop. Claude notifications continue to open VS Code; Claude
+Desktop transfer is not included. The saved provider choice is resolved when
+you click the notification body or its Open button, so it also applies to
+notifications already displayed. No restart is required. This applies both to
+the installed application and to notification links from `asm serve`; the
+table's explicit VS Code and Codex buttons keep their own destinations.
+
 The feature that makes the service worth running with everything closed, and the easiest to ruin:
 one notification too many and the channel gets muted for good. So the rules are mean.
 

@@ -10,7 +10,7 @@
 export const PROTOCOL = 'heimdall-agents';
 
 export type AppRequest =
-  /** Open a session, through the usual two-step handover. */
+  /** Open a session using the provider's current notification preference. */
   | { kind: 'open'; id: string }
   /**
    * Mark a session as seen, and show nothing.

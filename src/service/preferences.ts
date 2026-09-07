@@ -43,6 +43,16 @@ export interface NotificationPreferences {
   delaySeconds: number;
 }
 
+export interface NotificationOpenPreferences {
+  claude: 'vscode';
+  codex: 'vscode' | 'codex-desktop';
+}
+
+export const DEFAULT_NOTIFICATION_OPEN: NotificationOpenPreferences = {
+  claude: 'vscode',
+  codex: 'vscode',
+};
+
 /**
  * Carries a stored list of statuses across the renaming.
  *
@@ -214,6 +224,7 @@ export const VIEW_BOUNDS = { keys: 64, keyLength: 64, valueLength: 64 * 1024 };
 export interface Preferences {
   version: number;
   notifications: NotificationPreferences;
+  notificationOpen: NotificationOpenPreferences;
   providers: ProviderPreferences;
   scan: ScanPreferences;
   app: AppPreferences;
@@ -260,6 +271,9 @@ export function sanitizePreferences(value: unknown, fallback: NotificationPrefer
   ) as Record<string, unknown>;
 
   const storedVersion = typeof raw.version === 'number' ? raw.version : VERSION;
+  const notificationOpen = (
+    typeof raw.notificationOpen === 'object' && raw.notificationOpen !== null ? raw.notificationOpen : {}
+  ) as Record<string, unknown>;
   const on = Array.isArray(notifications.on)
     ? migrateStatuses(notifications.on, storedVersion)
     : undefined;
@@ -303,6 +317,10 @@ export function sanitizePreferences(value: unknown, fallback: NotificationPrefer
 
   return {
     version: storedVersion,
+    notificationOpen: {
+      claude: 'vscode',
+      codex: notificationOpen.codex === 'codex-desktop' ? 'codex-desktop' : 'vscode',
+    },
     view: sanitizeView(raw.view),
     providers: {
       claudeHome: providerPath(providers.claudeHome),
@@ -388,6 +406,7 @@ export class PreferencesStore {
       return {
         version: VERSION,
         notifications: fallback,
+        notificationOpen: { ...DEFAULT_NOTIFICATION_OPEN },
         providers: NO_PROVIDER_PATHS,
         scan: DEFAULT_SCAN,
         app: DEFAULT_APP,
@@ -398,6 +417,13 @@ export class PreferencesStore {
 
   async write(notifications: NotificationPreferences): Promise<void> {
     await this.update((current) => ({ ...current, notifications }));
+  }
+
+  async writeNotificationOpen(patch: Partial<NotificationOpenPreferences>): Promise<void> {
+    await this.update((current) => ({
+      ...current,
+      notificationOpen: { ...current.notificationOpen, ...patch },
+    }));
   }
 
   async writeProviders(providers: ProviderPreferences): Promise<void> {
@@ -447,6 +473,7 @@ export class PreferencesStore {
       let current: Preferences = {
         version: VERSION,
         notifications: DEFAULT_NOTIFICATIONS,
+        notificationOpen: { ...DEFAULT_NOTIFICATION_OPEN },
         providers: NO_PROVIDER_PATHS,
         scan: DEFAULT_SCAN,
         app: DEFAULT_APP,

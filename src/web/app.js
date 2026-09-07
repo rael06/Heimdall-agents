@@ -222,6 +222,7 @@ function fillSettings(view) {
     else input.value = String(view.scan[key]);
   }
   el('set-notify-delay').value = String(view.notifications.delaySeconds);
+  el('set-notify-codex-open').value = view.notificationOpen.codex;
   // Language and dates belong to the view, not to the service: they are stored
   // here like the theme, and take effect without a restart.
   el('set-language').value = store.get('language') ?? 'auto';
@@ -254,6 +255,7 @@ async function saveSettings() {
     scan[key] = input.type === 'checkbox' ? input.checked : Number(input.value);
   }
   const body = {
+    notificationOpen: { codex: el('set-notify-codex-open').value },
     providers: {
       claudeHome: el('set-claude-home').value.trim(),
       codexHome: el('set-codex-home').value.trim(),
@@ -3199,7 +3201,7 @@ async function boot() {
 
   if (requested && state.sessions.has(requested)) {
     select(requested);
-    void open(requested, 'session');
+    void open(requested, 'notification');
   }
 
   const stream = new EventSource(`/api/events?token=${encodeURIComponent(token)}`);
